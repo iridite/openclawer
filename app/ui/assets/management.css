@@ -1,0 +1,487 @@
+/* OpenClaw Management Console Styles */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #f4511e;
+    --primary-light: #ff7043;
+    --primary-dark: #e64a19;
+    --success: #4caf50;
+    --warning: #ff9800;
+    --error: #f44336;
+    --info: #2196f3;
+    --bg-light: #fff5f0;
+    --bg-white: #ffffff;
+    --text-dark: #333;
+    --text-gray: #666;
+    --text-light: #999;
+    --border: #e0e0e0;
+    --shadow: rgba(0, 0, 0, 0.1);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-light) 0%, #ffe8e0 50%, #fff0e6 100%);
+    color: var(--text-dark);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 头部 */
+.header {
+    background: var(--bg-white);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px var(--shadow);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.logo svg {
+    display: block;
+}
+
+.header-info {
+    flex: 1;
+}
+
+.header-info h1 {
+    font-size: 1.8rem;
+    margin-bottom: 4px;
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 50%, var(--primary-dark) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+    color: var(--text-light);
+    font-size: 0.9rem;
+}
+
+.header-status {
+    display: flex;
+    align-items: center;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(244, 81, 30, 0.08);
+    border: 1px solid rgba(244, 81, 30, 0.25);
+    font-size: 0.9rem;
+    color: var(--primary);
+}
+
+.status-badge.running {
+    background: rgba(76, 175, 80, 0.08);
+    border-color: rgba(76, 175, 80, 0.25);
+    color: var(--success);
+}
+
+.status-badge.stopped {
+    background: rgba(158, 158, 158, 0.08);
+    border-color: rgba(158, 158, 158, 0.25);
+    color: var(--text-gray);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* 标签页导航 */
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: var(--bg-white);
+    padding: 8px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    background: transparent;
+    color: var(--text-gray);
+    font-size: 0.95rem;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.tab-btn:hover {
+    background: rgba(244, 81, 30, 0.08);
+    color: var(--primary);
+}
+
+.tab-btn.active {
+    background: var(--primary);
+    color: white;
+}
+
+/* 标签页内容 */
+.content {
+    min-height: 500px;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 卡片 */
+.card {
+    background: var(--bg-white);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px var(--shadow);
+}
+
+.card h2 {
+    font-size: 1.3rem;
+    margin-bottom: 16px;
+    color: var(--text-dark);
+}
+
+.card h3 {
+    font-size: 1.1rem;
+    margin: 16px 0 8px;
+    color: var(--text-dark);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.card-header h2 {
+    margin: 0;
+}
+
+.card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* 信息网格 */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-item .label {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.info-item .value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+/* 按钮 */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(244, 81, 30, 0.3);
+}
+
+.btn-secondary {
+    background: #f5f5f5;
+    color: var(--text-dark);
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}
+
+.btn-lg {
+    padding: 14px 28px;
+    font-size: 1.1rem;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* 编辑器 */
+.editor-container {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#config-editor {
+    width: 100%;
+    min-height: 400px;
+    padding: 16px;
+    border: none;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    resize: vertical;
+    background: #f8f8f8;
+}
+
+.editor-footer {
+    margin-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.validation-status {
+    font-size: 0.9rem;
+}
+
+.validation-status.valid {
+    color: var(--success);
+}
+
+.validation-status.invalid {
+    color: var(--error);
+}
+
+.editor-tips {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+/* 代码块 */
+.code-block {
+    background: #f8f8f8;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    margin: 8px 0;
+}
+
+/* 模板区域 */
+.template-section {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* 警告框 */
+.alert {
+    padding: 16px;
+    border-radius: 8px;
+    margin: 16px 0;
+}
+
+.alert-info {
+    background: rgba(33, 150, 243, 0.08);
+    border: 1px solid rgba(33, 150, 243, 0.25);
+    color: var(--info);
+}
+
+.alert p {
+    margin: 8px 0;
+}
+
+.alert ol {
+    margin-left: 20px;
+}
+
+/* 控制台信息 */
+.console-info {
+    margin-top: 20px;
+    padding: 16px;
+    background: #f8f8f8;
+    border-radius: 8px;
+}
+
+.console-info p {
+    margin: 8px 0;
+    font-size: 0.9rem;
+}
+
+.console-info code {
+    background: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.85rem;
+}
+
+/* 日志查看器 */
+.log-viewer {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.log-header {
+    padding: 12px;
+    background: #f8f8f8;
+    border-bottom: 1px solid var(--border);
+}
+
+.log-content {
+    padding: 16px;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    max-height: 400px;
+    overflow-y: auto;
+    margin: 0;
+}
+
+/* 加载状态 */
+.loading {
+    text-align: center;
+    color: var(--text-light);
+    padding: 20px;
+}
+
+/* 页脚 */
+.footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-light);
+    font-size: 0.85rem;
+}
+
+/* Toast 通知 */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 16px 24px;
+    border-radius: 8px;
+    background: var(--text-dark);
+    color: white;
+    box-shadow: 0 4px 12px var(--shadow);
+    transform: translateX(400px);
+    transition: transform 0.3s;
+    z-index: 1000;
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+.toast.success {
+    background: var(--success);
+}
+
+.toast.error {
+    background: var(--error);
+}
+
+.toast.warning {
+    background: var(--warning);
+}
+
+.toast.info {
+    background: var(--info);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .tabs {
+        flex-direction: column;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
