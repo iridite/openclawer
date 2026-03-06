@@ -1,0 +1,20 @@
+[
+    {
+        "stepTitle": "欢迎安装",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "欢迎使用我们的应用！在开始使用前，请阅读服务条款。"
+            },
+            {
+                "type": "tips",
+                "helpText": "应用安装流程：\n  1. 先进行 npm 的预配置 \n  2. 进行 openclaw@latest 基于 npm 的安装（此步骤需要一定时间，可能表现为程序安装后较长时间处于 “启用中” 状态）\n  3. 预配置 openclaw.json"
+            },
+            {
+                "type": "tips",
+                "helpText": "以上信息仅供参考，实际会全自动完成。"
+            },
+
+        ]
+    }
+]
