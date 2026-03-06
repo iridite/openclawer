@@ -10,11 +10,34 @@ PID_FILE="${TRIM_PKGVAR}/app.pid"
 # 启动应用的命令
 CMD="${NPM_PATH} "
 # 应用基础目录
+
+# Binaries
 BASE_DIR="/var/apps/${TRIM_APPNAME}"
-# Node.js 可执行文件路径
+## Node.js 可执行文件路径
 NODE_PATH="/var/apps/nodejs_v22/target/bin/node"
-# npm 可执行文件路径
+## npm 可执行文件路径
 NPM_PATH="/var/apps/nodejs_v22/target/bin/npm"
+
+# PM2 Config
+PM2_SCRIPT_PATH="/var/apps/${TRIM_APPNAME}/pm2.config.js"
+PM2_BIN="${TRIM_PKGVAR}/node_modules/.bin/pm2"
+export PM2_HOME="${TRIM_PKGVAR}/.pm2" # 注意是否有权限的问题，这是新的文件夹
+
+# HTML pages
+MANAGEMENT_API="${TRIM_APPDEST}/server/management-api.js"
+#-----------------
+GATEWAY_PORT="18789"
+PROXY_PORT="18790"
+MANAGEMENT_PORT="18790"
+# ----------------
+
+# ----------------------------------------------------------------
+# 主程序设计
+# 整体设计如下：
+# manager 作为前端 dashboard，需要跟随 fnos 生命周期活动
+# proxy 同上，提供可能需要的反向代理，使得网页能够正常显示
+# OpenClaw Gateway 以 pm2 方式运行，不使用 PID 方式进行管控
+# ----------------------------------------------------------------
 
 # 记录日志消息
 # 参数: $1 - 要记录的消息内容
@@ -22,10 +45,72 @@ log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
 }
 
+start_manager() {
+    log_msg "Starting manager ..."
+
+    "${NODE_PATH}" "${MANAGEMENT_API}" >> "${LOG_FILE}" 2>&1 & # 需要通过 & 来维持后台状态，纯 js 直接可以通过 node 二进制来启动
+    echo $! > "${MANAGEMENT_PID_FILE}"
+    log_msg "✅ Management API 已启动 (PID: $(cat "${MANAGEMENT_PID_FILE}"), 端口: ${MANAGEMENT_PORT})"
+}
+
+stop_manager() {
+    # 停止 Manager
+    if [ -f "${MANAGEMENT_PID_FILE}" ]; then
+        local management_pid
+        management_pid=$(cat "${MANAGEMENT_PID_FILE}" 2>/dev/null)
+        if [ -n "${management_pid}" ] && check_process "${management_pid}"; then
+            log_msg "停止 Manager API (PID: ${management_pid})..."
+            kill -TERM "${management_pid}" 2>/dev/null
+            sleep 1
+            check_process "${management_pid}" && kill -9 "${management_pid}" 2>/dev/null
+        fi
+        rm -f "${MANAGEMENT_PID_FILE}"
+    fi
+}
+
+start_pm2() {
+    # 确保 PATH 包含 Node.js bin 目录
+    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
+    log_msg "Setting up pm2..."
+
+    ${NODE_PATH} ${PM2_BIN} start ${PM2_SCRIPT_PATH} >> ${LOG_FILE} 2>&1
+    ${PM2_BIN} install pm2-logrotate >> ${LOG_FILE} 2>&1
+
+    if [ $? -eq 0 ]; then
+        log_msg "pm2 started successfully"
+        return 0
+    else
+        log_msg "Failed to start pm2"
+        echo "Failed to start pm2" > $TRIM_TEMP_LOGFILE
+        return 1
+    fi
+}
+
+stop_pm2() {
+    log_msg "Stopping pm2..."
+    ${PM2_BIN} stop ${PM2_SCRIPT_PATH} >> ${LOG_FILE} 2>&1
+    if [ $? -eq 0 ]; then
+        log_msg "pm2 stopped successfully"
+        return 0
+    else
+        log_msg "Failed to stop pm2"
+        echo "Failed to stop pm2" > $TRIM_TEMP_LOGFILE
+        return 1
+    fi
+}
+
+status_pm2() {
+    ${NODE_PATH} ${PM2_SCRIPT} jlist
+    # 这个命令会输出一个 JSON 数组，包含了极其详细的性能指标。你的 Node.js 拿到这段 stdout 后，JSON.parse 一下就能直接喂给前端展示。
+}
+
 # 启动应用进程
 # 如果进程已经在运行，则直接返回
 # 否则在后台启动进程并将 PID 写入文件
 start_process() {
+
+    start_manager
+    # old part below
     # 检查进程是否已经在运行
     if status; then
         return 0
@@ -45,6 +130,8 @@ start_process() {
 stop_process() {
     log_msg "Stopping process ..."
 
+    stop_manager
+
     # 检查 PID 文件是否存在且可读
     if [ -r "${PID_FILE}" ]; then
         # 读取 PID 并去除空白字符
@@ -63,9 +150,9 @@ stop_process() {
         log_msg "send TERM signal to PID:${pid}..."
         kill -TERM ${pid} >> ${LOG_FILE} 2>&1
 
-        # 等待进程退出，最多等待 10 秒
+        # 等待进程退出，最多等待 3 秒
         local count=0
-        while check_process "${pid}" && [ $count -lt 10 ]; do
+        while check_process "${pid}" && [ $count -lt 3 ]; do
             sleep 1
             count=$((count + 1))
             log_msg "waiting process terminal... (${count}s/10s)"
@@ -139,8 +226,15 @@ status)
         exit 3
     fi
     ;;
+restart)
+    echo "Restarting process ..."
+    stop_process
+    sleep 2
+    start_process
+    ;;
 *)
     # 未知命令，返回错误
+    echo "使用方法: $0 {start|stop|restart|status}"
     exit 1
     ;;
 esac
