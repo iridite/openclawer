@@ -15,6 +15,19 @@ log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
 }
 
+precheck() {
+    log_msg "Performing precheck..."
+
+    # 检查 Node.js 和 npm 是否安装
+    if [ ! -f "${NODE_PATH}" ] || [ ! -f "${NPM_PATH}" ]; then
+        log_msg "Node.js or npm not found"
+        echo "Error: Node.js or npm not found, check your NodeJS dependency." > $TRIM_TEMP_LOGFILE
+        exit 1
+    fi
+
+    return 0
+}
+
 # 配置 npm 镜像源
 # 将 npm 源切换到淘宝镜像以加速国内下载
 setup_npm_registry() {
@@ -52,7 +65,22 @@ install_openclaw() {
         return 0
     else
         log_msg "Failed to install openclaw@latest"
-        return 1
+        echo "Failed to install openclaw@latest." > $TRIM_TEMP_LOGFILE
+        exit 1
+    fi
+}
+
+install_pm2() {
+    log_msg "Installing pm2..."
+    ${NODE_PATH} ${NPM_PATH} install pm2 -g >> ${LOG_FILE} 2>&1
+
+    if [ $? -eq 0 ]; then
+        log_msg "pm2 installed successfully"
+        return 0
+    else
+        log_msg "Failed to install pm2"
+        echo "Failed to install pm2." > $TRIM_TEMP_LOGFILE
+        exit 1
     fi
 }
 
@@ -63,13 +91,22 @@ log_msg "Starting OpenClaw installation..."
 setup_npm_registry
 if [ $? -ne 0 ]; then
     log_msg "Installation failed at npm registry setup"
-    exit 1
+    return 1
 fi
 
 # 步骤 2: 安装 openclaw
 install_openclaw
 if [ $? -ne 0 ]; then
     log_msg "Installation failed at openclaw installation"
+    echo "Failed to install openclaw@latest." > $TRIM_TEMP_LOGFILE
+    exit 1
+fi
+
+# 步骤 3: 安装 pm2
+install_pm2
+if [ $? -ne 0 ]; then
+    log_msg "Installation failed at pm2 installation"
+    echo "Failed to install pm2." > $TRIM_TEMP_LOGFILE
     exit 1
 fi
 
