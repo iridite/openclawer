@@ -1,0 +1,28 @@
+{
+    "data-share":
+    {
+        "shares":
+        [
+            {
+                "name": "oc-deploy",
+                "permission":
+                {
+                    "rw":
+                    [
+                        "oc-deploy"
+                    ]
+                }
+            },
+            {
+                "name": "oc-deploy/data",
+                "permission":
+                {
+                    "rw":
+                    [
+                        "oc-deploy"
+                    ]
+                }
+            }
+        ]
+    }
+}

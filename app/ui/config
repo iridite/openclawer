@@ -1,0 +1,13 @@
+{
+    ".url": {
+        "oc-deploy.Application": {
+            "title": "oc-deploy",
+            "icon": "images/icon_{0}.png",
+            "type": "url",
+            "protocol": "",
+            "port": "18080",
+            "url": "/",
+            "allUsers": false
+        }
+    }
+}

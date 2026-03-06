@@ -1,0 +1,77 @@
+#!/bin/bash
+# OpenClaw 安装初始化脚本
+# 在用户安装应用前调用，用于配置 npm 环境并安装 openclaw
+
+# 日志文件路径
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+# Node.js 可执行文件路径
+NODE_PATH="/var/apps/nodejs_v22/target/bin/node"
+# npm 可执行文件路径
+NPM_PATH="/var/apps/nodejs_v22/target/bin/npm"
+
+# 记录日志消息
+# 参数: $1 - 要记录的消息内容
+log_msg() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
+}
+
+# 配置 npm 镜像源
+# 将 npm 源切换到淘宝镜像以加速国内下载
+setup_npm_registry() {
+    # 将 Node.js bin 目录添加到 PATH，确保 npm 能找到 node 命令
+    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
+
+    # 修改应用目录的所有者和组
+    chown -R "${APP_USER}:${APP_GROUP}" "${TRIM_PKGVAR}"
+
+    log_msg "Setting npm registry to Taobao mirror..."
+    # 配置 npm 使用淘宝镜像源
+    ${NODE_PATH} ${NPM_PATH} config set registry https://registry.npmmirror.com >> ${LOG_FILE} 2>&1
+
+    if [ $? -eq 0 ]; then
+        log_msg "npm registry configured successfully"
+        return 0
+    else
+        log_msg "Failed to configure npm registry"
+        return 1
+    fi
+}
+
+# 安装 openclaw 最新版本
+# 在指定目录下安装 openclaw@latest
+install_openclaw() {
+    # 确保 PATH 包含 Node.js bin 目录
+    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
+
+    log_msg "Installing openclaw@latest in ${TRIM_PKGVAR}..."
+    # 切换到应用目录并安装 openclaw 最新版本
+    cd "${TRIM_PKGVAR}" && ${NODE_PATH} ${NPM_PATH} install openclaw@latest >> ${LOG_FILE} 2>&1
+
+    if [ $? -eq 0 ]; then
+        log_msg "openclaw@latest installed successfully"
+        return 0
+    else
+        log_msg "Failed to install openclaw@latest"
+        return 1
+    fi
+}
+
+# 执行安装流程
+log_msg "Starting OpenClaw installation..."
+
+# 步骤 1: 配置 npm 镜像源
+setup_npm_registry
+if [ $? -ne 0 ]; then
+    log_msg "Installation failed at npm registry setup"
+    exit 1
+fi
+
+# 步骤 2: 安装 openclaw
+install_openclaw
+if [ $? -ne 0 ]; then
+    log_msg "Installation failed at openclaw installation"
+    exit 1
+fi
+
+log_msg "OpenClaw installation completed successfully"
+exit 0

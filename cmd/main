@@ -1,0 +1,146 @@
+#!/bin/bash
+# OpenClaw 应用管理脚本
+# 用于启动、停止和检查应用状态
+
+# 日志文件路径
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+# 进程 PID 文件路径
+PID_FILE="${TRIM_PKGVAR}/app.pid"
+
+# 启动应用的命令
+CMD="${NPM_PATH} "
+# 应用基础目录
+BASE_DIR="/var/apps/${TRIM_APPNAME}"
+# Node.js 可执行文件路径
+NODE_PATH="/var/apps/nodejs_v22/target/bin/node"
+# npm 可执行文件路径
+NPM_PATH="/var/apps/nodejs_v22/target/bin/npm"
+
+# 记录日志消息
+# 参数: $1 - 要记录的消息内容
+log_msg() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
+}
+
+# 启动应用进程
+# 如果进程已经在运行，则直接返回
+# 否则在后台启动进程并将 PID 写入文件
+start_process() {
+    # 检查进程是否已经在运行
+    if status; then
+        return 0
+    fi
+
+    log_msg "Starting process ..."
+    # 在后台执行启动命令，输出重定向到日志文件
+    bash -c "${CMD}" >> ${LOG_FILE} 2>&1 &
+    # 将后台进程的 PID 写入 PID 文件
+    printf "%s" "$!" > ${PID_FILE}
+    return 0
+}
+
+# 停止应用进程
+# 先尝试发送 TERM 信号优雅关闭，等待最多 10 秒
+# 如果进程仍未退出，则发送 KILL 信号强制终止
+stop_process() {
+    log_msg "Stopping process ..."
+
+    # 检查 PID 文件是否存在且可读
+    if [ -r "${PID_FILE}" ]; then
+        # 读取 PID 并去除空白字符
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+
+        log_msg "pid=${pid}"
+        # 检查进程是否存在
+        if ! check_process "${pid}"; then
+            # 进程不存在，删除 PID 文件
+            rm -f "${PID_FILE}"
+            log_msg "remove pid file 1"
+            return
+        fi
+
+        # 发送 TERM 信号尝试优雅关闭
+        log_msg "send TERM signal to PID:${pid}..."
+        kill -TERM ${pid} >> ${LOG_FILE} 2>&1
+
+        # 等待进程退出，最多等待 10 秒
+        local count=0
+        while check_process "${pid}" && [ $count -lt 10 ]; do
+            sleep 1
+            count=$((count + 1))
+            log_msg "waiting process terminal... (${count}s/10s)"
+        done
+
+        # 如果进程仍在运行，发送 KILL 信号强制终止
+        if check_process "${pid}"; then
+            log_msg "send KILL signal to PID:${pid}..."
+            kill -KILL "${pid}"
+            sleep 1
+            rm -f "${PID_FILE}"
+        else
+            log_msg "process killed... "
+        fi
+    fi
+
+    return 0
+}
+
+# 检查进程是否存在
+# 参数: $1 - 进程 PID
+# 返回: 0 表示进程存在，1 表示进程不存在
+check_process() {
+    local pid=$1
+    # 使用 kill -0 检查进程是否存在（不会真正发送信号）
+    if kill -0 "${pid}" 2>/dev/null; then
+        return 0  # 进程存在
+    else
+        return 1  # 进程不存在
+    fi
+}
+
+# 检查应用状态
+# 返回: 0 表示应用正在运行，1 表示应用未运行
+status() {
+    # 检查 PID 文件是否存在
+    if [ -f "${PID_FILE}" ]; then
+        # 读取 PID 并去除空白字符
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        # 检查进程是否真的在运行
+        if check_process "${pid}"; then
+            return 0
+        else
+            # 进程不在运行但 PID 文件存在，清理 PID 文件
+            rm -f "${PID_FILE}"
+        fi
+    fi
+
+    return 1
+}
+
+# 命令行参数处理
+# 支持的命令: start, stop, status
+case $1 in
+start)
+    # 启动命令：启动应用进程
+    # 成功返回 0，失败返回 1
+    start_process
+    ;;
+stop)
+    # 停止命令：停止正在运行的应用
+    # 成功返回 0，失败返回 1
+    stop_process
+    ;;
+status)
+    # 状态检查命令：检查应用是否正在运行
+    # 运行中返回 0，未运行返回 3
+    if status; then
+        exit 0
+    else
+        exit 3
+    fi
+    ;;
+*)
+    # 未知命令，返回错误
+    exit 1
+    ;;
+esac

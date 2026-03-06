@@ -1,0 +1,48 @@
+#!/bin/bash
+# OpenClaw 安装回调脚本
+# 在用户安装应用后调用，用于初始化 openclaw.json 配置
+
+# 日志文件路径
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+# Node.js 可执行文件路径
+NODE_PATH="/var/apps/nodejs_v22/target/bin/node"
+# openclaw CLI 路径
+OPENCLAW_BIN="${TRIM_PKGVAR}/node_modules/.bin/openclaw"
+
+# 记录日志消息
+# 参数: $1 - 要记录的消息内容
+log_msg() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
+}
+
+# 初始化 openclaw 配置
+# 运行 openclaw setup 命令生成配置文件
+setup_openclaw_config() {
+    # 确保 PATH 包含 Node.js bin 目录
+    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
+
+    log_msg "Running openclaw setup to initialize configuration..."
+    # 切换到 node_modules/.bin 目录并执行 openclaw setup
+    cd "${TRIM_PKGVAR}/node_modules/.bin" && ${NODE_PATH} openclaw setup >> ${LOG_FILE} 2>&1
+
+    if [ $? -eq 0 ]; then
+        log_msg "openclaw configuration initialized successfully"
+        return 0
+    else
+        log_msg "Failed to initialize openclaw configuration"
+        return 1
+    fi
+}
+
+# 执行配置初始化流程
+log_msg "Starting OpenClaw configuration setup..."
+
+# 运行 openclaw setup
+setup_openclaw_config
+if [ $? -ne 0 ]; then
+    log_msg "Configuration setup failed"
+    exit 1
+fi
+
+log_msg "OpenClaw configuration setup completed successfully"
+exit 0
