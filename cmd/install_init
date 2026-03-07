@@ -72,7 +72,7 @@ install_openclaw() {
 
 install_pm2() {
     log_msg "Installing pm2..."
-    ${NODE_PATH} ${NPM_PATH} install pm2 -g >> ${LOG_FILE} 2>&1
+    ${NODE_PATH} ${NPM_PATH} install pm2 >> ${LOG_FILE} 2>&1
 
     if [ $? -eq 0 ]; then
         log_msg "pm2 installed successfully"
