@@ -3,10 +3,14 @@
         "oc-deploy.Application": {
             "title": "oc-deploy",
             "icon": "images/icon_{0}.png",
-            "type": "url",
-            "protocol": "",
-            "port": "18080",
+            "type": "iframe",
+            "port": "18790",
             "url": "/",
+            "control": {
+                "fullUrlPerm": "editable",
+                "pathPerm": "hidden",
+                "accessPerm": "readonly"
+            },
             "allUsers": false
         }
     }
