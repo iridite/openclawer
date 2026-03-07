@@ -41,42 +41,6 @@ log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
 }
 
-start_pm2() {
-    # 确保 PATH 包含 Node.js bin 目录
-    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
-    log_msg "Setting up pm2..."
-
-    ${NODE_PATH} ${PM2_BIN} start ${PM2_SCRIPT_PATH} >> ${LOG_FILE} 2>&1
-    ${PM2_BIN} install pm2-logrotate >> ${LOG_FILE} 2>&1
-
-    if [ $? -eq 0 ]; then
-        log_msg "pm2 started successfully"
-        return 0
-    else
-        log_msg "Failed to start pm2"
-        echo "Failed to start pm2" > $TRIM_TEMP_LOGFILE
-        return 1
-    fi
-}
-
-stop_pm2() {
-    log_msg "Stopping pm2..."
-    ${PM2_BIN} stop ${PM2_SCRIPT_PATH} >> ${LOG_FILE} 2>&1
-    if [ $? -eq 0 ]; then
-        log_msg "pm2 stopped successfully"
-        return 0
-    else
-        log_msg "Failed to stop pm2"
-        echo "Failed to stop pm2" > $TRIM_TEMP_LOGFILE
-        return 1
-    fi
-}
-
-status_pm2() {
-    ${NODE_PATH} ${PM2_SCRIPT} jlist
-    # 这个命令会输出一个 JSON 数组，包含了极其详细的性能指标。你的 Node.js 拿到这段 stdout 后，JSON.parse 一下就能直接喂给前端展示。
-}
-
 # 启动应用进程
 # 如果进程已经在运行，则直接返回
 # 否则在后台启动进程并将 PID 写入文件
