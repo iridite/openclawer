@@ -8,7 +8,7 @@ LOG_FILE="${TRIM_PKGVAR}/info.log"
 PID_FILE="${TRIM_PKGVAR}/app.pid"
 
 # 启动应用的命令
-CMD="${NPM_PATH} "
+CMD="${NODE_PATH}" "${MANAGEMENT_API}"
 # 应用基础目录
 
 # Binaries
@@ -19,8 +19,8 @@ NODE_PATH="/var/apps/nodejs_v22/target/bin/node"
 NPM_PATH="/var/apps/nodejs_v22/target/bin/npm"
 
 # PM2 Config
-PM2_SCRIPT_PATH="/var/apps/${TRIM_APPNAME}/pm2.config.js"
-PM2_BIN="${TRIM_PKGVAR}/node_modules/.bin/pm2"
+PM2_SCRIPT_PATH="/var/apps/${TRIM_APPNAME}/target/pm2.config.js"
+PM2_BIN="${TRIM_PKGVAR}/node_modules/.bin/pm2" # 文件夹应该是有效的，下次检查一下
 export PM2_HOME="${TRIM_PKGVAR}/.pm2" # 注意是否有权限的问题，这是新的文件夹
 
 # HTML pages
@@ -48,7 +48,7 @@ log_msg() {
 start_manager() {
     log_msg "Starting manager ..."
 
-    "${NODE_PATH}" "${MANAGEMENT_API}" >> "${LOG_FILE}" 2>&1 & # 需要通过 & 来维持后台状态，纯 js 直接可以通过 node 二进制来启动
+    "${CMD}" >> "${LOG_FILE}" 2>&1 & # 需要通过 & 来维持后台状态，纯 js 直接可以通过 node 二进制来启动
     echo $! > "${MANAGEMENT_PID_FILE}"
     log_msg "✅ Management API 已启动 (PID: $(cat "${MANAGEMENT_PID_FILE}"), 端口: ${MANAGEMENT_PORT})"
 }
@@ -108,8 +108,6 @@ status_pm2() {
 # 如果进程已经在运行，则直接返回
 # 否则在后台启动进程并将 PID 写入文件
 start_process() {
-
-    start_manager
     # old part below
     # 检查进程是否已经在运行
     if status; then
@@ -129,9 +127,6 @@ start_process() {
 # 如果进程仍未退出，则发送 KILL 信号强制终止
 stop_process() {
     log_msg "Stopping process ..."
-
-    stop_manager
-
     # 检查 PID 文件是否存在且可读
     if [ -r "${PID_FILE}" ]; then
         # 读取 PID 并去除空白字符
@@ -142,7 +137,7 @@ stop_process() {
         if ! check_process "${pid}"; then
             # 进程不存在，删除 PID 文件
             rm -f "${PID_FILE}"
-            log_msg "remove pid file 1"
+            log_msg "process is not running, remove pid file 1"
             return
         fi
 
