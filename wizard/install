@@ -11,5 +11,18 @@
                 "helpText": "请阅读 <a target=\"_blank\" href=\"https://example.com/privacy\">隐私政策</a> 和 <a target=\"_blank\" href=\"https://example.com/terms\">服务条款</a>。"
             }
         ]
+    },
+    {
+        "stepTitle": "注意",
+        "items": [
+            {
+                "type": "tips",
+                "helpText": "安装基于 npm 软件包，故进入安装过程后可能会出现卡在 40% 进度的情况，这是正常现象。"
+            },
+            {
+                "type": "tips",
+                "helpText": "还请耐心等待..."
+            }
+        ]
     }
 ]

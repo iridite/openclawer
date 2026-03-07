@@ -20,6 +20,8 @@ const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
 const TRIM_PKGVAR = process.env.TRIM_PKGVAR || "/var/apps/openclaw/var";
 const TRIM_APPDEST = process.env.TRIM_APPDEST || "/var/apps/openclaw/target";
 const CONFIG_FILE = "/root/.openclaw/openclaw.json"; // hard-coded
+
+// oc
 const OC_HOME = "/root/.openclaw";
 const OC_PKG_JSON_PATH = path.join(
   TRIM_PKGVAR,
@@ -33,6 +35,7 @@ const GATEWAY_PID_FILE = path.join(TRIM_PKGVAR, "gateway.pid"); // name's differ
 const LOG_FILE = path.join(TRIM_PKGVAR, "openclaw.log"); // TODO 暂时不能确定 openclaw 的log 在哪里
 
 const GATEWAY_PORT = 18789;
+
 // 使用 fnOS 系统 Node.js (nodejs_v22 依赖包)
 const NODE_BIN_DIR = "/var/apps/nodejs_v22/target/bin";
 const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");

@@ -1,11 +1,11 @@
 appname               = oc-deploy
-version               = 1.0.0
-display_name          = OpenClawer
+version               = 0.0.1
+display_name          = OC-Deploy
 desc                  = app-description
 arch                  = x86_64
 source                = thirdparty
-maintainer            = your-name
-distributor           = your-name
+maintainer            = iridite@github
+distributor           = iridyne@github
 desktop_uidir         = ui
 desktop_applaunchname = oc-deploy.Application
 install_dep_apps      = nodejs_v22

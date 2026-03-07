@@ -22,7 +22,7 @@ module.exports = {
 
       // 3. 守护与资源管控
       autorestart: true, // 崩溃自动拉起
-      max_restarts: 10, // 连续重启10次失败则放弃（防死循环）
+      max_restarts: 3, // 连续重启10次失败则放弃（防死循环）
       max_memory_restart: "4G", // 内存泄漏保护：超过1G自动重启
 
       // 4. 日志重定向

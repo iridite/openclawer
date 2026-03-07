@@ -29,9 +29,10 @@ mkdir -p "${TEST_DATA}/.pm2"
 # 安装 OpenClaw (如果未安装)
 if [ ! -d "${TEST_DATA}/node_modules/openclaw" ]; then
     echo ""
-    echo "📦 安装 OpenClaw..."
+    echo "📦 安装 OpenClaw & pm2..."
     cd "${TEST_DATA}"
     npm install openclaw@latest
+    npm install pm2
     echo "✅ OpenClaw 安装完成"
 else
     echo ""
@@ -119,6 +120,7 @@ export OPENCLAW_WORKSPACE_DIR="${TEST_DATA}/data/.openclaw/workspace"
 # Node.js 路径 (使用系统 Node.js)
 export NODE_BIN="$(which node)"
 export NPM_BIN="$(which npm)"
+export NODE_PATH="${TEST_DATA}/node_modules"
 
 # 添加 openclaw bin 到 PATH
 export PATH="${TEST_DATA}/node_modules/.bin:\${PATH}"
