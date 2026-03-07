@@ -7,7 +7,11 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const pm2 = require("pm2");
 const { spawn, exec } = require("child_process");
+
+process.env.PM2_HOME = path.join(process.env.TRIM_PKGVAR, ".pm2");
+console.log(`[Manager] PM2_HOME 已固化为: ${process.env.PM2_HOME}`);
 
 const PORT = parseInt(process.env.MANAGEMENT_PORT || "18790", 10);
 const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
@@ -32,6 +36,7 @@ const GATEWAY_PORT = 18789;
 // 使用 fnOS 系统 Node.js (nodejs_v22 依赖包)
 const NODE_BIN_DIR = "/var/apps/nodejs_v22/target/bin";
 const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");
+const PM2_SCRIPT_PATH = path.join(TRIM_APPDEST, "server", "pm2.config.js"); //TODO
 
 // 工具函数：读取 JSON 文件
 function readJSON(filePath) {
@@ -102,10 +107,41 @@ function execCommand(command, options = {}) {
   });
 }
 
+// 工具函数
+// API pm2 api 获取 gateway 状态
+function checkGatewayStatus() {
+  return new Promise((resolve, reject) => {
+    // 1. 连接 PM2 (确保注入了 PM2_HOME 环境变量，已经在最上面注入)
+    pm2.connect((err) => {
+      if (err) return reject(err);
+
+      // 2. 获取指定名称的任务详情
+      pm2.describe("openclaw-gateway", (err, description) => {
+        pm2.disconnect(); // 记得断开连接
+        if (err) return reject(err);
+
+        if (description.length === 0) {
+          return resolve({ status: "NOT_FOUND" }); // 任务还没创建
+        }
+
+        const task = description[0];
+        // 3. 提取核心状态
+        resolve({
+          status: task.pm2_env.status, // online, stopped, errored, launching
+          cpu: task.monit.cpu, // CPU 占用 %
+          memory: task.monit.memory, // 内存占用 (字节)
+          uptime: task.pm2_env.pm_uptime, // 启动时间戳
+          restarts: task.pm2_env.restart_time, // 重启次数
+        });
+      });
+    });
+  });
+}
+
 // API: 获取系统状态
 async function getStatus() {
   const status = {
-    gateway: "stopped",
+    gateway: "unknown",
     gatewayPid: null,
     version: "unknown",
     configExists: fs.existsSync(CONFIG_FILE),
@@ -113,14 +149,13 @@ async function getStatus() {
     uptime: null,
   };
 
-  // 检查 Gateway 进程
-  if (fs.existsSync(GATEWAY_PID_FILE)) {
-    const pid = parseInt(readText(GATEWAY_PID_FILE), 10);
-    if (pid && isProcessRunning(pid)) {
-      status.gateway = "running";
-      status.gatewayPid = pid;
-    }
-  }
+  const result = await checkGatewayStatus();
+
+  status.gateway = result.status;
+  status.gatewayPid = -1;
+  status.uptime = result.uptime;
+  //TODO 可以加上当前内存占用和 CPU 占用
+  // 同时去掉 PID 的显示
 
   // 获取版本信息
   try {
@@ -211,10 +246,8 @@ async function validateConfig(config) {
 // API: 重启 Gateway
 async function restartGateway() {
   try {
-    // TODO 需要调用 Pm2 指令进行 gateway 控制
-    // 晚点修复
-    const mainScript = path.join(TRIM_APPDEST, "..", "..", "cmd", "main");
-    await execCommand(`bash ${mainScript} restart`);
+    // TODO 需要确认 pm2 list 中有这样一个任务
+    await execCommand(`pm2 restart openclaw-gateway`);
     return { success: true };
   } catch (err) {
     throw new Error("重启失败: " + err.message);

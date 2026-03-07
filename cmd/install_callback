@@ -37,6 +37,35 @@ setup_openclaw_config() {
     fi
 }
 
+setup_init_gateway_token() {
+    log_msg "Initializing gateway token..."
+    ${OPENCLAW_BIN} gateway token >> ${LOG_FILE} 2>&1
+    if [ $? -eq 0 ]; then
+        log_msg "Gateway token initialized successfully"
+    else
+        log_msg "Failed to initialize gateway token"
+    fi
+}
+
+setup_pm2_task() {
+    log_msg "Setting up PM2 task..."
+
+    # 1. 确保环境变量和路径完全锁定，建议使用绝对路径调用 Node
+    # 增加 --no-autorestart 确保它在 stop 之后不会因为启动失败而尝试自动重启
+    PM2_HOME="${TRIM_PKGVAR}/.pm2" ${NODE_PATH} ${PM2_BIN} start "${TRIM_APPDEST}/server/pm2.config.js" --no-autorestart >> "${LOG_FILE}" 2>&1
+
+    # 2. 停止任务。注意：stop 后面建议直接接任务名 "openclaw-gateway"，这样更稳健
+    PM2_HOME="${TRIM_PKGVAR}/.pm2" ${NODE_PATH} ${PM2_BIN} stop "openclaw-gateway" >> "${LOG_FILE}" 2>&1
+
+    # 3. 检查的是最后一条命令（stop）的结果，这通常没问题
+    if [ $? -eq 0 ]; then
+        log_msg "PM2 task setup and entered standby mode successfully"
+    else
+        log_msg "Failed to setup PM2 task"
+        return 1 # 建议返回错误码，方便外部 start.sh 捕获
+    fi
+}
+
 # entry point
 
 # 执行配置初始化流程
