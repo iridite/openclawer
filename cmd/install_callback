@@ -63,6 +63,7 @@ setup_openclaw_config() {
         return 0
     else
         log_msg "Failed to patch openclaw configuration"
+        echo "Failed to patch openclaw configuration" >> "${TRIM_TEMP_LOGFILE}"
         return 1
     fi
 }

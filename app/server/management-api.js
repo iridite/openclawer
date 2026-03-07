@@ -29,7 +29,7 @@ const OC_PKG_JSON_PATH = path.join(
   "openclaw",
   "package.json",
 );
-const TOKEN_FILE = path.join(TRIM_PKGVAR, "gateway_token");
+const TOKEN_FILE = path.join(TRIM_PKGVAR, "gateway_token"); //TODO token 需要等 gateawy 成功启动之后才能够自动生成并获取
 const DASHBOARD_PID_FILE = path.join(TRIM_PKGVAR, "app.pid"); // name's different
 const GATEWAY_PID_FILE = path.join(TRIM_PKGVAR, "gateway.pid"); // name's different
 const LOG_FILE = path.join(TRIM_PKGVAR, "openclaw.log"); // TODO 暂时不能确定 openclaw 的log 在哪里
@@ -425,7 +425,7 @@ function handleRequest(req, res) {
   }
 
   // 静态文件处理
-  const UI_DIR = path.join(TRIM_APPDEST, "ui");
+  const UI_DIR = path.join(TRIM_APPDEST, "ui"); // 无法进行本地测试，因为路径不同
   let filePath;
 
   if (pathname === "/" || pathname === "") {
