@@ -21,31 +21,61 @@ log_msg() {
 # 初始化 openclaw 配置
 # 运行 openclaw setup 命令生成配置文件
 setup_openclaw_config() {
-    # 确保 PATH 包含 Node.js bin 目录
+    # 1. 确保环境变量已定义，这样 Node 脚本和 OpenClaw 才知道去哪找文件
+    export OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json"
     export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
 
     log_msg "Running openclaw setup to initialize configuration..."
-    # 切换到 node_modules/.bin 目录并执行 openclaw setup
-    cd "${TRIM_PKGVAR}/node_modules/.bin" && ${NODE_PATH} openclaw setup >> ${LOG_FILE} 2>&1
+
+    # 2. 执行基础初始化
+    cd "${TRIM_PKGVAR}/node_modules/.bin" && ${NODE_PATH} ./openclaw setup >> ${LOG_FILE} 2>&1
+
+    # ==========================================================
+    # TODO 实现：向 openclaw.json 中写入 gateway.mode=local
+    # ==========================================================
+    log_msg "Injecting gateway.mode=local into configuration..."
+
+    ${NODE_PATH} -e "
+        const fs = require('fs');
+        const filePath = process.env.OPENCLAW_CONFIG_PATH;
+        let config = {};
+
+        // 如果文件已存在，先读取旧内容
+        if (fs.existsSync(filePath)) {
+            try {
+                config = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            } catch (e) {
+                // 如果文件内容损坏，我们从空对象开始
+                config = {};
+            }
+        }
+
+        // 确保 gateway 对象存在，并设置模式为 local
+        config.gateway = config.gateway || {};
+        config.gateway.mode = 'local';
+
+        // 写回文件，使用 2 格缩进美化输出
+        fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
+    " >> ${LOG_FILE} 2>&1
 
     if [ $? -eq 0 ]; then
-        log_msg "openclaw configuration initialized successfully"
+        log_msg "openclaw configuration initialized and patched successfully"
         return 0
     else
-        log_msg "Failed to initialize openclaw configuration"
+        log_msg "Failed to patch openclaw configuration"
         return 1
     fi
 }
 
-setup_init_gateway_token() {
-    log_msg "Initializing gateway token..."
-    ${OPENCLAW_BIN} gateway token >> ${LOG_FILE} 2>&1
-    if [ $? -eq 0 ]; then
-        log_msg "Gateway token initialized successfully"
-    else
-        log_msg "Failed to initialize gateway token"
-    fi
-}
+# setup_init_gateway_token() {
+#     log_msg "Initializing gateway token..."
+#     ${OPENCLAW_BIN} gateway token >> ${LOG_FILE} 2>&1
+#     if [ $? -eq 0 ]; then
+#         log_msg "Gateway token initialized successfully"
+#     else
+#         log_msg "Failed to initialize gateway token"
+#     fi
+# }
 
 setup_pm2_task() {
     log_msg "Setting up PM2 task..."
