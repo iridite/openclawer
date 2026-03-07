@@ -1,0 +1,21 @@
+# 测试环境生成的文件和目录
+.env.test
+test-data/
+
+# 日志文件
+*.log
+
+# PID 文件
+*.pid
+
+# 临时文件
+*.tmp
+*.swp
+*~
+
+# macOS
+.DS_Store
+
+# Node.js
+node_modules/
+npm-debug.log*
