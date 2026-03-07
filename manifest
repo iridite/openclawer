@@ -8,3 +8,4 @@ maintainer            = your-name
 distributor           = your-name
 desktop_uidir         = ui
 desktop_applaunchname = oc-deploy.Application
+install_dep_apps      = nodejs_v22
