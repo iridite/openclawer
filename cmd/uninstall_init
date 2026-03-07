@@ -1,5 +1,67 @@
 #!/bin/bash
+# OpenClaw 卸载初始化脚本
+# 在用户卸载应用前调用，用于清理配置文件和数据
 
-### This script is called after the user uninstalls the application.
+# 日志文件路径
+LOG_FILE="${TRIM_PKGVAR}/info.log"
+
+# 记录日志消息
+log_msg() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "${LOG_FILE}" 2>/dev/null || echo "$1"
+}
+
+log_msg "=========================================="
+log_msg "OpenClaw 卸载清理开始"
+log_msg "=========================================="
+
+# 清理 root 用户的 OpenClaw 配置目录
+if [ -d "/root/.openclaw" ]; then
+    log_msg "正在删除 /root/.openclaw 配置目录..."
+    rm -rf "/root/.openclaw"
+    if [ $? -eq 0 ]; then
+        log_msg "✅ /root/.openclaw 已删除"
+    else
+        log_msg "⚠️  删除 /root/.openclaw 失败"
+    fi
+else
+    log_msg "ℹ️  /root/.openclaw 不存在，跳过"
+fi
+
+# 清理可能存在的其他用户配置（如果应用以其他用户运行）
+if [ -n "${TRIM_APPNAME}" ] && [ -d "/home/${TRIM_APPNAME}/.openclaw" ]; then
+    log_msg "正在删除 /home/${TRIM_APPNAME}/.openclaw 配置目录..."
+    rm -rf "/home/${TRIM_APPNAME}/.openclaw"
+    if [ $? -eq 0 ]; then
+        log_msg "✅ /home/${TRIM_APPNAME}/.openclaw 已删除"
+    else
+        log_msg "⚠️  删除 /home/${TRIM_APPNAME}/.openclaw 失败"
+    fi
+fi
+
+# # 清理 TRIM_PKGVAR 下的数据目录
+# if [ -n "${TRIM_PKGVAR}" ] && [ -d "${TRIM_PKGVAR}/data" ]; then
+#     log_msg "正在删除 ${TRIM_PKGVAR}/data 数据目录..."
+#     rm -rf "${TRIM_PKGVAR}/data"
+#     if [ $? -eq 0 ]; then
+#         log_msg "✅ ${TRIM_PKGVAR}/data 已删除"
+#     else
+#         log_msg "⚠️  删除 ${TRIM_PKGVAR}/data 失败"
+#     fi
+# fi
+
+# # 清理 node_modules（可选，如果想完全清理）
+# if [ -n "${TRIM_PKGVAR}" ] && [ -d "${TRIM_PKGVAR}/node_modules" ]; then
+#     log_msg "正在删除 ${TRIM_PKGVAR}/node_modules..."
+#     rm -rf "${TRIM_PKGVAR}/node_modules"
+#     if [ $? -eq 0 ]; then
+#         log_msg "✅ ${TRIM_PKGVAR}/node_modules 已删除"
+#     else
+#         log_msg "⚠️  删除 ${TRIM_PKGVAR}/node_modules 失败"
+#     fi
+# fi
+
+log_msg "=========================================="
+log_msg "OpenClaw 卸载清理完成"
+log_msg "=========================================="
 
 exit 0
