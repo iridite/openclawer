@@ -15,20 +15,16 @@ const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
 // 路径配置
 const TRIM_PKGVAR = process.env.TRIM_PKGVAR || "/var/apps/openclaw/var";
 const TRIM_APPDEST = process.env.TRIM_APPDEST || "/var/apps/openclaw/target";
-const CONFIG_FILE = path.join(
-  TRIM_PKGVAR,
-  "data",
-  ".openclaw",
-  "openclaw.json",
-);
+const CONFIG_FILE = "/root/.openclaw/openclaw.json"; // hard-coded
+const OC_HOME = "/root/.openclaw";
 const TOKEN_FILE = path.join(TRIM_PKGVAR, "gateway_token");
-const PID_FILE = path.join(TRIM_PKGVAR, "openclaw.pid");
+const PID_FILE = path.join(TRIM_PKGVAR, "app.pid"); // name's different
 const LOG_FILE = path.join(TRIM_PKGVAR, "openclaw.log");
 
 const GATEWAY_PORT = 18789;
 // 使用 fnOS 系统 Node.js (nodejs_v22 依赖包)
 const NODE_BIN = "/var/apps/nodejs_v22/target/bin/node";
-const OC_BIN = "/var/apps/oc-deploy/var/node_modules/.bin";
+const OC_BIN = path.join(TRIM_PKGVAR, "node_modules", ".bin", "openclaw");
 
 // 工具函数：读取 JSON 文件
 function readJSON(filePath) {
@@ -110,15 +106,7 @@ async function getStatus() {
   // 获取版本信息
   try {
     const packageJson = readJSON(
-      path.join(
-        TRIM_APPDEST,
-        "server",
-        "openclaw_global",
-        "lib",
-        "node_modules",
-        "openclaw",
-        "package.json",
-      ),
+      path.join(TRIM_PKGVAR, "node_modules", "openclaw", "package.json"),
     );
     if (packageJson && packageJson.version) {
       status.version = packageJson.version;
