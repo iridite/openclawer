@@ -111,6 +111,7 @@ start_process() {
     # old part below
     # 检查进程是否已经在运行
     if status; then
+        log_msg "${APP_NAME} is already running"
         return 0
     fi
 
@@ -167,18 +168,16 @@ stop_process() {
     return 0
 }
 
-# 检查进程是否存在
-# 参数: $1 - 进程 PID
-# 返回: 0 表示进程存在，1 表示进程不存在
+# 检查进程是否在运行
 check_process() {
     local pid=$1
-    # 使用 kill -0 检查进程是否存在（不会真正发送信号）
-    if kill -0 "${pid}" 2>/dev/null; then
-        log_msg "CHECK: process is running (PID: ${pid})"
-        return 0  # 进程存在
+    if [ -z "${pid}" ]; then
+        return 1
+    fi
+    if ps -p "${pid}" > /dev/null 2>&1; then
+        return 0
     else
-        log_msg "CHECK: process is not running (PID: ${pid})"
-        return 1  # 进程不存在
+        return 1
     fi
 }
 
