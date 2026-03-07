@@ -86,9 +86,15 @@ function execCommand(command, options = {}) {
       ...options.env,
     };
 
-    exec(command, { ...options, env }, (error, stdout, stderr) => {
+    const timeout = options.timeout || 15000;
+
+    exec(command, { ...options, env, timeout }, (error, stdout, stderr) => {
       if (error) {
-        reject({ error, stderr });
+        if (error.killed) {
+          reject(new Error(`命令超时 (${timeout}ms)`));
+        } else {
+          reject({ error, stderr: stderr || error.message });
+        }
       } else {
         resolve(stdout.trim());
       }
@@ -226,9 +232,22 @@ async function getCurrentVersion() {
 // API: 获取最新版本
 async function getLatestVersion() {
   try {
-    const output = await execCommand("npm view openclaw version"); // 需要指定环境变量，已经在 execCommand 中搞定了
+    console.log("[management-api] 检查最新版本...");
+    await execCommand("npm config set registry https://registry.npmmirror.com");
+
+    const output = await execCommand("npm view openclaw version", {
+      timeout: 10000,
+    });
+
     const latestVersion = output.trim();
     const currentVersion = (await getCurrentVersion()).version;
+
+    console.log(
+      "[management-api] 版本对比 - 当前:",
+      currentVersion,
+      "最新:",
+      latestVersion,
+    );
 
     return {
       version: latestVersion,
@@ -236,7 +255,8 @@ async function getLatestVersion() {
       available: latestVersion !== currentVersion,
     };
   } catch (err) {
-    throw new Error("无法获取最新版本: " + err.message);
+    console.error("[management-api] 检查更新失败:", err);
+    throw new Error(err.stderr || err.message || "无法连接到 npm registry");
   }
 }
 
