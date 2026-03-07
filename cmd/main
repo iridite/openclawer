@@ -114,7 +114,7 @@ start_process() {
         return 0
     fi
 
-    log_msg "Starting process ..."
+    log_msg "Starting process now..."
     # 在后台执行启动命令，输出重定向到日志文件
     bash -c "${CMD}" >> ${LOG_FILE} 2>&1 &
     # 将后台进程的 PID 写入 PID 文件
@@ -174,29 +174,33 @@ check_process() {
     local pid=$1
     # 使用 kill -0 检查进程是否存在（不会真正发送信号）
     if kill -0 "${pid}" 2>/dev/null; then
+        log_msg "CHECK: process is running (PID: ${pid})"
         return 0  # 进程存在
     else
+        log_msg "CHECK: process is not running (PID: ${pid})"
         return 1  # 进程不存在
     fi
 }
 
 # 检查应用状态
-# 返回: 0 表示应用正在运行，1 表示应用未运行
+# 返回: 0 表示应用正在运行，3 表示应用未运行，1 表示出错
+
 status() {
-    # 检查 PID 文件是否存在
     if [ -f "${PID_FILE}" ]; then
-        # 读取 PID 并去除空白字符
-        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
-        # 检查进程是否真的在运行
+        local pid
+        pid=$(cat "${PID_FILE}" 2>/dev/null)
         if check_process "${pid}"; then
+            log_msg "CHECKING: ${APP_NAME} 正在运行 (PID: ${pid})"
             return 0
         else
-            # 进程不在运行但 PID 文件存在，清理 PID 文件
+            log_msg "CHECKING: ERR ${APP_NAME} 进程已停止，但 PID 文件存在 (PID: ${pid})"
             rm -f "${PID_FILE}"
+            return 1
         fi
+    else
+        log_msg "CHECKING: ${APP_NAME} 未运行"
+        return 3
     fi
-
-    return 1
 }
 
 # 命令行参数处理
