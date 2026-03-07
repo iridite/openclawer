@@ -17,14 +17,21 @@ const TRIM_PKGVAR = process.env.TRIM_PKGVAR || "/var/apps/openclaw/var";
 const TRIM_APPDEST = process.env.TRIM_APPDEST || "/var/apps/openclaw/target";
 const CONFIG_FILE = "/root/.openclaw/openclaw.json"; // hard-coded
 const OC_HOME = "/root/.openclaw";
+const OC_PKG_JSON_PATH = path.join(
+  TRIM_PKGVAR,
+  "node_modules",
+  "openclaw",
+  "package.json",
+);
 const TOKEN_FILE = path.join(TRIM_PKGVAR, "gateway_token");
-const PID_FILE = path.join(TRIM_PKGVAR, "app.pid"); // name's different
-const LOG_FILE = path.join(TRIM_PKGVAR, "openclaw.log");
+const DASHBOARD_PID_FILE = path.join(TRIM_PKGVAR, "app.pid"); // name's different
+const GATEWAY_PID_FILE = path.join(TRIM_PKGVAR, "gateway.pid"); // name's different
+const LOG_FILE = path.join(TRIM_PKGVAR, "openclaw.log"); // TODO 暂时不能确定 openclaw 的log 在哪里
 
 const GATEWAY_PORT = 18789;
 // 使用 fnOS 系统 Node.js (nodejs_v22 依赖包)
-const NODE_BIN = "/var/apps/nodejs_v22/target/bin/node";
-const OC_BIN = path.join(TRIM_PKGVAR, "node_modules", ".bin", "openclaw");
+const NODE_BIN_DIR = "/var/apps/nodejs_v22/target/bin";
+const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");
 
 // 工具函数：读取 JSON 文件
 function readJSON(filePath) {
@@ -71,9 +78,15 @@ function isProcessRunning(pid) {
 }
 
 // 工具函数：执行命令
-function execCommand(command) {
+function execCommand(command, options = {}) {
   return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
+    const env = {
+      ...process.env,
+      PATH: `${NODE_BIN_DIR}:${PKG_NODE_BIN_DIR}:${process.env.PATH}`,
+      ...options.env,
+    };
+
+    exec(command, { ...options, env }, (error, stdout, stderr) => {
       if (error) {
         reject({ error, stderr });
       } else {
@@ -95,8 +108,8 @@ async function getStatus() {
   };
 
   // 检查 Gateway 进程
-  if (fs.existsSync(PID_FILE)) {
-    const pid = parseInt(readText(PID_FILE), 10);
+  if (fs.existsSync(GATEWAY_PID_FILE)) {
+    const pid = parseInt(readText(GATEWAY_PID_FILE), 10);
     if (pid && isProcessRunning(pid)) {
       status.gateway = "running";
       status.gatewayPid = pid;
@@ -105,9 +118,7 @@ async function getStatus() {
 
   // 获取版本信息
   try {
-    const packageJson = readJSON(
-      path.join(TRIM_PKGVAR, "node_modules", "openclaw", "package.json"),
-    );
+    const packageJson = readJSON(OC_PKG_JSON_PATH);
     if (packageJson && packageJson.version) {
       status.version = packageJson.version;
     }
@@ -194,7 +205,8 @@ async function validateConfig(config) {
 // API: 重启 Gateway
 async function restartGateway() {
   try {
-    // 调用 cmd/main restart
+    // TODO 需要调用 Pm2 指令进行 gateway 控制
+    // 晚点修复
     const mainScript = path.join(TRIM_APPDEST, "..", "..", "cmd", "main");
     await execCommand(`bash ${mainScript} restart`);
     return { success: true };
@@ -205,17 +217,7 @@ async function restartGateway() {
 
 // API: 获取当前版本
 async function getCurrentVersion() {
-  const packageJson = readJSON(
-    path.join(
-      TRIM_APPDEST,
-      "server",
-      "openclaw_global",
-      "lib",
-      "node_modules",
-      "openclaw",
-      "package.json",
-    ),
-  );
+  const packageJson = readJSON(OC_PKG_JSON_PATH);
   return {
     version: packageJson ? packageJson.version : "unknown",
   };
@@ -224,7 +226,7 @@ async function getCurrentVersion() {
 // API: 获取最新版本
 async function getLatestVersion() {
   try {
-    const output = await execCommand("npm view openclaw version");
+    const output = await execCommand("npm view openclaw version"); // 需要指定环境变量，已经在 execCommand 中搞定了
     const latestVersion = output.trim();
     const currentVersion = (await getCurrentVersion()).version;
 
@@ -240,18 +242,17 @@ async function getLatestVersion() {
 
 // API: 更新版本
 async function updateVersion() {
-  // 注意：由于 openclaw 已打包在 FPK 中，这个功能需要特殊处理
-  // 暂时返回提示信息
+  // TODO：应该是通过 npm 的内置升级功能进行升级
   return {
     success: false,
-    message: "OpenClaw 已打包在 FPK 中，请通过飞牛应用中心更新整个应用",
+    message: "还没做",
   };
 }
 
 // API: 获取控制台 URL
 async function getConsoleUrl() {
   const token = readText(TOKEN_FILE);
-  const host = "127.0.0.1"; // 或从请求头获取
+  const host = "127.0.0.1"; // TODO 或从请求头获取
   return {
     url: `http://${host}:${GATEWAY_PORT}`,
     token,
