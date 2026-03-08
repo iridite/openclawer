@@ -126,7 +126,7 @@ setup_systemd_service() {
     log_msg "Setting up systemd service for OpenClaw..."
     export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
 
-    node ${OPENCLAW_BIN} gateway install >> ${LOG_FILE} 2>&1
+    OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json" HOME="/root" node ${OPENCLAW_BIN} gateway install >> ${LOG_FILE} 2>&1
 
     if [ $? -eq 0 ]; then
         log_msg "Systemd service for OpenClaw installed successfully"
@@ -141,8 +141,9 @@ setup_systemd_service() {
 
 generate_oc_token() {
     log_msg "Generating OpenClaw token..."
+    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
 
-    node ${OPENCLAW_BIN} gateway start >> ${LOG_FILE} 2>&1
+    OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json" HOME="/root" node ${OPENCLAW_BIN} gateway start >> ${LOG_FILE} 2>&1
 
     if [ $? -eq 0 ]; then
         log_msg "OpenClaw token generated successfully"
