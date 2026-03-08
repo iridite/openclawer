@@ -7,7 +7,23 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const pm2 = require("pm2");
+// const pm2 = require("pm2"); //TODO:
+// Error: Cannot find module 'pm2'
+// Require stack:
+// - /vol1/@appcenter/oc-deploy/server/management-api.js
+//     at Function._resolveFilename (node:internal/modules/cjs/loader:1365:15)
+//     at defaultResolveImpl (node:internal/modules/cjs/loader:1021:19)
+//     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1026:22)
+//     at Function._load (node:internal/modules/cjs/loader:1175:37)
+//     at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+//     at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+//     at Module.require (node:internal/modules/cjs/loader:1445:12)
+//     at require (node:internal/modules/helpers:135:16)
+//     at Object.<anonymous> (/vol1/@appcenter/oc-deploy/server/management-api.js:10:13)
+//     at Module._compile (node:internal/modules/cjs/loader:1688:14) {
+//   code: 'MODULE_NOT_FOUND',
+//   requireStack: [ '/vol1/@appcenter/oc-deploy/server/management-api.js' ]
+// }
 const { spawn, exec } = require("child_process");
 
 process.env.PM2_HOME = path.join(process.env.TRIM_PKGVAR, ".pm2");

@@ -1,5 +1,5 @@
 appname               = oc-deploy
-version               = 0.0.1
+version               = 0.1.0
 display_name          = OC-Deploy
 desc                  = app-description
 arch                  = x86_64
