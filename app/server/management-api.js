@@ -7,10 +7,8 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-// const pm2 = require("pm2");
 const { spawn, exec } = require("child_process");
 
-process.env.PM2_HOME = "/var/apps/oc-deploy/var/.pm2";
 console.log(`[Manager] PM2_HOME 已固化为: ${process.env.PM2_HOME}`);
 
 const PORT = parseInt(process.env.MANAGEMENT_PORT || "18790", 10);
@@ -23,6 +21,7 @@ const CONFIG_FILE = "/root/.openclaw/openclaw.json"; // hard-coded
 
 // oc
 const OC_HOME = "/root/.openclaw";
+const OC_BIN_PATH = "/var/apps/oc-deploy/var/node_modules/.bin/openclaw";
 const OC_PKG_JSON_PATH = path.join(
   TRIM_PKGVAR,
   "node_modules",
@@ -40,7 +39,13 @@ const GATEWAY_PORT = 18789;
 const NODE_BIN_DIR = "/var/apps/nodejs_v22/target/bin";
 const NODE_BIN = path.join(NODE_BIN_DIR, "node");
 const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");
-// const PM2_SCRIPT_PATH = path.join(TRIM_APPDEST, "server", "pm2.config.js"); //TODO
+
+// env 变量设置，确保调用 openclaw 的命令行工具时能够正确找到 Node.js 和相关依赖
+process.env.CONFIG_FILE = "/root/.openclaw/openclaw.json"; // hard-coded
+process.env.NODE_BIN = "/var/apps/nodejs_v22/target/bin/node";
+process.env.OC_BIN_PATH = "/var/apps/oc-deploy/var/node_modules/.bin/openclaw";
+process.env.PATH = `${NODE_BIN_DIR}:${PKG_NODE_BIN_DIR}:${process.env.PATH}`;
+// 不确定有没有用
 
 // 工具函数：读取 JSON 文件
 function readJSON(filePath) {
@@ -116,14 +121,12 @@ function execCommand(command, options = {}) {
 // 通过端口反查进程，获取 PID 后再查询 CPU、内存、启动时间等信息
 // TODO 需要对执行的二进制名称进行检查，以确保找到的确实是 openclaw gateway 的进程，而不是其他占用同一端口的程序
 async function checkGatewayStatus() {
-  const GATEWAY_PORT = 18791; // OpenClaw 默认端口
-
   try {
     // 1. 通过端口号查找 PID
     // Linux 下推荐使用 netstat 或 lsof。这里使用 netstat 比较通用
     // 命令逻辑：找到监听端口的行 -> 提取 PID/ProgramName -> 切割出 PID
     const { stdout: netstatOut } = await execPromise(
-      `netstat -tunlp | grep :${GATEWAY_PORT} | awk '{print $7}' | cut -d'/' -f1`
+      `netstat -tunlp | grep :${GATEWAY_PORT} | awk '{print $7}' | cut -d'/' -f1`,
     );
 
     const pid = netstatOut.trim();
@@ -132,7 +135,7 @@ async function checkGatewayStatus() {
     if (!pid || isNaN(pid)) {
       return {
         status: "NOT_FOUND",
-        online: false
+        online: false,
       };
     }
 
@@ -142,7 +145,7 @@ async function checkGatewayStatus() {
     // rss: 物理内存占用 (单位 KB)
     // lstart: 具体的启动时间
     const { stdout: psOut } = await execPromise(
-      `ps -p ${pid} -o %cpu,rss,lstart --no-headers`
+      `ps -p ${pid} -o %cpu,rss,lstart --no-headers`,
     );
 
     const stats = psOut.trim().split(/\s+/);
@@ -153,7 +156,7 @@ async function checkGatewayStatus() {
     const memory = parseInt(stats[1]) * 1024; // 转为字节 (Bytes)
 
     // 解析启动时间并计算 uptime (毫秒)
-    const startTimeStr = stats.slice(2).join(' ');
+    const startTimeStr = stats.slice(2).join(" ");
     const startTimeMs = new Date(startTimeStr).getTime();
     const uptime = Date.now() - startTimeMs;
 
@@ -161,18 +164,17 @@ async function checkGatewayStatus() {
       status: "online",
       online: true,
       pid: parseInt(pid),
-      cpu: cpu,          // CPU 占用 %
-      memory: memory,    // 内存占用 (Bytes)
-      uptime: uptime,    // 已运行毫秒数
-      restarts: 0,       // 原生模式下较难统计重启次数，设为 0 或由后端逻辑自行累计
+      cpu: cpu, // CPU 占用 %
+      memory: memory, // 内存占用 (Bytes)
+      uptime: uptime, // 已运行毫秒数
+      restarts: 0, // 原生模式下较难统计重启次数，设为 0 或由后端逻辑自行累计
     };
-
   } catch (err) {
     // 如果命令执行报错（比如 grep 没搜到东西），通常意味着服务没开
     return {
       status: "OFFLINE",
       online: false,
-      error: err.message
+      error: err.message,
     };
   }
 }
@@ -292,23 +294,10 @@ async function validateConfig(config) {
   };
 }
 
-// API: 重启 Gateway
-async function restartGateway() {
-  try {
-    // 重启正常没问题
-    await execCommand(`pm2 restart openclaw-gateway`);
-    return { success: true };
-  } catch (err) {
-    throw new Error("重启失败: " + err.message);
-  }
-}
-
 // API: 重启 Gateway (原生模式)
 async function restartGateway() {
-  // 确保你已经定义了 OC_BIN_PATH 指向 /var/apps/oc-deploy/var/node_modules/.bin/openclaw
+  const restartCmd = `OPENCLAW_CONFIG_PATH="${CONFIG_FILE}" HOME="/root" ${OC_BIN_PATH} gateway restart`;
   // 并且 CONFIG_FILE 指向 /root/.openclaw/openclaw.json
-
-  const restartCmd = `OPENCLAW_CONFIG_PATH="${CONFIG_FILE}" HOME="/root" ${NODE_BIN} ${OC_BIN_PATH} gateway restart`;
 
   try {
     // 1. 尝试执行原生重启命令
@@ -318,8 +307,9 @@ async function restartGateway() {
   } catch (err) {
     // 2. 容错处理：如果 restart 报错（通常是因为当前没有正在运行的进程），
     // 那么我们直接调用 daemon 命令强制拉起
-    console.log("Restart 失败，尝试直接使用 Daemon 模式启动...");
+    console.log("Restart 失败");
   }
+}
 
 // API: 获取当前版本
 async function getCurrentVersion() {

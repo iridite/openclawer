@@ -103,8 +103,7 @@ setup_openclaw_config() {
         // 2. 确保 gateway 基础对象存在
         config.gateway = config.gateway || {};
         config.gateway.mode = 'local';
-        config.gateway.host = '0.0.0.0';
-        config.gateway.port = 18791;
+        config.gateway.port = 18789;
 
         // 3. 【新增】实现模式 A：配置 CORS 允许所有来源
         config.gateway.controlUi = config.gateway.controlUi || {};
