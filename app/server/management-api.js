@@ -467,6 +467,8 @@ function handleRequest(req, res) {
         const body = await readBody(req);
         return validateConfig(JSON.parse(body));
       },
+      "POST /api/gateway/start": startGateway,
+      "POST /api/gateway/stop": stopGateway,
       "POST /api/gateway/restart": restartGateway,
       "GET /api/version/current": getCurrentVersion,
       "GET /api/version/latest": getLatestVersion,

@@ -191,12 +191,58 @@ function updateStatusBadge(status) {
 
   badge.className = "status-badge";
 
+  // 获取按钮元素
+  const startBtn = document.getElementById("start-gateway-btn");
+  const stopBtn = document.getElementById("stop-gateway-btn");
+
   if (status === "running") {
     badge.classList.add("running");
     statusText.textContent = "运行中";
+
+    // Gateway 运行中：禁用启动按钮，启用停止按钮
+    if (startBtn) startBtn.disabled = true;
+    if (stopBtn) stopBtn.disabled = false;
   } else {
     badge.classList.add("stopped");
     statusText.textContent = "已停止";
+
+    // Gateway 已停止：启用启动按钮，禁用停止按钮
+    if (startBtn) startBtn.disabled = false;
+    if (stopBtn) stopBtn.disabled = true;
+  }
+}
+
+async function startGateway() {
+  if (!confirm("确定要启动 Gateway 吗？")) {
+    return;
+  }
+
+  try {
+    showToast("正在启动 Gateway...", "info");
+    await apiRequest("/gateway/start", { method: "POST" });
+    showToast("Gateway 启动成功", "success");
+
+    // 等待几秒后刷新状态
+    setTimeout(refreshStatus, 3000);
+  } catch (error) {
+    showToast("启动失败: " + error.message, "error");
+  }
+}
+
+async function stopGateway() {
+  if (!confirm("确定要停止 Gateway 吗？这将中断当前所有连接。")) {
+    return;
+  }
+
+  try {
+    showToast("正在停止 Gateway...", "info");
+    await apiRequest("/gateway/stop", { method: "POST" });
+    showToast("Gateway 已停止", "success");
+
+    // 等待几秒后刷新状态
+    setTimeout(refreshStatus, 2000);
+  } catch (error) {
+    showToast("停止失败: " + error.message, "error");
   }
 }
 
