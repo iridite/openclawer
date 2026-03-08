@@ -14,6 +14,12 @@ log_msg "=========================================="
 log_msg "OpenClaw 卸载清理开始"
 log_msg "=========================================="
 
+# 精准狙击运行 openclaw 的 node 进程，绝不误伤其他程序
+pkill -f "openclaw/dist/index.js gateway"
+
+# 强制杀死可能仍在运行的 OpenClaw 进程
+pkill -9 -f "openclaw"
+
 # 清理 root 用户的 OpenClaw 配置目录
 if [ -d "/root/.openclaw" ]; then
     log_msg "正在删除 /root/.openclaw 配置目录..."
