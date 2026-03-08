@@ -120,6 +120,10 @@ function execCommand(command, options = {}) {
 
 // API: 启动 Gateway
 async function startGateway() {
+  // 核心：启动前先尝试杀掉所有可能存在的旧进程，防止多开
+  try {
+    await execCommand('pkill -9 -f "openclaw.*gateway"');
+  } catch (e) {}
   // 组装纯净的 nohup 后台启动命令
   const startCmd = `nohup env HOME="/root" OPENCLAW_CONFIG_PATH="${CONFIG_FILE}" ${NODE_BIN} ${OC_JS_PATH} gateway --port ${GATEWAY_PORT} > ${LOG_FILE} 2>&1 &`;
 
@@ -133,14 +137,13 @@ async function startGateway() {
 
 // API: 停止 Gateway
 async function stopGateway() {
-  // 使用 pkill 精确匹配进程启动参数并终止
-  const stopCmd = `pkill -f "openclaw/dist/index.js gateway"`;
-
+  // 匹配所有 openclaw gateway 相关的进程并强杀
+  const stopCmd = `pkill -9 -f "openclaw.*gateway"`;
   try {
     await execCommand(stopCmd);
     return { success: true, method: "pkill-stop" };
   } catch (err) {
-    // pkill 如果没找到进程，会返回退出码 1，这里我们当做成功（因为结果都是停止）
+    // pkill 返回 1 说明没找到进程，结果等同于已经停止
     return { success: true, note: "Process was already stopped" };
   }
 }
@@ -173,7 +176,7 @@ async function checkGatewayStatus() {
     // 1. 通过进程特征查找 PID (与 pkill 的逻辑保持完全一致)
     // pgrep -f 会匹配整个命令行，head -n 1 确保即使有多个相关进程也只取主进程
     const { stdout: pgrepOut } = await execCommand(
-      `pgrep -f "openclaw/dist/index.js gateway" | head -n 1`,
+      `pgrep -f "openclaw.*gateway" | head -n 1`,
     );
 
     const pid = pgrepOut.trim();
@@ -341,18 +344,6 @@ async function validateConfig(config) {
   };
 }
 
-// API: 重启 Gateway (原生模式)
-async function restartGateway() {
-  try {
-    await restartGateway();
-    return { success: true, method: "native-restart" };
-  } catch (err) {
-    // 2. 容错处理：如果 restart 报错（通常是因为当前没有正在运行的进程），
-    // 那么我们直接调用 daemon 命令强制拉起
-    console.log("Restart 失败");
-  }
-}
-
 // API: 获取当前版本
 async function getCurrentVersion() {
   const packageJson = readJSON(OC_PKG_JSON_PATH);
@@ -401,12 +392,18 @@ async function updateVersion() {
   };
 }
 
-// API: 获取控制台 URL
-async function getConsoleUrl() {
+// API: 获取控制台 URL (动态识别 NAS IP)
+async function getConsoleUrl(req) {
   const token = readText(TOKEN_FILE);
-  const host = "127.0.0.1"; // TODO： 或从请求头获取
+
+  // 核心逻辑：从请求头中提取用户当前访问的 NAS IP
+  // 假设用户浏览器访问的是 http://192.168.1.100:18790
+  // 那么 req.headers.host 就是 "192.168.1.100:18790"
+  // .split(':')[0] 切割后拿到的就是纯 IP "192.168.1.100"
+  const host = req.headers.host ? req.headers.host.split(":")[0] : "127.0.0.1";
+
   return {
-    url: `http://${host}:${GATEWAY_PORT}`,
+    url: `http://${host}:${GATEWAY_PORT}`, // 自动拼接为 http://192.168.1.100:18789
     token,
   };
 }
@@ -495,7 +492,7 @@ function handleRequest(req, res) {
       "GET /api/version/current": getCurrentVersion,
       "GET /api/version/latest": getLatestVersion,
       "POST /api/version/update": updateVersion,
-      "GET /api/console/url": getConsoleUrl,
+      "GET /api/console/url": getConsoleUrl(req),
       "GET /api/logs": () =>
         getLogs(parseInt(url.searchParams.get("lines") || "100", 10)),
     };
