@@ -12,9 +12,6 @@ TARGET="/var/apps/${TRIM_APPNAME}/target"
 NODE_PATH="/var/apps/nodejs_v22/target/bin/node"
 NPM_PATH="/var/apps/nodejs_v22/target/bin/npm"
 
-PM2_SCRIPT_PATH="${TARGET}/server/pm2.config.js"
-
-PM2_BIN="${PKGVAR}/node_modules/.bin/pm2"
 OPENCLAW_BIN="${PKGVAR}/node_modules/.bin/openclaw" # openclaw bin 路径
 
 
@@ -57,24 +54,6 @@ install_openclaw() {
         tail -n 20 "${LOG_FILE}" >> "$TRIM_TEMP_LOGFILE"
         echo "Possible cause: Environment mismatch or incomplete dependencies." >> "$TRIM_TEMP_LOGFILE"
         echo "Please check the log above for details: ${LOG_FILE}" >> "$TRIM_TEMP_LOGFILE"
-        exit 1
-    fi
-}
-
-install_pm2() {
-    log_msg "Installing pm2..."
-    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
-
-    # 切换到应用目录并执行安装
-    cd "${PKGVAR}" && npm install pm2 >> ${LOG_FILE} 2>&1 # 转移目录和安装命令绝对不能分开，否则可能会安装到错误的位置，导致后续找不到 pm2 二进制文件
-
-    if [ $? -eq 0 ]; then
-        log_msg "pm2 installed successfully"
-        return 0
-    else
-        log_msg "Failed to install pm2"
-        echo "Failed to install pm2." > $TRIM_TEMP_LOGFILE
-        tail -n 5 ${LOG_FILE} >> $TRIM_TEMP_LOGFILE
         exit 1
     fi
 }
@@ -143,49 +122,46 @@ setup_openclaw_config() {
     fi
 }
 
+setup_systemd_service() {
+    log_msg "Setting up systemd service for OpenClaw..."
+    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
 
-setup_pm2_task() {
-    log_msg "Setting up PM2 task..."
+    node ${OPENCLAW_BIN} gateway install >> ${LOG_FILE} 2>&1
 
-    # 1. 确保环境变量和路径完全锁定，建议使用绝对路径调用 Node
-    # 增加 --no-autorestart 确保它在 stop 之后不会因为启动失败而尝试自动重启
-    PM2_HOME="${PKGVAR}/.pm2" ${NODE_PATH} ${PM2_BIN} start "${TRIM_APPDEST}/server/pm2.config.js" --no-autorestart >> "${LOG_FILE}" 2>&1
-
-    # 2. 停止任务。注意：stop 后面建议直接接任务名 "openclaw-gateway"，这样更稳健
-    PM2_HOME="${PKGVAR}/.pm2" ${NODE_PATH} ${PM2_BIN} stop "openclaw-gateway" >> "${LOG_FILE}" 2>&1
-
-    # 3. 检查的是最后一条命令（stop）的结果，这通常没问题
     if [ $? -eq 0 ]; then
-        log_msg "PM2 task setup and entered standby mode successfully"
+        log_msg "Systemd service for OpenClaw installed successfully"
+        return 0
     else
-        log_msg "Failed to setup PM2 task"
-        echo "Failed to setup PM2 task." > "${TRIM_TEMP_LOGFILE}"
+        log_msg "Failed to install systemd service for OpenClaw"
+        echo "Failed to install systemd service for OpenClaw." > "${TRIM_TEMP_LOGFILE}"
         tail -n 20 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
-        exit 1 # 建议返回错误码，方便外部 start.sh 捕获
+        exit 1
     fi
 }
 
-setup_management_api_deps() {
-    log_msg "Setting up management API dependencies..."
-    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
+generate_oc_token() {
+    log_msg "Generating OpenClaw token..."
 
-    cd "${TARGET}/server" && npm install >> "${LOG_FILE}" 2>&1 # 存疑：这里的路径和命令需要确认一下，是否真的需要切换到 server 目录下执行 npm install，还是直接在 PKGVAR 下执行？如果 openclaw.json 中的路径配置正确，理论上应该在 PKGVAR 下安装依赖就行了。
+    node ${OPENCLAW_BIN} gateway start >> ${LOG_FILE} 2>&1
 
     if [ $? -eq 0 ]; then
-        log_msg "Management API dependencies installed successfully"
+        log_msg "OpenClaw token generated successfully"
+        return 0
     else
-        log_msg "Failed to install Management API dependencies"
-        echo "Failed to install Management API dependencies." > "${TRIM_TEMP_LOGFILE}"
+        log_msg "Failed to generate OpenClaw token"
+        echo "Failed to generate OpenClaw token." > "${TRIM_TEMP_LOGFILE}"
         tail -n 20 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
-        exit 1 # 建议返回错误码，方便外部 start.sh 捕获
+        exit 1
     fi
+
+    sleep 2 # 等待服务启动，确保 token 生成逻辑有足够的时间执行
+    # 实际上也不用关掉，就干脆这样一直保持 openclaw gateway 运行就行了
+
 }
 
 # entry point
 # 步骤 2: 安装 openclaw
 install_openclaw
-# 步骤 3: 安装 pm2
-install_pm2
 
 # -----------------
 # 执行配置初始化流程
@@ -193,7 +169,8 @@ log_msg "Starting OpenClaw configuration setup..."
 
 # 运行 openclaw setup
 setup_openclaw_config
-setup_pm2_task
 setup_management_api_deps
+setup_systemd_service
+generate_oc_token
 
 exit 0

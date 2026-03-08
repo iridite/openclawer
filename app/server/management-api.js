@@ -7,7 +7,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const pm2 = require("pm2");
+// const pm2 = require("pm2");
 const { spawn, exec } = require("child_process");
 
 process.env.PM2_HOME = "/var/apps/oc-deploy/var/.pm2";
@@ -38,8 +38,9 @@ const GATEWAY_PORT = 18789;
 
 // 使用 fnOS 系统 Node.js (nodejs_v22 依赖包)
 const NODE_BIN_DIR = "/var/apps/nodejs_v22/target/bin";
+const NODE_BIN = path.join(NODE_BIN_DIR, "node");
 const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");
-const PM2_SCRIPT_PATH = path.join(TRIM_APPDEST, "server", "pm2.config.js"); //TODO
+// const PM2_SCRIPT_PATH = path.join(TRIM_APPDEST, "server", "pm2.config.js"); //TODO
 
 // 工具函数：读取 JSON 文件
 function readJSON(filePath) {
@@ -111,34 +112,69 @@ function execCommand(command, options = {}) {
 }
 
 // 工具函数
-// pm2 api 获取 gateway 状态
-function checkGatewayStatus() {
-  return new Promise((resolve, reject) => {
-    // 1. 连接 PM2 (确保注入了 PM2_HOME 环境变量，已经在最上面注入)
-    pm2.connect((err) => {
-      if (err) return reject(err);
+// 原生工具获取 gateway 状态
+// 通过端口反查进程，获取 PID 后再查询 CPU、内存、启动时间等信息
+// TODO 需要对执行的二进制名称进行检查，以确保找到的确实是 openclaw gateway 的进程，而不是其他占用同一端口的程序
+async function checkGatewayStatus() {
+  const GATEWAY_PORT = 18791; // OpenClaw 默认端口
 
-      // 2. 获取指定名称的任务详情
-      pm2.describe("openclaw-gateway", (err, description) => {
-        pm2.disconnect(); // 记得断开连接
-        if (err) return reject(err);
+  try {
+    // 1. 通过端口号查找 PID
+    // Linux 下推荐使用 netstat 或 lsof。这里使用 netstat 比较通用
+    // 命令逻辑：找到监听端口的行 -> 提取 PID/ProgramName -> 切割出 PID
+    const { stdout: netstatOut } = await execPromise(
+      `netstat -tunlp | grep :${GATEWAY_PORT} | awk '{print $7}' | cut -d'/' -f1`
+    );
 
-        if (description.length === 0) {
-          return resolve({ status: "NOT_FOUND" }); // 任务还没创建
-        }
+    const pid = netstatOut.trim();
 
-        const task = description[0];
-        // 3. 提取核心状态
-        resolve({
-          status: task.pm2_env.status, // online, stopped, errored, launching
-          cpu: task.monit.cpu, // CPU 占用 %
-          memory: task.monit.memory, // 内存占用 (字节)
-          uptime: task.pm2_env.pm_uptime, // 启动时间戳
-          restarts: task.pm2_env.restart_time, // 重启次数
-        });
-      });
-    });
-  });
+    // 2. 如果 PID 为空，说明服务没启动
+    if (!pid || isNaN(pid)) {
+      return {
+        status: "NOT_FOUND",
+        online: false
+      };
+    }
+
+    // 3. 获取进程详情 (CPU, 内存, 启动时间)
+    // ps 命令参数说明：
+    // %cpu: CPU 占用率
+    // rss: 物理内存占用 (单位 KB)
+    // lstart: 具体的启动时间
+    const { stdout: psOut } = await execPromise(
+      `ps -p ${pid} -o %cpu,rss,lstart --no-headers`
+    );
+
+    const stats = psOut.trim().split(/\s+/);
+    // 示例 ps 输出: "0.5  65432 Sun Mar  8 15:00:00 2026"
+    // 注意：ps 的 lstart 格式通常由 5 个部分组成
+
+    const cpu = parseFloat(stats[0]);
+    const memory = parseInt(stats[1]) * 1024; // 转为字节 (Bytes)
+
+    // 解析启动时间并计算 uptime (毫秒)
+    const startTimeStr = stats.slice(2).join(' ');
+    const startTimeMs = new Date(startTimeStr).getTime();
+    const uptime = Date.now() - startTimeMs;
+
+    return {
+      status: "online",
+      online: true,
+      pid: parseInt(pid),
+      cpu: cpu,          // CPU 占用 %
+      memory: memory,    // 内存占用 (Bytes)
+      uptime: uptime,    // 已运行毫秒数
+      restarts: 0,       // 原生模式下较难统计重启次数，设为 0 或由后端逻辑自行累计
+    };
+
+  } catch (err) {
+    // 如果命令执行报错（比如 grep 没搜到东西），通常意味着服务没开
+    return {
+      status: "OFFLINE",
+      online: false,
+      error: err.message
+    };
+  }
 }
 
 // API: 获取系统状态
@@ -146,19 +182,28 @@ async function getStatus() {
   const status = {
     gateway: "unknown",
     gatewayPid: null,
+    cpu: 0,
+    memory: 0,
     version: "unknown",
     configExists: fs.existsSync(CONFIG_FILE),
     token: readText(TOKEN_FILE),
     uptime: null,
   };
 
+  // 调用我们刚刚重写的、基于原生命令的检测函数
   const result = await checkGatewayStatus();
 
   status.gateway = result.status;
-  status.gatewayPid = -1; //TODO 可以通过 pm2 的 API 获取 PID，但目前先不显示了
+
+  // ✅ 解决了你的 TODO: 现在可以直接获取真实的 PID 了
+  status.gatewayPid = result.pid || null;
+
+  // ✅ 解决了你的 TODO: 加上当前内存占用 (MB) 和 CPU 占用 (%)
+  // 内存转换成 MB 看着更直观
+  status.cpu = result.cpu || 0;
+  status.memory = result.memory ? (result.memory / 1024 / 1024).toFixed(1) : 0;
+
   status.uptime = result.uptime;
-  //TODO 可以加上当前内存占用和 CPU 占用
-  // 同时去掉 PID 的显示
 
   // 获取版本信息
   try {
@@ -257,6 +302,24 @@ async function restartGateway() {
     throw new Error("重启失败: " + err.message);
   }
 }
+
+// API: 重启 Gateway (原生模式)
+async function restartGateway() {
+  // 确保你已经定义了 OC_BIN_PATH 指向 /var/apps/oc-deploy/var/node_modules/.bin/openclaw
+  // 并且 CONFIG_FILE 指向 /root/.openclaw/openclaw.json
+
+  const restartCmd = `OPENCLAW_CONFIG_PATH="${CONFIG_FILE}" HOME="/root" ${NODE_BIN} ${OC_BIN_PATH} gateway restart`;
+
+  try {
+    // 1. 尝试执行原生重启命令
+    // 'gateway restart' 通常会自动处理 stop 和 daemon 的逻辑
+    await execCommand(restartCmd);
+    return { success: true, method: "native-restart" };
+  } catch (err) {
+    // 2. 容错处理：如果 restart 报错（通常是因为当前没有正在运行的进程），
+    // 那么我们直接调用 daemon 命令强制拉起
+    console.log("Restart 失败，尝试直接使用 Daemon 模式启动...");
+  }
 
 // API: 获取当前版本
 async function getCurrentVersion() {
