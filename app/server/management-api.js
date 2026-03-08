@@ -385,6 +385,39 @@ async function addModel(modelData) {
   }
 }
 
+// API: 删除模型
+async function deleteModel(modelKey) {
+  try {
+    // 读取配置
+    const config = readJSON(CONFIG_FILE);
+    if (!config || !config.models) {
+      throw new Error("配置文件不存在或格式错误");
+    }
+
+    // 检查模型是否存在
+    if (!config.models[modelKey]) {
+      throw new Error(`模型 "${modelKey}" 不存在`);
+    }
+
+    // 备份配置
+    const backupFile = `${CONFIG_FILE}.backup.${Date.now()}`;
+    writeJSON(backupFile, config);
+
+    // 删除模型
+    delete config.models[modelKey];
+
+    // 保存配置
+    const success = writeJSON(CONFIG_FILE, config);
+    if (!success) {
+      throw new Error("保存配置失败");
+    }
+
+    return { success: true, message: `模型 "${modelKey}" 已删除` };
+  } catch (err) {
+    throw new Error("删除模型失败: " + err.message);
+  }
+}
+
 // API: 验证配置
 async function validateConfig(config) {
   const errors = [];
@@ -563,6 +596,11 @@ function handleRequest(req, res) {
       "POST /api/models/add": async () => {
         const body = await readBody(req);
         return addModel(JSON.parse(body));
+      },
+      "POST /api/models/delete": async () => {
+        const body = await readBody(req);
+        const data = JSON.parse(body);
+        return deleteModel(data.modelKey);
       },
       "POST /api/gateway/start": startGateway,
       "POST /api/gateway/stop": stopGateway,

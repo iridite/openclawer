@@ -82,6 +82,7 @@ function loadTabData(tabName) {
       refreshDashboard();
       break;
     case "config":
+      loadModelsList();
       loadConfig();
       break;
     case "version":
@@ -284,15 +285,147 @@ const PROVIDER_BASE_URLS = {
 
 // 展开/收起表单
 function toggleModelForm() {
-  const container = document.getElementById("model-form-container");
-  const btn = document.getElementById("toggle-form-btn");
+  const formCard = document.getElementById("model-form-card");
+  const formTitle = document.getElementById("form-title");
+  const submitBtnText = document.getElementById("submit-btn-text");
 
-  if (container.style.display === "none") {
-    container.style.display = "block";
-    btn.textContent = "收起表单";
+  if (formCard.style.display === "none") {
+    formCard.style.display = "block";
+    formTitle.textContent = "➕ 添加新模型";
+    submitBtnText.textContent = "✅ 添加模型";
+    resetModelForm();
+    formCard.scrollIntoView({ behavior: "smooth", block: "start" });
   } else {
-    container.style.display = "none";
-    btn.textContent = "展开表单";
+    formCard.style.display = "none";
+  }
+}
+
+// 取消表单
+function cancelModelForm() {
+  document.getElementById("model-form-card").style.display = "none";
+  resetModelForm();
+}
+
+// 加载模型列表
+async function loadModelsList() {
+  try {
+    const config = await apiRequest("/config");
+    const modelsListEl = document.getElementById("models-list");
+
+    if (!config.models || Object.keys(config.models).length === 0) {
+      modelsListEl.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">暂无模型，点击"添加新模型"开始配置</p>';
+      return;
+    }
+
+    let html = '';
+    for (const [key, model] of Object.entries(config.models)) {
+      const provider = model.provider || "未知";
+      const baseUrl = model.baseURL || model.baseUrl || "未配置";
+      const hasKey = model.apiKey ? "✅ 已配置" : "❌ 未配置";
+
+      html += `
+        <div class="model-card">
+          <div class="model-card-header">
+            <div>
+              <h3 class="model-card-title">${key}</h3>
+              <span class="model-card-provider">${provider}</span>
+            </div>
+          </div>
+          <div class="model-card-info">
+            <div class="model-card-info-item">
+              <span>API Key:</span>
+              <span>${hasKey}</span>
+            </div>
+            <div class="model-card-info-item">
+              <span>Base URL:</span>
+              <span style="font-size: 0.75rem; word-break: break-all;">${baseUrl}</span>
+            </div>
+          </div>
+          <div class="model-card-actions">
+            <button class="btn btn-secondary btn-sm" onclick="editModel('${key}')">
+              ✏️ 编辑
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="deleteModel('${key}')">
+              🗑️ 删除
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    modelsListEl.innerHTML = html;
+  } catch (error) {
+    document.getElementById("models-list").innerHTML = '<p class="loading">加载失败: ' + error.message + '</p>';
+  }
+}
+
+// 编辑模型
+async function editModel(modelKey) {
+  try {
+    const config = await apiRequest("/config");
+    const model = config.models[modelKey];
+
+    if (!model) {
+      showToast("模型不存在", "error");
+      return;
+    }
+
+    // 显示表单
+    const formCard = document.getElementById("model-form-card");
+    const formTitle = document.getElementById("form-title");
+    const submitBtnText = document.getElementById("submit-btn-text");
+
+    formCard.style.display = "block";
+    formTitle.textContent = "✏️ 编辑模型";
+    submitBtnText.textContent = "💾 保存修改";
+
+    // 填充表单数据
+    document.getElementById("edit-model-key").value = modelKey;
+    document.getElementById("model-id").value = modelKey;
+    document.getElementById("model-id").disabled = true; // 编辑时不允许修改模型名
+    document.getElementById("provider-name").value = model.provider || "";
+    document.getElementById("base-url").value = model.baseURL || model.baseUrl || "";
+    document.getElementById("api-key").value = model.apiKey || "";
+    document.getElementById("api-protocol").value = model.api || "openai";
+
+    // 高级配置
+    if (model.contextWindow) {
+      document.getElementById("context-window").value = model.contextWindow;
+    }
+    if (model.maxTokens) {
+      document.getElementById("max-tokens").value = model.maxTokens;
+    }
+    if (model.reasoning) {
+      document.getElementById("reasoning").checked = model.reasoning;
+    }
+
+    formCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    showToast("加载模型数据失败: " + error.message, "error");
+  }
+}
+
+// 删除模型
+async function deleteModel(modelKey) {
+  if (!confirm(`确定要删除模型 "${modelKey}" 吗？此操作不可撤销。`)) {
+    return;
+  }
+
+  try {
+    showToast("正在删除模型...", "info");
+
+    const result = await apiRequest(`/models/delete`, {
+      method: "POST",
+      body: JSON.stringify({ modelKey }),
+    });
+
+    showToast(result.message || "模型删除成功！", "success");
+
+    // 刷新列表
+    await loadModelsList();
+    await loadConfigSummary();
+  } catch (error) {
+    showToast("删除失败: " + error.message, "error");
   }
 }
 
@@ -317,6 +450,8 @@ async function submitModelForm(event) {
   try {
     const form = document.getElementById("add-model-form");
     const formData = new FormData(form);
+    const editModelKey = document.getElementById("edit-model-key").value;
+    const isEditMode = !!editModelKey;
 
     // 构建输入类型数组（安全访问）
     const inputTypes = [];
@@ -333,7 +468,7 @@ async function submitModelForm(event) {
 
     // 构建请求数据
     const modelData = {
-      modelId: formData.get("modelId"),
+      modelId: isEditMode ? editModelKey : formData.get("modelId"),
       providerName: formData.get("providerName"),
       baseUrl: formData.get("baseUrl"),
       apiKey: formData.get("apiKey"),
@@ -346,25 +481,23 @@ async function submitModelForm(event) {
       },
     };
 
-    showToast("正在添加模型...", "info");
+    showToast(isEditMode ? "正在保存修改..." : "正在添加模型...", "info");
 
     const result = await apiRequest("/models/add", {
       method: "POST",
       body: JSON.stringify(modelData),
     });
 
-    showToast(result.message || "模型添加成功！", "success");
+    showToast(result.message || (isEditMode ? "模型修改成功！" : "模型添加成功！"), "success");
 
-    // 重置表单
-    resetModelForm();
+    // 重置表单并隐藏
+    cancelModelForm();
 
-    // 刷新配置编辑器
-    await loadConfig();
-
-    // 刷新配置摘要
+    // 刷新列表
+    await loadModelsList();
     await loadConfigSummary();
   } catch (error) {
-    showToast("添加失败: " + error.message, "error");
+    showToast((document.getElementById("edit-model-key").value ? "保存失败: " : "添加失败: ") + error.message, "error");
   }
 }
 
@@ -372,6 +505,10 @@ async function submitModelForm(event) {
 function resetModelForm() {
   const form = document.getElementById("add-model-form");
   form.reset();
+
+  // 清除编辑模式标记
+  document.getElementById("edit-model-key").value = "";
+  document.getElementById("model-id").disabled = false;
 
   // 重置高级配置默认值（安全访问）
   const contextWindowEl = document.getElementById("context-window");
