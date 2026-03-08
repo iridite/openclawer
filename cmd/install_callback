@@ -109,7 +109,12 @@ setup_openclaw_config() {
         config.gateway.controlUi = config.gateway.controlUi || {};
         config.gateway.controlUi.allowedOrigins = ['*'];
 
-        // 4. 写回文件
+        // 4. 【新增】配置 reload hybrid 模式
+        config.gateway.reload = config.gateway.reload || {};
+        config.gateway.reload.mode = 'hybrid';
+        config.gateway.reload.debounceMs = 300;
+
+        // 5. 写回文件
         fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
     " >> ${LOG_FILE} 2>&1
 
