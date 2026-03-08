@@ -318,12 +318,16 @@ async function submitModelForm(event) {
     const form = document.getElementById("add-model-form");
     const formData = new FormData(form);
 
-    // 构建输入类型数组
+    // 构建输入类型数组（安全访问）
     const inputTypes = [];
-    if (document.getElementById("input-text").checked) {
+    const inputTextEl = document.getElementById("input-type-text");
+    const inputImageEl = document.getElementById("input-image");
+    const reasoningEl = document.getElementById("reasoning");
+
+    if (inputTextEl && inputTextEl.checked) {
       inputTypes.push("text");
     }
-    if (document.getElementById("input-image").checked) {
+    if (inputImageEl && inputImageEl.checked) {
       inputTypes.push("image");
     }
 
@@ -335,7 +339,7 @@ async function submitModelForm(event) {
       apiKey: formData.get("apiKey"),
       apiProtocol: formData.get("apiProtocol"),
       advanced: {
-        reasoning: document.getElementById("reasoning").checked,
+        reasoning: reasoningEl ? reasoningEl.checked : false,
         input: inputTypes,
         contextWindow: parseInt(formData.get("contextWindow")),
         maxTokens: parseInt(formData.get("maxTokens")),
@@ -369,12 +373,18 @@ function resetModelForm() {
   const form = document.getElementById("add-model-form");
   form.reset();
 
-  // 重置高级配置默认值
-  document.getElementById("context-window").value = "200000";
-  document.getElementById("max-tokens").value = "8192";
-  document.getElementById("input-text").checked = true;
-  document.getElementById("input-image").checked = false;
-  document.getElementById("reasoning").checked = false;
+  // 重置高级配置默认值（安全访问）
+  const contextWindowEl = document.getElementById("context-window");
+  const maxTokensEl = document.getElementById("max-tokens");
+  const inputTextEl = document.getElementById("input-type-text");
+  const inputImageEl = document.getElementById("input-image");
+  const reasoningEl = document.getElementById("reasoning");
+
+  if (contextWindowEl) contextWindowEl.value = "200000";
+  if (maxTokensEl) maxTokensEl.value = "8192";
+  if (inputTextEl) inputTextEl.checked = true;
+  if (inputImageEl) inputImageEl.checked = false;
+  if (reasoningEl) reasoningEl.checked = false;
 }
 
 // 监听供应商选择，自动填充 Base URL
