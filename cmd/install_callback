@@ -7,16 +7,16 @@
 # 日志文件路径
 LOG_FILE="${TRIM_PKGVAR}/info.log"
 PKGVAR="/var/apps/${TRIM_APPNAME}/var"
+TARGET="/var/apps/${TRIM_APPNAME}/target"
 # Node.js 可执行文件路径
 NODE_PATH="/var/apps/nodejs_v22/target/bin/node"
 NPM_PATH="/var/apps/nodejs_v22/target/bin/npm"
 
-PM2_SCRIPT_PATH="/var/apps/${TRIM_APPNAME}/target/server/pm2.config.js"
+PM2_SCRIPT_PATH="${TARGET}/server/pm2.config.js"
 
 PM2_BIN="${PKGVAR}/node_modules/.bin/pm2"
 OPENCLAW_BIN="${PKGVAR}/node_modules/.bin/openclaw" # openclaw bin 路径
-export CONFIG_FILE="${PKGVAR}/oc-data/openclaw.json"
-export DATA_FOLDER="${PKGVAR}/oc-data"
+
 
 # 记录日志消息
 # 参数: $1 - 要记录的消息内容
@@ -34,18 +34,7 @@ install_openclaw() {
     log_msg "Installing openclaw@latest in ${PKGVAR}..."
 
     # 切换到应用目录并执行安装
-    cd "${PKGVAR}"
-    if [ $? -eq 0 ]; then
-        log_msg "directory changed to ${PKGVAR}"
-        return 0
-    else
-        log_msg "directory change failed"
-        echo "Failed to change directory to ${PKGVAR}" > $TRIM_TEMP_LOGFILE
-        tail -n 20 ${LOG_FILE} >> $TRIM_TEMP_LOGFILE
-        exit 1
-    fi
-
-    npm install openclaw@latest >> ${LOG_FILE} 2>&1
+    cd "${PKGVAR}" && npm install openclaw@latest >> ${LOG_FILE} 2>&1
 
     # 2. 替换测试逻辑：尝试执行二进制文件并获取版本号
     log_msg "Verifying openclaw binary execution..."
@@ -77,18 +66,7 @@ install_pm2() {
     export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
 
     # 切换到应用目录并执行安装
-    cd "${PKGVAR}"
-    if [ $? -eq 0 ]; then
-        log_msg "directory changed to ${PKGVAR}"
-        return 0
-    else
-        log_msg "directory change failed"
-        echo "Failed to change directory to ${PKGVAR}" > $TRIM_TEMP_LOGFILE
-        tail -n 20 ${LOG_FILE} >> $TRIM_TEMP_LOGFILE
-        exit 1
-    fi
-
-    npm install pm2 >> ${LOG_FILE} 2>&1
+    cd "${PKGVAR}" && npm install pm2 >> ${LOG_FILE} 2>&1 # 转移目录和安装命令绝对不能分开，否则可能会安装到错误的位置，导致后续找不到 pm2 二进制文件
 
     if [ $? -eq 0 ]; then
         log_msg "pm2 installed successfully"
@@ -109,10 +87,9 @@ setup_openclaw_config() {
 
     log_msg "Running openclaw setup to initialize configuration..."
 
-    set -o pipefail
-
     # 2. 执行基础初始化
     node ${OPENCLAW_BIN} setup >> ${LOG_FILE} 2>&1
+    # 将配置写入到当前用户的目录中，并且确保它能被后续的 Node.js 脚本访问到
 
     if [ $? -eq 0 ]; then
         log_msg "openclaw setup executed successfully"
@@ -131,7 +108,7 @@ setup_openclaw_config() {
 
     ${NODE_PATH} -e "
         const fs = require('fs');
-        const filePath = process.env.CONFIG_FILE;
+        const filePath = '/root/.openclaw/openclaw.json';
         let config = {};
 
         // 如果文件已存在，先读取旧内容
@@ -163,15 +140,6 @@ setup_openclaw_config() {
     fi
 }
 
-# setup_init_gateway_token() {
-#     log_msg "Initializing gateway token..."
-#     ${OPENCLAW_BIN} gateway token >> ${LOG_FILE} 2>&1
-#     if [ $? -eq 0 ]; then
-#         log_msg "Gateway token initialized successfully"
-#     else
-#         log_msg "Failed to initialize gateway token"
-#     fi
-# }
 
 setup_pm2_task() {
     log_msg "Setting up PM2 task..."
@@ -196,8 +164,9 @@ setup_pm2_task() {
 
 setup_management_api_deps() {
     log_msg "Setting up management API dependencies..."
+    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
 
-    cd "${TRIM_APPDEST}/server" && ${NODE_PATH} npm install --production >> "${LOG_FILE}" 2>&1 # 存疑：这里的路径和命令需要确认一下，是否真的需要切换到 server 目录下执行 npm install，还是直接在 PKGVAR 下执行？如果 openclaw.json 中的路径配置正确，理论上应该在 PKGVAR 下安装依赖就行了。
+    cd "${TARGET}/server" && npm install >> "${LOG_FILE}" 2>&1 # 存疑：这里的路径和命令需要确认一下，是否真的需要切换到 server 目录下执行 npm install，还是直接在 PKGVAR 下执行？如果 openclaw.json 中的路径配置正确，理论上应该在 PKGVAR 下安装依赖就行了。
 
     if [ $? -eq 0 ]; then
         log_msg "Management API dependencies installed successfully"
@@ -224,10 +193,4 @@ setup_openclaw_config
 setup_pm2_task
 setup_management_api_deps
 
-if [ $? -ne 0 ]; then # TODO 这里能不能改成更细粒度的错误检查？比如分别检查每个步骤的结果，这样日志更清晰
-    log_msg "Configuration setup failed"
-    exit 1
-fi
-
-log_msg "OpenClaw configuration setup completed successfully"
 exit 0
