@@ -111,21 +111,24 @@ setup_openclaw_config() {
         const filePath = '/root/.openclaw/openclaw.json';
         let config = {};
 
-        // 如果文件已存在，先读取旧内容
+        // 1. 读取并解析现有的 JSON
         if (fs.existsSync(filePath)) {
             try {
                 config = JSON.parse(fs.readFileSync(filePath, 'utf8'));
             } catch (e) {
-                // 如果文件内容损坏，我们从空对象开始
                 config = {};
             }
         }
 
-        // 确保 gateway 对象存在，并设置模式为 local
+        // 2. 确保 gateway 基础对象存在
         config.gateway = config.gateway || {};
         config.gateway.mode = 'local';
 
-        // 写回文件，使用 2 格缩进美化输出
+        // 3. 【新增】实现模式 A：配置 CORS 允许所有来源
+        config.gateway.controlUi = config.gateway.controlUi || {};
+        config.gateway.controlUi.allowedOrigins = ['*'];
+
+        // 4. 写回文件
         fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
     " >> ${LOG_FILE} 2>&1
 
