@@ -485,3 +485,56 @@ body {
         justify-content: center;
     }
 }
+
+/* Tooltip 样式 */
+.tooltip-icon {
+    position: relative;
+    cursor: help;
+    display: inline-block;
+    color: #666;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.tooltip-icon::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 1000;
+}
+
+.tooltip-icon::before {
+    content: '';
+    position: absolute;
+    bottom: 115%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 1000;
+}
+
+.tooltip-icon:hover::after,
+.tooltip-icon:hover::before {
+    opacity: 1;
+}
+
+/* 为带有 title 属性的元素添加更明显的提示 */
+span[title] {
+    cursor: help;
+}
