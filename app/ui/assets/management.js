@@ -135,18 +135,50 @@ async function loadConfigSummary() {
       ? Object.keys(config.channels).length
       : 0;
 
-    summaryEl.innerHTML = `
-            <div class="info-grid">
-                <div class="info-item">
-                    <span class="label">AI 模型</span>
-                    <span class="value">${modelCount} 个</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">消息渠道</span>
-                    <span class="value">${channelCount} 个</span>
-                </div>
-            </div>
-        `;
+    let html = `
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="label">AI 模型</span>
+          <span class="value">${modelCount} 个</span>
+        </div>
+        <div class="info-item">
+          <span class="label">消息渠道</span>
+          <span class="value">${channelCount} 个</span>
+        </div>
+      </div>
+    `;
+
+    // 显示模型详情
+    if (modelCount > 0) {
+      html +=
+        '<div style="margin-top: 15px;"><strong>📦 已配置模型：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
+      for (const [name, model] of Object.entries(config.models)) {
+        const provider = model.provider || "未知";
+        const hasKey = model.apiKey ? "✅" : "❌";
+        html += `<li><code>${name}</code> (${provider}) ${hasKey}</li>`;
+      }
+      html += "</ul></div>";
+    } else {
+      html +=
+        '<div style="margin-top: 15px;"><em>⚠️ 尚未配置 AI 模型</em></div>';
+    }
+
+    // 显示渠道详情
+    if (channelCount > 0) {
+      html +=
+        '<div style="margin-top: 10px;"><strong>📡 已配置渠道：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
+      for (const [name, channel] of Object.entries(config.channels)) {
+        const type = channel.type || "未知";
+        const enabled = channel.enabled !== false ? "✅" : "⭕";
+        html += `<li><code>${name}</code> (${type}) ${enabled}</li>`;
+      }
+      html += "</ul></div>";
+    } else {
+      html +=
+        '<div style="margin-top: 10px;"><em>⚠️ 尚未配置消息渠道</em></div>';
+    }
+
+    summaryEl.innerHTML = html;
   } catch (error) {
     document.getElementById("config-summary").innerHTML =
       '<p class="loading">加载失败</p>';
