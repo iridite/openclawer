@@ -109,7 +109,7 @@ async function refreshDashboard() {
     document.getElementById("dash-gateway-status").textContent =
       status.gateway === "running" ? "✅ 运行中" : "⭕ 已停止";
     document.getElementById("dash-gateway-pid").textContent =
-      status.gatewayPid || "(未运行)";
+      status.gatewayPid && status.gateway === "running" ? status.gatewayPid : "(未运行)";
     document.getElementById("dash-version").textContent =
       status.version || "unknown";
     document.getElementById("dash-config-status").textContent =
