@@ -21,11 +21,15 @@ log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
 }
 
+# 锁定家目录和配置路径，确保所有子进程继承
+export HOME="/root"
+export OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json"
+export PATH="/var/apps/nodejs_v22/target/bin:${PKGVAR}/node_modules/.bin:$PATH"
+
 # 安装 openclaw 最新版本
 # 在指定目录下安装 openclaw@latest
 install_openclaw() {
     # 1. 确保环境变量和路径锁定
-    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
     local OPENCLAW_BIN="${PKGVAR}/node_modules/.bin/openclaw"
 
     log_msg "Installing openclaw@latest in ${PKGVAR}..."
@@ -61,9 +65,6 @@ install_openclaw() {
 # 初始化 openclaw 配置
 # 运行 openclaw setup 命令生成配置文件
 setup_openclaw_config() {
-    # 1. 确保环境变量已定义，这样 Node 脚本和 OpenClaw 才知道去哪找文件
-    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
-
     log_msg "Running openclaw setup to initialize configuration..."
 
     # 2. 执行基础初始化
@@ -102,6 +103,8 @@ setup_openclaw_config() {
         // 2. 确保 gateway 基础对象存在
         config.gateway = config.gateway || {};
         config.gateway.mode = 'local';
+        config.gateway.host = '0.0.0.0';
+        config.gateway.port = 18791;
 
         // 3. 【新增】实现模式 A：配置 CORS 允许所有来源
         config.gateway.controlUi = config.gateway.controlUi || {};
@@ -124,9 +127,8 @@ setup_openclaw_config() {
 
 setup_systemd_service() {
     log_msg "Setting up systemd service for OpenClaw..."
-    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
 
-    OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json" HOME="/root" node ${OPENCLAW_BIN} gateway install >> ${LOG_FILE} 2>&1
+    node ${OPENCLAW_BIN} gateway install --force >> ${LOG_FILE} 2>&1
 
     if [ $? -eq 0 ]; then
         log_msg "Systemd service for OpenClaw installed successfully"
@@ -141,9 +143,8 @@ setup_systemd_service() {
 
 generate_oc_token() {
     log_msg "Generating OpenClaw token..."
-    export PATH="/var/apps/nodejs_v22/target/bin:$PATH"
 
-    OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json" HOME="/root" node ${OPENCLAW_BIN} gateway start >> ${LOG_FILE} 2>&1
+    node ${OPENCLAW_BIN} gateway start >> ${LOG_FILE} 2>&1
 
     if [ $? -eq 0 ]; then
         log_msg "OpenClaw token generated successfully"
