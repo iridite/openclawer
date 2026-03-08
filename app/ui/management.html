@@ -1,144 +1,354 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenClaw 管理控制台</title>
-    <link rel="stylesheet" href="assets/management.css">
-</head>
-<body>
-    <div class="container">
-        <!-- 头部 -->
-        <header class="header">
-            <div class="logo">
-                <svg width="48" height="48" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color:#ff7043"/>
-                            <stop offset="100%" style="stop-color:#f4511e"/>
-                        </linearGradient>
-                    </defs>
-                    <rect width="256" height="256" rx="44" fill="url(#bg)"/>
-                    <ellipse cx="128" cy="130" rx="55" ry="42" fill="white"/>
-                    <rect x="48" y="95" width="35" height="14" rx="7" fill="white" transform="rotate(-25,65,102)"/>
-                    <ellipse cx="42" cy="72" rx="20" ry="14" fill="white" transform="rotate(-15,42,72)"/>
-                    <ellipse cx="52" cy="60" rx="16" ry="11" fill="white" transform="rotate(20,52,60)"/>
-                    <path d="M35 72 L50 65" stroke="#f4511e" stroke-width="3" stroke-linecap="round"/>
-                    <rect x="173" y="95" width="35" height="14" rx="7" fill="white" transform="rotate(25,191,102)"/>
-                    <ellipse cx="214" cy="72" rx="20" ry="14" fill="white" transform="rotate(15,214,72)"/>
-                    <ellipse cx="204" cy="60" rx="16" ry="11" fill="white" transform="rotate(-20,204,60)"/>
-                    <path d="M221 72 L206 65" stroke="#f4511e" stroke-width="3" stroke-linecap="round"/>
-                    <rect x="100" y="82" width="8" height="18" rx="4" fill="white"/>
-                    <rect x="148" y="82" width="8" height="18" rx="4" fill="white"/>
-                    <circle cx="104" cy="80" r="10" fill="white"/>
-                    <circle cx="152" cy="80" r="10" fill="white"/>
-                    <circle cx="104" cy="80" r="6" fill="#f4511e"/>
-                    <circle cx="152" cy="80" r="6" fill="#f4511e"/>
-                    <circle cx="106" cy="78" r="2.5" fill="white"/>
-                    <circle cx="154" cy="78" r="2.5" fill="white"/>
-                    <path d="M115 140 Q128 152, 141 140" stroke="#f4511e" stroke-width="3" fill="none" stroke-linecap="round"/>
-                    <rect x="55" y="148" width="30" height="8" rx="4" fill="white" transform="rotate(35,70,152)"/>
-                    <rect x="50" y="160" width="30" height="8" rx="4" fill="white" transform="rotate(50,65,164)"/>
-                    <rect x="48" y="172" width="28" height="8" rx="4" fill="white" transform="rotate(65,62,176)"/>
-                    <rect x="171" y="148" width="30" height="8" rx="4" fill="white" transform="rotate(-35,186,152)"/>
-                    <rect x="176" y="160" width="30" height="8" rx="4" fill="white" transform="rotate(-50,191,164)"/>
-                    <rect x="180" y="172" width="28" height="8" rx="4" fill="white" transform="rotate(-65,194,176)"/>
-                    <rect x="113" y="118" width="30" height="16" rx="4" fill="#f4511e" opacity="0.8"/>
-                    <text x="128" y="131" text-anchor="middle" fill="white" font-family="Arial,sans-serif" font-size="11" font-weight="bold">AI</text>
-                </svg>
-            </div>
-            <div class="header-info">
-                <h1>OpenClaw 管理控制台</h1>
-                <p class="subtitle">AI 智能体 Gateway 网关管理</p>
-            </div>
-            <div class="header-status">
-                <div class="status-badge" id="gatewayStatus">
-                    <span class="status-dot"></span>
-                    <span class="status-text">检查中...</span>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>OpenClaw 管理控制台</title>
+        <link rel="stylesheet" href="assets/management.css" />
+    </head>
+    <body>
+        <div class="container">
+            <!-- 头部 -->
+            <header class="header">
+                <div class="logo">
+                    <svg
+                        width="48"
+                        height="48"
+                        viewBox="0 0 256 256"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        <defs>
+                            <linearGradient
+                                id="bg"
+                                x1="0%"
+                                y1="0%"
+                                x2="0%"
+                                y2="100%"
+                            >
+                                <stop offset="0%" style="stop-color: #ff7043" />
+                                <stop
+                                    offset="100%"
+                                    style="stop-color: #f4511e"
+                                />
+                            </linearGradient>
+                        </defs>
+                        <rect
+                            width="256"
+                            height="256"
+                            rx="44"
+                            fill="url(#bg)"
+                        />
+                        <ellipse
+                            cx="128"
+                            cy="130"
+                            rx="55"
+                            ry="42"
+                            fill="white"
+                        />
+                        <rect
+                            x="48"
+                            y="95"
+                            width="35"
+                            height="14"
+                            rx="7"
+                            fill="white"
+                            transform="rotate(-25,65,102)"
+                        />
+                        <ellipse
+                            cx="42"
+                            cy="72"
+                            rx="20"
+                            ry="14"
+                            fill="white"
+                            transform="rotate(-15,42,72)"
+                        />
+                        <ellipse
+                            cx="52"
+                            cy="60"
+                            rx="16"
+                            ry="11"
+                            fill="white"
+                            transform="rotate(20,52,60)"
+                        />
+                        <path
+                            d="M35 72 L50 65"
+                            stroke="#f4511e"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                        />
+                        <rect
+                            x="173"
+                            y="95"
+                            width="35"
+                            height="14"
+                            rx="7"
+                            fill="white"
+                            transform="rotate(25,191,102)"
+                        />
+                        <ellipse
+                            cx="214"
+                            cy="72"
+                            rx="20"
+                            ry="14"
+                            fill="white"
+                            transform="rotate(15,214,72)"
+                        />
+                        <ellipse
+                            cx="204"
+                            cy="60"
+                            rx="16"
+                            ry="11"
+                            fill="white"
+                            transform="rotate(-20,204,60)"
+                        />
+                        <path
+                            d="M221 72 L206 65"
+                            stroke="#f4511e"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                        />
+                        <rect
+                            x="100"
+                            y="82"
+                            width="8"
+                            height="18"
+                            rx="4"
+                            fill="white"
+                        />
+                        <rect
+                            x="148"
+                            y="82"
+                            width="8"
+                            height="18"
+                            rx="4"
+                            fill="white"
+                        />
+                        <circle cx="104" cy="80" r="10" fill="white" />
+                        <circle cx="152" cy="80" r="10" fill="white" />
+                        <circle cx="104" cy="80" r="6" fill="#f4511e" />
+                        <circle cx="152" cy="80" r="6" fill="#f4511e" />
+                        <circle cx="106" cy="78" r="2.5" fill="white" />
+                        <circle cx="154" cy="78" r="2.5" fill="white" />
+                        <path
+                            d="M115 140 Q128 152, 141 140"
+                            stroke="#f4511e"
+                            stroke-width="3"
+                            fill="none"
+                            stroke-linecap="round"
+                        />
+                        <rect
+                            x="55"
+                            y="148"
+                            width="30"
+                            height="8"
+                            rx="4"
+                            fill="white"
+                            transform="rotate(35,70,152)"
+                        />
+                        <rect
+                            x="50"
+                            y="160"
+                            width="30"
+                            height="8"
+                            rx="4"
+                            fill="white"
+                            transform="rotate(50,65,164)"
+                        />
+                        <rect
+                            x="48"
+                            y="172"
+                            width="28"
+                            height="8"
+                            rx="4"
+                            fill="white"
+                            transform="rotate(65,62,176)"
+                        />
+                        <rect
+                            x="171"
+                            y="148"
+                            width="30"
+                            height="8"
+                            rx="4"
+                            fill="white"
+                            transform="rotate(-35,186,152)"
+                        />
+                        <rect
+                            x="176"
+                            y="160"
+                            width="30"
+                            height="8"
+                            rx="4"
+                            fill="white"
+                            transform="rotate(-50,191,164)"
+                        />
+                        <rect
+                            x="180"
+                            y="172"
+                            width="28"
+                            height="8"
+                            rx="4"
+                            fill="white"
+                            transform="rotate(-65,194,176)"
+                        />
+                        <rect
+                            x="113"
+                            y="118"
+                            width="30"
+                            height="16"
+                            rx="4"
+                            fill="#f4511e"
+                            opacity="0.8"
+                        />
+                        <text
+                            x="128"
+                            y="131"
+                            text-anchor="middle"
+                            fill="white"
+                            font-family="Arial,sans-serif"
+                            font-size="11"
+                            font-weight="bold"
+                        >
+                            AI
+                        </text>
+                    </svg>
                 </div>
-            </div>
-        </header>
-
-        <!-- 标签页导航 -->
-        <nav class="tabs">
-            <button class="tab-btn active" data-tab="dashboard">📊 仪表板</button>
-            <button class="tab-btn" data-tab="config">⚙️ 配置编辑</button>
-            <button class="tab-btn" data-tab="version">🔄 版本管理</button>
-            <button class="tab-btn" data-tab="console">🎮 控制台</button>
-        </nav>
-
-        <!-- 标签页内容 -->
-        <main class="content">
-            <!-- 仪表板 -->
-            <section class="tab-content active" id="tab-dashboard">
-                <div class="dashboard">
-                    <div class="card">
-                        <h2>系统状态</h2>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <span class="label">Gateway 状态</span>
-                                <span class="value" id="dash-gateway-status">-</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">进程 PID</span>
-                                <span class="value" id="dash-gateway-pid">-</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">当前版本</span>
-                                <span class="value" id="dash-version">-</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">配置文件</span>
-                                <span class="value" id="dash-config-status">-</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h2>快速操作</h2>
-                        <div class="action-buttons">
-                            <button class="btn btn-primary" onclick="restartGateway()">🔄 重启 Gateway</button>
-                            <button class="btn btn-secondary" onclick="openConsole()">🎮 进入控制台</button>
-                            <button class="btn btn-secondary" onclick="refreshStatus()">🔃 刷新状态</button>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h2>配置摘要</h2>
-                        <div id="config-summary">
-                            <p class="loading">加载中...</p>
-                        </div>
+                <div class="header-info">
+                    <h1>OpenClaw 管理控制台</h1>
+                    <p class="subtitle">AI 智能体 Gateway 网关管理</p>
+                </div>
+                <div class="header-status">
+                    <div class="status-badge" id="gatewayStatus">
+                        <span class="status-dot"></span>
+                        <span class="status-text">检查中...</span>
                     </div>
                 </div>
-            </section>
+            </header>
 
-            <!-- 配置编辑 -->
-            <section class="tab-content" id="tab-config">
-                <div class="config-editor">
-                    <div class="card">
-                        <div class="card-header">
-                            <h2>配置编辑器</h2>
-                            <div class="card-actions">
-                                <button class="btn btn-secondary btn-sm" onclick="loadConfig()">🔃 重新加载</button>
-                                <button class="btn btn-primary btn-sm" onclick="saveConfig()">💾 保存配置</button>
+            <!-- 标签页导航 -->
+            <nav class="tabs">
+                <button class="tab-btn active" data-tab="dashboard">
+                    📊 仪表板
+                </button>
+                <button class="tab-btn" data-tab="config">⚙️ 配置编辑</button>
+                <button class="tab-btn" data-tab="version">🔄 版本管理</button>
+                <button class="tab-btn" data-tab="console">🎮 控制台</button>
+            </nav>
+
+            <!-- 标签页内容 -->
+            <main class="content">
+                <!-- 仪表板 -->
+                <section class="tab-content active" id="tab-dashboard">
+                    <div class="dashboard">
+                        <div class="card">
+                            <h2>系统状态</h2>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <span class="label">Gateway 状态</span>
+                                    <span class="value" id="dash-gateway-status"
+                                        >-</span
+                                    >
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">进程 PID</span>
+                                    <span class="value" id="dash-gateway-pid"
+                                        >-</span
+                                    >
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">当前版本</span>
+                                    <span class="value" id="dash-version"
+                                        >-</span
+                                    >
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">配置文件</span>
+                                    <span class="value" id="dash-config-status"
+                                        >-</span
+                                    >
+                                </div>
                             </div>
                         </div>
-                        <div class="editor-container">
-                            <textarea id="config-editor" spellcheck="false"></textarea>
+
+                        <div class="card">
+                            <h2>快速操作</h2>
+                            <div class="action-buttons">
+                                <button
+                                    class="btn btn-primary"
+                                    onclick="restartGateway()"
+                                >
+                                    🔄 重启 Gateway
+                                </button>
+                                <button
+                                    class="btn btn-secondary"
+                                    onclick="openConsole()"
+                                >
+                                    🎮 进入控制台
+                                </button>
+                                <button
+                                    class="btn btn-secondary"
+                                    onclick="refreshStatus()"
+                                >
+                                    🔃 刷新状态
+                                </button>
+                            </div>
                         </div>
-                        <div class="editor-footer">
-                            <div class="validation-status" id="validation-status"></div>
-                            <div class="editor-tips">
-                                <p>💡 提示：修改配置后需要重启 Gateway 才能生效</p>
+
+                        <div class="card">
+                            <h2>配置摘要</h2>
+                            <div id="config-summary">
+                                <p class="loading">加载中...</p>
                             </div>
                         </div>
                     </div>
+                </section>
 
-                    <div class="card">
-                        <h2>配置模板</h2>
-                        <div class="template-section">
-                            <h3>AI 模型配置示例</h3>
-                            <pre class="code-block">{
+                <!-- 配置编辑 -->
+                <section class="tab-content" id="tab-config">
+                    <div class="config-editor">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>配置编辑器</h2>
+                                <div class="card-actions">
+                                    <button
+                                        class="btn btn-secondary btn-sm"
+                                        onclick="loadConfig()"
+                                    >
+                                        🔃 重新加载
+                                    </button>
+                                    <button
+                                        class="btn btn-primary btn-sm"
+                                        onclick="saveConfig()"
+                                    >
+                                        💾 保存配置
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="editor-container">
+                                <textarea
+                                    id="config-editor"
+                                    spellcheck="false"
+                                ></textarea>
+                            </div>
+                            <div class="editor-footer">
+                                <div
+                                    class="validation-status"
+                                    id="validation-status"
+                                ></div>
+                                <div class="editor-tips">
+                                    <p>
+                                        💡 提示：修改配置后需要重启 Gateway
+                                        才能生效
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h2>配置模板</h2>
+                            <div class="template-section">
+                                <h3>AI 模型配置示例</h3>
+                                <pre class="code-block">
+{
   "models": {
     "claude": {
       "provider": "anthropic",
@@ -151,9 +361,11 @@
       "baseURL": "https://api.openai.com"
     }
   }
-}</pre>
-                            <h3>渠道配置示例</h3>
-                            <pre class="code-block">{
+}</pre
+                                >
+                                <h3>渠道配置示例</h3>
+                                <pre class="code-block">
+{
   "channels": {
     "telegram": {
       "type": "telegram",
@@ -166,89 +378,163 @@
       "enabled": true
     }
   }
-}</pre>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 版本管理 -->
-            <section class="tab-content" id="tab-version">
-                <div class="version-manager">
-                    <div class="card">
-                        <h2>版本信息</h2>
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <span class="label">当前版本</span>
-                                <span class="value" id="ver-current">-</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">最新版本</span>
-                                <span class="value" id="ver-latest">-</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">更新状态</span>
-                                <span class="value" id="ver-status">-</span>
+}</pre
+                                >
                             </div>
                         </div>
-                        <div class="action-buttons">
-                            <button class="btn btn-secondary" onclick="checkUpdate()">🔍 检查更新</button>
-                            <button class="btn btn-primary" onclick="updateVersion()" id="update-btn" disabled>⬆️ 更新版本</button>
-                        </div>
                     </div>
+                </section>
 
-                    <div class="card">
-                        <h2>更新说明</h2>
-                        <div class="alert alert-info">
-                            <p><strong>注意：</strong>还没做...</p>
-                            <!--<p>如需更新到最新版本，请：</p>
-                            <ol>
-                                <li>访问飞牛应用中心</li>
-                                <li>检查 OpenClaw 应用更新</li>
-                                <li>下载并安装最新版本的 FPK</li>-->
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- 控制台 -->
-            <section class="tab-content" id="tab-console">
-                <div class="console-section">
-                    <div class="card">
-                        <h2>OpenClaw 原生控制台</h2>
-                        <p>点击下方按钮进入 OpenClaw 原生 Web 控制台，管理 AI 智能体、查看会话记录等。</p>
-                        <div class="action-buttons">
-                            <button class="btn btn-primary btn-lg" onclick="openConsole()">🎮 进入控制台</button>
-                        </div>
-                        <div class="console-info">
-                            <p><strong>控制台地址：</strong><span id="console-url">-</span></p>
-                            <p><strong>访问令牌：</strong><code id="console-token">-</code></p>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <h2>日志查看</h2>
-                        <div class="log-viewer">
-                            <div class="log-header">
-                                <button class="btn btn-secondary btn-sm" onclick="refreshLogs()">🔃 刷新日志</button>
+                <!-- 版本管理 -->
+                <section class="tab-content" id="tab-version">
+                    <div class="version-manager">
+                        <div class="card">
+                            <h2>版本信息</h2>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <span class="label">当前版本</span>
+                                    <span class="value" id="ver-current"
+                                        >-</span
+                                    >
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">最新版本</span>
+                                    <span class="value" id="ver-latest">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">更新状态</span>
+                                    <span class="value" id="ver-status">-</span>
+                                </div>
                             </div>
-                            <pre id="log-content" class="log-content">加载中...</pre>
+                            <div class="action-buttons">
+                                <button
+                                    class="btn btn-secondary"
+                                    onclick="checkUpdate()"
+                                >
+                                    🔍 检查更新
+                                </button>
+                                <button
+                                    class="btn btn-primary"
+                                    onclick="updateVersion()"
+                                    id="update-btn"
+                                    disabled
+                                >
+                                    ⬆️ 更新版本
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <h2>更新说明</h2>
+                            <div class="alert alert-info">
+                                <h3>📦 OpenClaw 核心更新</h3>
+                                <p>
+                                    OpenClaw 核心通过 npm
+                                    包管理器安装，支持在线更新：
+                                </p>
+                                <ol>
+                                    <li>
+                                        点击上方"🔍
+                                        检查更新"按钮查看是否有新版本
+                                    </li>
+                                    <li>如有新版本，点击"⬆️ 更新版本"按钮</li>
+                                    <li>
+                                        系统将自动执行
+                                        <code>npm install openclaw@latest</code>
+                                    </li>
+                                    <li>
+                                        更新完成后需要重启 Gateway 使新版本生效
+                                    </li>
+                                </ol>
+
+                                <h3>🎁 FPK 包更新</h3>
+                                <p>
+                                    如需更新整个 oc-deploy
+                                    应用（包括管理界面、脚本等）：
+                                </p>
+                                <ol>
+                                    <li>访问飞牛应用中心</li>
+                                    <li>检查 oc-deploy 应用是否有更新</li>
+                                    <li>下载并安装最新版本的 FPK</li>
+                                    <li>应用会自动重启并应用新版本</li>
+                                </ol>
+
+                                <p><strong>⚠️ 注意事项：</strong></p>
+                                <ul>
+                                    <li>
+                                        更新前建议备份配置文件（系统会自动备份）
+                                    </li>
+                                    <li>更新过程中 Gateway 会短暂中断服务</li>
+                                    <li>更新后请检查配置文件是否需要调整</li>
+                                    <li>
+                                        如遇问题可查看日志：<code
+                                            >/var/apps/oc-deploy/var/openclaw.log</code
+                                        >
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
-        </main>
+                </section>
 
-        <!-- 页脚 -->
-        <footer class="footer">
-            <p>OpenClaw Management Console v1.0 | Powered by OpenClaw AI</p>
-        </footer>
-    </div>
+                <!-- 控制台 -->
+                <section class="tab-content" id="tab-console">
+                    <div class="console-section">
+                        <div class="card">
+                            <h2>OpenClaw 原生控制台</h2>
+                            <p>
+                                点击下方按钮进入 OpenClaw 原生 Web 控制台，管理
+                                AI 智能体、查看会话记录等。
+                            </p>
+                            <div class="action-buttons">
+                                <button
+                                    class="btn btn-primary btn-lg"
+                                    onclick="openConsole()"
+                                >
+                                    🎮 进入控制台
+                                </button>
+                            </div>
+                            <div class="console-info">
+                                <p>
+                                    <strong>控制台地址：</strong
+                                    ><span id="console-url">-</span>
+                                </p>
+                                <p>
+                                    <strong>访问令牌：</strong
+                                    ><code id="console-token">-</code>
+                                </p>
+                            </div>
+                        </div>
 
-    <!-- 通知提示 -->
-    <div id="toast" class="toast"></div>
+                        <div class="card">
+                            <h2>日志查看</h2>
+                            <div class="log-viewer">
+                                <div class="log-header">
+                                    <button
+                                        class="btn btn-secondary btn-sm"
+                                        onclick="refreshLogs()"
+                                    >
+                                        🔃 刷新日志
+                                    </button>
+                                </div>
+                                <pre id="log-content" class="log-content">
+加载中...</pre
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
 
-    <script src="assets/management.js"></script>
-</body>
+            <!-- 页脚 -->
+            <footer class="footer">
+                <p>OpenClaw Management Console v1.0 | Powered by OpenClaw AI</p>
+            </footer>
+        </div>
+
+        <!-- 通知提示 -->
+        <div id="toast" class="toast"></div>
+
+        <script src="assets/management.js"></script>
+    </body>
 </html>
