@@ -299,6 +299,23 @@
                                 <p class="loading">加载中...</p>
                             </div>
                         </div>
+
+                        <div class="card">
+                            <h2>运行日志</h2>
+                            <div class="log-viewer">
+                                <div class="log-header">
+                                    <button
+                                        class="btn btn-secondary btn-sm"
+                                        onclick="refreshLogs()"
+                                    >
+                                        🔃 刷新日志
+                                    </button>
+                                </div>
+                                <pre id="log-content" class="log-content">
+加载中...</pre
+                                >
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -503,23 +520,6 @@
                                     <strong>访问令牌：</strong
                                     ><code id="console-token">-</code>
                                 </p>
-                            </div>
-                        </div>
-
-                        <div class="card">
-                            <h2>日志查看</h2>
-                            <div class="log-viewer">
-                                <div class="log-header">
-                                    <button
-                                        class="btn btn-secondary btn-sm"
-                                        onclick="refreshLogs()"
-                                    >
-                                        🔃 刷新日志
-                                    </button>
-                                </div>
-                                <pre id="log-content" class="log-content">
-加载中...</pre
-                                >
                             </div>
                         </div>
                     </div>

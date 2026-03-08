@@ -117,6 +117,9 @@ async function refreshDashboard() {
 
     // 加载配置摘要
     loadConfigSummary();
+
+    // 加载运行日志
+    refreshLogs();
   } catch (error) {
     showToast("加载状态失败: " + error.message, "error");
   }
