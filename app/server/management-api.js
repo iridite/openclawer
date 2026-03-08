@@ -167,21 +167,21 @@ async function restartGateway() {
 // 原生工具获取 gateway 状态
 // 通过端口反查进程，获取 PID 后再查询 CPU、内存、启动时间等信息
 // TODO 需要对执行的二进制名称进行检查，以确保找到的确实是 openclaw gateway 的进程，而不是其他占用同一端口的程序
+// API: 检查 Gateway 状态 (适配 Nohup 原生进程模式)
 async function checkGatewayStatus() {
   try {
-    // 1. 通过端口号查找 PID
-    // Linux 下推荐使用 netstat 或 lsof。这里使用 netstat 比较通用
-    // 命令逻辑：找到监听端口的行 -> 提取 PID/ProgramName -> 切割出 PID
-    const { stdout: netstatOut } = await execPromise(
-      `netstat -tunlp | grep :${GATEWAY_PORT} | awk '{print $7}' | cut -d'/' -f1`,
+    // 1. 通过进程特征查找 PID (与 pkill 的逻辑保持完全一致)
+    // pgrep -f 会匹配整个命令行，head -n 1 确保即使有多个相关进程也只取主进程
+    const { stdout: pgrepOut } = await execCommand(
+      `pgrep -f "openclaw/dist/index.js gateway" | head -n 1`,
     );
 
-    const pid = netstatOut.trim();
+    const pid = pgrepOut.trim();
 
     // 2. 如果 PID 为空，说明服务没启动
     if (!pid || isNaN(pid)) {
       return {
-        status: "NOT_FOUND",
+        status: "OFFLINE",
         online: false,
       };
     }
@@ -191,7 +191,7 @@ async function checkGatewayStatus() {
     // %cpu: CPU 占用率
     // rss: 物理内存占用 (单位 KB)
     // lstart: 具体的启动时间
-    const { stdout: psOut } = await execPromise(
+    const { stdout: psOut } = await execCommand(
       `ps -p ${pid} -o %cpu,rss,lstart --no-headers`,
     );
 
@@ -214,14 +214,14 @@ async function checkGatewayStatus() {
       cpu: cpu, // CPU 占用 %
       memory: memory, // 内存占用 (Bytes)
       uptime: uptime, // 已运行毫秒数
-      restarts: 0, // 原生模式下较难统计重启次数，设为 0 或由后端逻辑自行累计
+      restarts: 0, // 原生 nohup 模式下不记录重启次数，默认设为 0
     };
   } catch (err) {
-    // 如果命令执行报错（比如 grep 没搜到东西），通常意味着服务没开
+    // 命令执行报错（如果 pgrep 没搜到进程，它会返回 exit code 1，从而进入 catch 块）
     return {
       status: "OFFLINE",
       online: false,
-      error: err.message,
+      error: err.message, // 这里的错误通常是命令抛出的非零状态码，代表进程不存在
     };
   }
 }
