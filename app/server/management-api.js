@@ -11,7 +11,7 @@ const { spawn, exec } = require("child_process");
 
 console.log(`[Manager] PM2_HOME 已固化为: ${process.env.PM2_HOME}`);
 
-const PORT = parseInt(process.env.MANAGEMENT_PORT || "18790", 10);
+const PORT = parseInt(process.env.MANAGEMENT_PORT || "18790", 10); // 管理 API 端口
 const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
 
 // 路径配置

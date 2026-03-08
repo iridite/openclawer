@@ -136,7 +136,7 @@ generate_oc_token() {
 
     # 3. 使用 nohup 在后台启动，强行绑定 18791 端口，日志追加到 LOG_FILE
     nohup env HOME="/root" OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json" \
-    ${NODE_PATH} ${OC_JS_PATH} gateway --port 18791 >> "${LOG_FILE}" 2>&1 &
+    ${NODE_PATH} ${OC_JS_PATH} gateway --port 18789 >> "${LOG_FILE}" 2>&1 &
 
     # 4. 抓取刚才放入后台的进程 PID
     local GW_PID=$!
