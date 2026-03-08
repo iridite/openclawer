@@ -124,40 +124,41 @@ setup_openclaw_config() {
     fi
 }
 
-setup_systemd_service() {
-    log_msg "Setting up systemd service for OpenClaw..."
-
-    node ${OPENCLAW_BIN} gateway install --force >> ${LOG_FILE} 2>&1
-
-    if [ $? -eq 0 ]; then
-        log_msg "Systemd service for OpenClaw installed successfully"
-        return 0
-    else
-        log_msg "Failed to install systemd service for OpenClaw"
-        echo "Failed to install systemd service for OpenClaw." > "${TRIM_TEMP_LOGFILE}"
-        tail -n 20 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
-        exit 1
-    fi
-}
-
 generate_oc_token() {
-    log_msg "Generating OpenClaw token..."
+    log_msg "Starting OpenClaw gateway via nohup to generate token..."
 
-    node ${OPENCLAW_BIN} gateway start >> ${LOG_FILE} 2>&1
+    # 1. 定义真实的 JS 入口路径（绕过 .bin 软链接，防止环境问题）
+    local OC_JS_PATH="${PKGVAR}/node_modules/openclaw/dist/index.js"
 
-    if [ $? -eq 0 ]; then
-        log_msg "OpenClaw token generated successfully"
+    # 2. 杀掉可能残留的旧进程，确保端口清空
+    pkill -f "openclaw/dist/index.js gateway" 2>/dev/null
+    sleep 1
+
+    # 3. 使用 nohup 在后台启动，强行绑定 18791 端口，日志追加到 LOG_FILE
+    nohup env HOME="/root" OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json" \
+    ${NODE_PATH} ${OC_JS_PATH} gateway --port 18791 >> "${LOG_FILE}" 2>&1 &
+
+    # 4. 抓取刚才放入后台的进程 PID
+    local GW_PID=$!
+    log_msg "Gateway started in background with PID: $GW_PID"
+
+    # 5. 等待 5 秒，给网关充足的时间去初始化、绑定端口和写入 token 文件
+    log_msg "Waiting 5 seconds for initialization and token generation..."
+    sleep 5
+
+    # 6. 检查该 PID 是否依然存活 (kill -0 只是探测，不会真的杀进程)
+    if kill -0 $GW_PID 2>/dev/null; then
+        log_msg "OpenClaw token generated and gateway is running stably"
         return 0
     else
-        log_msg "Failed to generate OpenClaw token"
-        echo "Failed to generate OpenClaw token." > "${TRIM_TEMP_LOGFILE}"
-        tail -n 20 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
+        # 如果 PID 没了，说明启动瞬间就崩溃了
+        log_msg "Failed to start OpenClaw gateway or generate token"
+        echo "Failed to start OpenClaw gateway. Process crashed shortly after startup." > "${TRIM_TEMP_LOGFILE}"
+
+        # 抓取最后的日志找出死因
+        tail -n 30 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
         exit 1
     fi
-
-    sleep 2 # 等待服务启动，确保 token 生成逻辑有足够的时间执行
-    # 实际上也不用关掉，就干脆这样一直保持 openclaw gateway 运行就行了
-
 }
 
 # entry point
@@ -171,7 +172,6 @@ log_msg "Starting OpenClaw configuration setup..."
 # 运行 openclaw setup
 setup_openclaw_config
 setup_management_api_deps
-setup_systemd_service
 generate_oc_token
 
 exit 0

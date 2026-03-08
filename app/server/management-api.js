@@ -22,6 +22,8 @@ const CONFIG_FILE = "/root/.openclaw/openclaw.json"; // hard-coded
 // oc
 const OC_HOME = "/root/.openclaw";
 const OC_BIN_PATH = "/var/apps/oc-deploy/var/node_modules/.bin/openclaw";
+const OC_JS_PATH =
+  "/var/apps/oc-deploy/var/node_modules/openclaw/dist/index.js";
 const OC_PKG_JSON_PATH = path.join(
   TRIM_PKGVAR,
   "node_modules",
@@ -114,6 +116,51 @@ function execCommand(command, options = {}) {
       }
     });
   });
+}
+
+// API: 启动 Gateway
+async function startGateway() {
+  // 组装纯净的 nohup 后台启动命令
+  const startCmd = `nohup env HOME="/root" OPENCLAW_CONFIG_PATH="${CONFIG_FILE}" ${NODE_BIN} ${OC_JS_PATH} gateway --port ${GATEWAY_PORT} > ${LOG_FILE} 2>&1 &`;
+
+  try {
+    await execCommand(startCmd);
+    return { success: true, method: "nohup-start" };
+  } catch (err) {
+    throw new Error("启动失败: " + (err.stderr || err.message));
+  }
+}
+
+// API: 停止 Gateway
+async function stopGateway() {
+  // 使用 pkill 精确匹配进程启动参数并终止
+  const stopCmd = `pkill -f "openclaw/dist/index.js gateway"`;
+
+  try {
+    await execCommand(stopCmd);
+    return { success: true, method: "pkill-stop" };
+  } catch (err) {
+    // pkill 如果没找到进程，会返回退出码 1，这里我们当做成功（因为结果都是停止）
+    return { success: true, note: "Process was already stopped" };
+  }
+}
+
+// API: 重启 Gateway
+async function restartGateway() {
+  try {
+    // 1. 先尝试停止
+    await stopGateway();
+
+    // 2. 等待一小会儿，确保端口被操作系统释放 (非常重要！)
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // 3. 再次启动
+    await startGateway();
+
+    return { success: true, method: "nohup-restart" };
+  } catch (err) {
+    throw new Error("重启流程失败: " + err.message);
+  }
 }
 
 // 工具函数
@@ -296,13 +343,8 @@ async function validateConfig(config) {
 
 // API: 重启 Gateway (原生模式)
 async function restartGateway() {
-  const restartCmd = `OPENCLAW_CONFIG_PATH="${CONFIG_FILE}" HOME="/root" ${OC_BIN_PATH} gateway restart`;
-  // 并且 CONFIG_FILE 指向 /root/.openclaw/openclaw.json
-
   try {
-    // 1. 尝试执行原生重启命令
-    // 'gateway restart' 通常会自动处理 stop 和 daemon 的逻辑
-    await execCommand(restartCmd);
+    await restartGateway();
     return { success: true, method: "native-restart" };
   } catch (err) {
     // 2. 容错处理：如果 restart 报错（通常是因为当前没有正在运行的进程），

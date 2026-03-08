@@ -14,13 +14,8 @@ NODE_PATH="/var/apps/nodejs_v22/target/bin/node"
 ## npm 可执行文件路径
 NPM_PATH="/var/apps/nodejs_v22/target/bin/npm"
 
-# PM2 Config
-PM2_SCRIPT_PATH="/var/apps/${TRIM_APPNAME}/target/pm2.config.js"
-PM2_BIN="${TRIM_PKGVAR}/node_modules/.bin/pm2" # 文件夹应该是有效的，下次检查一下
-export PM2_HOME="${TRIM_PKGVAR}/.pm2" # 注意是否有权限的问题，这是新的文件夹
-
 # HTML pages
-MANAGEMENT_API="${TRIM_APPDEST}/server/management-api.js"
+MANAGEMENT_API="${BASE_DIR}/target/server/management-api.js"
 #-----------------
 GATEWAY_PORT="18789"
 PROXY_PORT="18790"
