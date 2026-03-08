@@ -7,34 +7,18 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-// const pm2 = require("pm2"); //TODO:
-// Error: Cannot find module 'pm2'
-// Require stack:
-// - /vol1/@appcenter/oc-deploy/server/management-api.js
-//     at Function._resolveFilename (node:internal/modules/cjs/loader:1365:15)
-//     at defaultResolveImpl (node:internal/modules/cjs/loader:1021:19)
-//     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1026:22)
-//     at Function._load (node:internal/modules/cjs/loader:1175:37)
-//     at TracingChannel.traceSync (node:diagnostics_channel:322:14)
-//     at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
-//     at Module.require (node:internal/modules/cjs/loader:1445:12)
-//     at require (node:internal/modules/helpers:135:16)
-//     at Object.<anonymous> (/vol1/@appcenter/oc-deploy/server/management-api.js:10:13)
-//     at Module._compile (node:internal/modules/cjs/loader:1688:14) {
-//   code: 'MODULE_NOT_FOUND',
-//   requireStack: [ '/vol1/@appcenter/oc-deploy/server/management-api.js' ]
-// }
+const pm2 = require("pm2");
 const { spawn, exec } = require("child_process");
 
-process.env.PM2_HOME = path.join(process.env.TRIM_PKGVAR, ".pm2");
+process.env.PM2_HOME = "/var/apps/oc-deploy/var/.pm2";
 console.log(`[Manager] PM2_HOME 已固化为: ${process.env.PM2_HOME}`);
 
 const PORT = parseInt(process.env.MANAGEMENT_PORT || "18790", 10);
 const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
 
 // 路径配置
-const TRIM_PKGVAR = process.env.TRIM_PKGVAR || "/var/apps/openclaw/var";
-const TRIM_APPDEST = process.env.TRIM_APPDEST || "/var/apps/openclaw/target";
+const TRIM_PKGVAR = "/var/apps/oc-deploy/var";
+const TRIM_APPDEST = "/var/apps/oc-deploy/target";
 const CONFIG_FILE = "/root/.openclaw/openclaw.json"; // hard-coded
 
 // oc
@@ -127,7 +111,7 @@ function execCommand(command, options = {}) {
 }
 
 // 工具函数
-// API pm2 api 获取 gateway 状态
+// pm2 api 获取 gateway 状态
 function checkGatewayStatus() {
   return new Promise((resolve, reject) => {
     // 1. 连接 PM2 (确保注入了 PM2_HOME 环境变量，已经在最上面注入)
@@ -171,7 +155,7 @@ async function getStatus() {
   const result = await checkGatewayStatus();
 
   status.gateway = result.status;
-  status.gatewayPid = -1;
+  status.gatewayPid = -1; //TODO 可以通过 pm2 的 API 获取 PID，但目前先不显示了
   status.uptime = result.uptime;
   //TODO 可以加上当前内存占用和 CPU 占用
   // 同时去掉 PID 的显示
@@ -194,6 +178,7 @@ async function getConfig() {
   const config = readJSON(CONFIG_FILE);
   if (!config) {
     return {
+      // 返回默认配置结构，前端可以根据这个结构来展示界面
       models: {},
       channels: {},
       gateway: {
@@ -265,7 +250,7 @@ async function validateConfig(config) {
 // API: 重启 Gateway
 async function restartGateway() {
   try {
-    // TODO 需要确认 pm2 list 中有这样一个任务
+    // 重启正常没问题
     await execCommand(`pm2 restart openclaw-gateway`);
     return { success: true };
   } catch (err) {
@@ -324,7 +309,7 @@ async function updateVersion() {
 // API: 获取控制台 URL
 async function getConsoleUrl() {
   const token = readText(TOKEN_FILE);
-  const host = "127.0.0.1"; // TODO 或从请求头获取
+  const host = "127.0.0.1"; // TODO： 或从请求头获取
   return {
     url: `http://${host}:${GATEWAY_PORT}`,
     token,
