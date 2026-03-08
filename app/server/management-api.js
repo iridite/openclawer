@@ -30,7 +30,8 @@ const OC_PKG_JSON_PATH = path.join(
   "openclaw",
   "package.json",
 );
-const TOKEN_FILE = path.join(TRIM_PKGVAR, "gateway_token"); //TODO token 需要等 gateawy 成功启动之后才能够自动生成并获取
+// @deprecated - Token 现在直接从 openclaw.json 读取，不再使用独立文件
+const TOKEN_FILE = path.join(TRIM_PKGVAR, "gateway_token");
 const DASHBOARD_PID_FILE = path.join(TRIM_PKGVAR, "app.pid"); // name's different
 const GATEWAY_PID_FILE = path.join(TRIM_PKGVAR, "gateway.pid"); // name's different
 const LOG_FILE = path.join(TRIM_PKGVAR, "openclaw.log"); // TODO 暂时不能确定 openclaw 的log 在哪里
@@ -90,6 +91,16 @@ function isProcessRunning(pid) {
     return true;
   } catch (err) {
     return false;
+  }
+}
+
+// 工具函数：从 openclaw.json 读取 token
+function getTokenFromConfig() {
+  try {
+    const config = readJSON(CONFIG_FILE);
+    return config?.gateway?.auth?.token || "";
+  } catch (err) {
+    return "";
   }
 }
 
@@ -176,7 +187,7 @@ async function getStatus() {
     memory: 0,
     version: "unknown",
     configExists: fs.existsSync(CONFIG_FILE),
-    token: readText(TOKEN_FILE), // TODO: token 需要等 gateway 成功启动之后才能够自动生成并获取
+    token: getTokenFromConfig(),
     uptime: null,
   };
 
@@ -251,7 +262,7 @@ async function getConfig() {
         bind: "0.0.0.0",
         auth: {
           mode: "token",
-          token: readText(TOKEN_FILE),
+          token: getTokenFromConfig(),
         },
       },
     };
@@ -362,7 +373,7 @@ async function updateVersion() {
 
 // API: 获取控制台 URL (动态识别 NAS IP)
 async function getConsoleUrl(req) {
-  const token = readText(TOKEN_FILE);
+  const token = getTokenFromConfig();
 
   // 核心逻辑：从请求头中提取用户当前访问的 NAS IP
   // 假设用户浏览器访问的是 http://192.168.1.100:18790
@@ -516,7 +527,9 @@ const server = http.createServer(handleRequest);
 server.listen(PORT, BIND_ADDR, () => {
   console.log(`[management-api] Listening on ${BIND_ADDR}:${PORT}`);
   console.log(`[management-api] Config file: ${CONFIG_FILE}`);
-  console.log(`[management-api] Token file: ${TOKEN_FILE}`);
+  console.log(
+    `[management-api] Token source: openclaw.json (gateway.auth.token)`,
+  );
 });
 
 // 优雅退出
