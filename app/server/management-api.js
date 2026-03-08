@@ -166,71 +166,9 @@ async function restartGateway() {
   }
 }
 
-// 工具函数
-// 原生工具获取 gateway 状态
-// 通过端口反查进程，获取 PID 后再查询 CPU、内存、启动时间等信息
-// TODO 需要对执行的二进制名称进行检查，以确保找到的确实是 openclaw gateway 的进程，而不是其他占用同一端口的程序
-// API: 检查 Gateway 状态 (适配 Nohup 原生进程模式)
-async function checkGatewayStatus() {
-  try {
-    // 1. 通过进程特征查找 PID (与 pkill 的逻辑保持完全一致)
-    // pgrep -f 会匹配整个命令行，head -n 1 确保即使有多个相关进程也只取主进程
-    const { stdout: pgrepOut } = await execCommand(
-      `pgrep -f "openclaw.*gateway" | head -n 1`,
-    );
-
-    const pid = pgrepOut.trim();
-
-    // 2. 如果 PID 为空，说明服务没启动
-    if (!pid || isNaN(pid)) {
-      return {
-        status: "OFFLINE",
-        online: false,
-      };
-    }
-
-    // 3. 获取进程详情 (CPU, 内存, 启动时间)
-    // ps 命令参数说明：
-    // %cpu: CPU 占用率
-    // rss: 物理内存占用 (单位 KB)
-    // lstart: 具体的启动时间
-    const { stdout: psOut } = await execCommand(
-      `ps -p ${pid} -o %cpu,rss,lstart --no-headers`,
-    );
-
-    const stats = psOut.trim().split(/\s+/);
-    // 示例 ps 输出: "0.5  65432 Sun Mar  8 15:00:00 2026"
-    // 注意：ps 的 lstart 格式通常由 5 个部分组成
-
-    const cpu = parseFloat(stats[0]);
-    const memory = parseInt(stats[1]) * 1024; // 转为字节 (Bytes)
-
-    // 解析启动时间并计算 uptime (毫秒)
-    const startTimeStr = stats.slice(2).join(" ");
-    const startTimeMs = new Date(startTimeStr).getTime();
-    const uptime = Date.now() - startTimeMs;
-
-    return {
-      status: "online",
-      online: true,
-      pid: parseInt(pid),
-      cpu: cpu, // CPU 占用 %
-      memory: memory, // 内存占用 (Bytes)
-      uptime: uptime, // 已运行毫秒数
-      restarts: 0, // 原生 nohup 模式下不记录重启次数，默认设为 0
-    };
-  } catch (err) {
-    // 命令执行报错（如果 pgrep 没搜到进程，它会返回 exit code 1，从而进入 catch 块）
-    return {
-      status: "OFFLINE",
-      online: false,
-      error: err.message, // 这里的错误通常是命令抛出的非零状态码，代表进程不存在
-    };
-  }
-}
-
-// API: 获取系统状态
+// API: 获取系统状态 (包含进程探测与状态打包)
 async function getStatus() {
+  // 1. 初始化基础状态对象 (保持原有输出结构完全一致)
   const status = {
     gateway: "unknown",
     gatewayPid: null,
@@ -238,35 +176,65 @@ async function getStatus() {
     memory: 0,
     version: "unknown",
     configExists: fs.existsSync(CONFIG_FILE),
-    token: readText(TOKEN_FILE),
+    token: readText(TOKEN_FILE), // TODO: token 需要等 gateway 成功启动之后才能够自动生成并获取
     uptime: null,
   };
 
-  // 调用我们刚刚重写的、基于原生命令的检测函数
-  const result = await checkGatewayStatus();
-
-  status.gateway = result.status;
-
-  // ✅ 解决了你的 TODO: 现在可以直接获取真实的 PID 了
-  status.gatewayPid = result.pid || null;
-
-  // ✅ 解决了你的 TODO: 加上当前内存占用 (MB) 和 CPU 占用 (%)
-  // 内存转换成 MB 看着更直观
-  status.cpu = result.cpu || 0;
-  status.memory = result.memory ? (result.memory / 1024 / 1024).toFixed(1) : 0;
-
-  status.uptime = result.uptime;
-
-  // 获取版本信息
+  // 2. 获取 OpenClaw 版本信息
   try {
     const packageJson = readJSON(OC_PKG_JSON_PATH);
     if (packageJson && packageJson.version) {
       status.version = packageJson.version;
     }
   } catch (err) {
-    // 忽略错误
+    // 忽略文件读取错误，保留 "unknown"
   }
 
+  // 3. 检测进程状态并填充系统资源信息
+  try {
+    // 通过进程特征查找 PID (与 pkill 的逻辑保持完全一致)
+    // pgrep -f 会匹配整个命令行，head -n 1 确保即使有多个相关进程也只取主进程
+    const pgrepOut = await execCommand(
+      `pgrep -f "openclaw.*gateway" | head -n 1`,
+    );
+
+    const pid = pgrepOut.trim();
+
+    // 判断进程是否存在
+    if (!pid || isNaN(pid)) {
+      status.gateway = "offline";
+    } else {
+      // 确认运行中，更新核心状态
+      status.gateway = "running";
+      status.gatewayPid = parseInt(pid);
+
+      // 获取进程详情 (CPU, 内存, 启动时间)
+      // %cpu: CPU 占用率 | rss: 物理内存占用 (KB) | lstart: 启动时间
+      const psOut = await execCommand(
+        `ps -p ${pid} -o %cpu,rss,lstart --no-headers`,
+      );
+
+      const stats = psOut.trim().split(/\s+/);
+
+      // 写入 CPU 数据
+      status.cpu = parseFloat(stats[0]) || 0;
+
+      // 计算并写入内存数据 (直接转换为 MB 并保留一位小数，保持输出格式不变)
+      const memoryBytes = parseInt(stats[1]) * 1024;
+      status.memory = memoryBytes ? (memoryBytes / 1024 / 1024).toFixed(1) : 0;
+
+      // 解析启动时间并计算 uptime (毫秒)
+      const startTimeStr = stats.slice(2).join(" ");
+      const startTimeMs = new Date(startTimeStr).getTime();
+      status.uptime = Date.now() - startTimeMs;
+    }
+  } catch (err) {
+    // 发生错误（例如 pgrep 没搜到进程抛出 exit code 1）
+    // 直接判定为离线状态，其余数据保留默认的 0/null
+    status.gateway = "offline";
+  }
+
+  // 4. 返回组装好的状态对象给前端
   return status;
 }
 
@@ -492,7 +460,7 @@ function handleRequest(req, res) {
       "GET /api/version/current": getCurrentVersion,
       "GET /api/version/latest": getLatestVersion,
       "POST /api/version/update": updateVersion,
-      "GET /api/console/url": getConsoleUrl(req),
+      "GET /api/console/url": () => getConsoleUrl(req),
       "GET /api/logs": () =>
         getLogs(parseInt(url.searchParams.get("lines") || "100", 10)),
     };
