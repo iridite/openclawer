@@ -292,6 +292,99 @@ async function saveConfig(newConfig) {
   return { success: true };
 }
 
+// API: 快速添加模型
+async function addModel(modelData) {
+  try {
+    // 读取现有配置
+    const config = readJSON(CONFIG_FILE);
+    if (!config) {
+      throw new Error("配置文件不存在");
+    }
+
+    // 确保基础结构存在
+    config.models = config.models || {};
+    config.models.mode = config.models.mode || "merge";
+    config.models.providers = config.models.providers || {};
+    config.agents = config.agents || {};
+    config.agents.defaults = config.agents.defaults || {};
+    config.agents.defaults.models = config.agents.defaults.models || {};
+
+    const { providerName, modelId, baseUrl, apiKey, apiProtocol, advanced } =
+      modelData;
+
+    // 创建或更新供应商配置
+    if (!config.models.providers[providerName]) {
+      config.models.providers[providerName] = {
+        baseUrl: baseUrl,
+        apiKey: apiKey,
+        api: apiProtocol,
+        models: [],
+      };
+    } else {
+      // 更新现有供应商的配置
+      config.models.providers[providerName].baseUrl = baseUrl;
+      config.models.providers[providerName].apiKey = apiKey;
+      config.models.providers[providerName].api = apiProtocol;
+    }
+
+    // 检查模型是否已存在
+    const existingModelIndex = config.models.providers[
+      providerName
+    ].models.findIndex((m) => m.id === modelId);
+
+    // 构建模型配置
+    const modelConfig = {
+      id: modelId,
+      name: modelId,
+      reasoning: advanced?.reasoning || false,
+      input: advanced?.input || ["text"],
+      cost: advanced?.cost || {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+      },
+      contextWindow: advanced?.contextWindow || 200000,
+      maxTokens: advanced?.maxTokens || 8192,
+    };
+
+    // 添加或更新模型
+    if (existingModelIndex >= 0) {
+      config.models.providers[providerName].models[existingModelIndex] =
+        modelConfig;
+    } else {
+      config.models.providers[providerName].models.push(modelConfig);
+    }
+
+    // 添加到 agents.defaults.models
+    const agentModelKey = `${providerName}/${modelId}`;
+    config.agents.defaults.models[agentModelKey] = {};
+
+    // 如果是第一个模型，设置为 primary
+    if (
+      !config.agents.defaults.model ||
+      !config.agents.defaults.model.primary
+    ) {
+      config.agents.defaults.model = config.agents.defaults.model || {};
+      config.agents.defaults.model.primary = agentModelKey;
+    }
+
+    // 保存配置
+    const success = writeJSON(CONFIG_FILE, config);
+    if (!success) {
+      throw new Error("保存配置失败");
+    }
+
+    return {
+      success: true,
+      message: "模型添加成功",
+      modelKey: agentModelKey,
+    };
+  } catch (err) {
+    throw new Error("添加模型失败: " + err.message);
+  }
+}
+
 // API: 验证配置
 async function validateConfig(config) {
   const errors = [];
@@ -466,6 +559,10 @@ function handleRequest(req, res) {
       "POST /api/config/validate": async () => {
         const body = await readBody(req);
         return validateConfig(JSON.parse(body));
+      },
+      "POST /api/models/add": async () => {
+        const body = await readBody(req);
+        return addModel(JSON.parse(body));
       },
       "POST /api/gateway/start": startGateway,
       "POST /api/gateway/stop": stopGateway,

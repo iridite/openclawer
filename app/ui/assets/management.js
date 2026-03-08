@@ -270,6 +270,129 @@ async function refreshStatus() {
 }
 
 // ============================================================================
+// 快速添加模型
+// ============================================================================
+
+// 供应商 Base URL 映射
+const PROVIDER_BASE_URLS = {
+  openai: "https://api.openai.com/v1",
+  anthropic: "https://api.anthropic.com",
+  bailian: "https://coding.dashscope.aliyuncs.com/v1",
+  zhipu: "https://open.bigmodel.cn/api/paas/v4",
+  moonshot: "https://api.moonshot.cn/v1",
+};
+
+// 展开/收起表单
+function toggleModelForm() {
+  const container = document.getElementById("model-form-container");
+  const btn = document.getElementById("toggle-form-btn");
+
+  if (container.style.display === "none") {
+    container.style.display = "block";
+    btn.textContent = "收起表单";
+  } else {
+    container.style.display = "none";
+    btn.textContent = "展开表单";
+  }
+}
+
+// 展开/收起高级配置
+function toggleAdvanced() {
+  const advanced = document.getElementById("advanced-config");
+  const toggle = document.getElementById("advanced-toggle");
+
+  if (advanced.style.display === "none") {
+    advanced.style.display = "block";
+    toggle.textContent = "▲";
+  } else {
+    advanced.style.display = "none";
+    toggle.textContent = "▼";
+  }
+}
+
+// 提交模型表单
+async function submitModelForm(event) {
+  event.preventDefault();
+
+  try {
+    const form = document.getElementById("add-model-form");
+    const formData = new FormData(form);
+
+    // 构建输入类型数组
+    const inputTypes = [];
+    if (document.getElementById("input-text").checked) {
+      inputTypes.push("text");
+    }
+    if (document.getElementById("input-image").checked) {
+      inputTypes.push("image");
+    }
+
+    // 构建请求数据
+    const modelData = {
+      modelId: formData.get("modelId"),
+      providerName: formData.get("providerName"),
+      baseUrl: formData.get("baseUrl"),
+      apiKey: formData.get("apiKey"),
+      apiProtocol: formData.get("apiProtocol"),
+      advanced: {
+        reasoning: document.getElementById("reasoning").checked,
+        input: inputTypes,
+        contextWindow: parseInt(formData.get("contextWindow")),
+        maxTokens: parseInt(formData.get("maxTokens")),
+      },
+    };
+
+    showToast("正在添加模型...", "info");
+
+    const result = await apiRequest("/models/add", {
+      method: "POST",
+      body: JSON.stringify(modelData),
+    });
+
+    showToast(result.message || "模型添加成功！", "success");
+
+    // 重置表单
+    resetModelForm();
+
+    // 刷新配置编辑器
+    await loadConfig();
+
+    // 刷新配置摘要
+    await loadConfigSummary();
+  } catch (error) {
+    showToast("添加失败: " + error.message, "error");
+  }
+}
+
+// 重置表单
+function resetModelForm() {
+  const form = document.getElementById("add-model-form");
+  form.reset();
+
+  // 重置高级配置默认值
+  document.getElementById("context-window").value = "200000";
+  document.getElementById("max-tokens").value = "8192";
+  document.getElementById("input-text").checked = true;
+  document.getElementById("input-image").checked = false;
+  document.getElementById("reasoning").checked = false;
+}
+
+// 监听供应商选择，自动填充 Base URL
+document.addEventListener("DOMContentLoaded", () => {
+  const providerInput = document.getElementById("provider-name");
+  const baseUrlInput = document.getElementById("base-url");
+
+  if (providerInput && baseUrlInput) {
+    providerInput.addEventListener("input", () => {
+      const provider = providerInput.value.toLowerCase();
+      if (PROVIDER_BASE_URLS[provider]) {
+        baseUrlInput.value = PROVIDER_BASE_URLS[provider];
+      }
+    });
+  }
+});
+
+// ============================================================================
 // 配置编辑
 // ============================================================================
 
@@ -460,12 +583,25 @@ document.addEventListener("DOMContentLoaded", () => {
   // 加载初始数据
   refreshDashboard();
 
-  // 定时刷新状态（每 10 秒）
+  // 定时刷新状态（每 5 秒）
   setInterval(() => {
     if (document.querySelector(".tab-content.active")?.id === "tab-dashboard") {
       refreshDashboard();
     }
   }, 5000);
+
+  // 监听供应商选择，自动填充 Base URL
+  const providerInput = document.getElementById("provider-name");
+  const baseUrlInput = document.getElementById("base-url");
+
+  if (providerInput && baseUrlInput) {
+    providerInput.addEventListener("input", () => {
+      const provider = providerInput.value.toLowerCase();
+      if (PROVIDER_BASE_URLS[provider]) {
+        baseUrlInput.value = PROVIDER_BASE_URLS[provider];
+      }
+    });
+  }
 
   console.log("初始化完成");
 });

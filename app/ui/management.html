@@ -336,6 +336,187 @@
                 <!-- 配置编辑 -->
                 <section class="tab-content" id="tab-config">
                     <div class="config-editor">
+                        <!-- 快速添加模型 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>➕ 快速添加模型</h2>
+                                <button
+                                    class="btn btn-secondary btn-sm"
+                                    onclick="toggleModelForm()"
+                                    id="toggle-form-btn"
+                                >
+                                    展开表单
+                                </button>
+                            </div>
+                            <div id="model-form-container" style="display: none">
+                                <form id="add-model-form" onsubmit="submitModelForm(event)">
+                                    <!-- 基础配置 -->
+                                    <div style="margin-bottom: 20px">
+                                        <h3 style="font-size: 16px; margin-bottom: 15px; color: #333">
+                                            📝 基础配置
+                                        </h3>
+
+                                        <div style="margin-bottom: 15px">
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 500">
+                                                模型名称 <span style="color: red">*</span>
+                                                <span style="color: #666; font-size: 12px; font-weight: normal" title="模型的唯一标识符，如 gpt-4、claude-3-opus">ⓘ</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="model-id"
+                                                name="modelId"
+                                                placeholder="例如: glm-4.7, qwen3.5-plus"
+                                                required
+                                                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px"
+                                            />
+                                        </div>
+
+                                        <div style="margin-bottom: 15px">
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 500">
+                                                供应商名称 <span style="color: red">*</span>
+                                                <span style="color: #666; font-size: 12px; font-weight: normal" title="模型提供商，如 openai、anthropic、bailian">ⓘ</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="provider-name"
+                                                name="providerName"
+                                                list="provider-suggestions"
+                                                placeholder="选择或输入供应商名称"
+                                                required
+                                                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px"
+                                            />
+                                            <datalist id="provider-suggestions">
+                                                <option value="openai">OpenAI</option>
+                                                <option value="anthropic">Anthropic</option>
+                                                <option value="bailian">阿里百炼</option>
+                                                <option value="zhipu">智谱 AI</option>
+                                                <option value="moonshot">Moonshot</option>
+                                            </datalist>
+                                        </div>
+
+                                        <div style="margin-bottom: 15px">
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 500">
+                                                Base URL <span style="color: red">*</span>
+                                                <span style="color: #666; font-size: 12px; font-weight: normal" title="API 端点地址">ⓘ</span>
+                                            </label>
+                                            <input
+                                                type="url"
+                                                id="base-url"
+                                                name="baseUrl"
+                                                placeholder="例如: https://api.openai.com/v1"
+                                                required
+                                                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px"
+                                            />
+                                            <small style="color: #666; font-size: 12px">
+                                                常见供应商会自动填充，也可自定义
+                                            </small>
+                                        </div>
+
+                                        <div style="margin-bottom: 15px">
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 500">
+                                                API Key <span style="color: red">*</span>
+                                                <span style="color: #666; font-size: 12px; font-weight: normal" title="供应商提供的 API 密钥">ⓘ</span>
+                                            </label>
+                                            <input
+                                                type="password"
+                                                id="api-key"
+                                                name="apiKey"
+                                                placeholder="输入 API Key"
+                                                required
+                                                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px"
+                                            />
+                                        </div>
+
+                                        <div style="margin-bottom: 15px">
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 500">
+                                                API 协议 <span style="color: red">*</span>
+                                                <span style="color: #666; font-size: 12px; font-weight: normal" title="选择 API 兼容协议">ⓘ</span>
+                                            </label>
+                                            <select
+                                                id="api-protocol"
+                                                name="apiProtocol"
+                                                required
+                                                style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px"
+                                            >
+                                                <option value="openai-completions">OpenAI 兼容</option>
+                                                <option value="anthropic">Anthropic 协议</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- 高级配置 -->
+                                    <div style="margin-bottom: 20px">
+                                        <h3 style="font-size: 16px; margin-bottom: 10px; color: #333; cursor: pointer" onclick="toggleAdvanced()">
+                                            ⚙️ 高级配置 <span id="advanced-toggle">▼</span>
+                                        </h3>
+                                        <div id="advanced-config" style="display: none">
+                                            <div style="margin-bottom: 15px">
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 500">
+                                                    支持推理
+                                                    <span style="color: #666; font-size: 12px; font-weight: normal" title="模型是否支持推理模式">ⓘ</span>
+                                                </label>
+                                                <input type="checkbox" id="reasoning" name="reasoning" />
+                                                <label for="reasoning" style="margin-left: 5px; font-weight: normal">启用推理模式</label>
+                                            </div>
+
+                                            <div style="margin-bottom: 15px">
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 500">
+                                                    输入类型
+                                                    <span style="color: #666; font-size: 12px; font-weight: normal" title="模型支持的输入类型">ⓘ</span>
+                                                </label>
+                                                <div>
+                                                    <input</div> type="checkbox" id="input-text" name="inputText" checked />
+                                                    <label for="input-text" style="margin-left: 5px; margin-right: 15px; font-weight: normal">文本</label>
+                                                    <input type="checkbox" id="input-image" name="inputImage" />
+                                                    <label for="input-image" style="margin-left: 5px; font-weight: normal">图像</label>
+                                                </div>
+                                            </div>
+
+                                            <div style="margin-bottom: 15px">
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 500">
+                                                    上下文窗口
+                                                    <span style="color: #666; font-size: 12px; font-weight: normal" title="模型支持的最大上下文长度">ⓘ</span>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    id="context-window"
+                                                    name="contextWindow"
+                                                    value="200000"
+                                                    min="1000"
+                                                    style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px"
+                                                />
+                                            </div>
+
+                                            <div style="margin-bottom: 15px">
+                                                <label style="display: block; margin-bottom: 5px; font-weight: 500">
+                                                    最大输出 Token
+                                                    <span style="color: #666; font-size: 12px; font-weight: normal" title="模型单次输出的最大 token 数">ⓘ</span>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    id="max-tokens"
+                                                    name="maxTokens"
+                                                    value="8192"
+                                                    min="100"
+                                                    style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 提交按钮 -->
+                                    <div style="text-align: right">
+                                        <button type="button" class="btn btn-secondary" onclick="resetModelForm()" style="margin-right: 10px">
+                                            重置
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            ✅ 添加模型
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
                         <div class="card">
                             <div class="card-header">
                                 <h2>配置编辑器</h2>
