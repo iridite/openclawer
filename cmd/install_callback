@@ -104,6 +104,7 @@ setup_openclaw_config() {
         config.gateway = config.gateway || {};
         config.gateway.mode = 'local';
         config.gateway.port = 18789;
+        config.gateway.bind = 'lan';
 
         // 3. 【新增】实现模式 A：配置 CORS 允许所有来源
         config.gateway.controlUi = config.gateway.controlUi || {};
