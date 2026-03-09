@@ -1206,9 +1206,9 @@ async function submitChannelForm(event) {
       const appIdEl = document.getElementById("feishu-app-id");
       const appSecretEl = document.getElementById("feishu-app-secret");
       const botNameEl = document.getElementById("feishu-bot-name");
-      const verificationTokenEl = document.getElementById(
-        "feishu-verification-token",
-      );
+      // const verificationTokenEl = document.getElementById(
+      //   "feishu-verification-token",
+      // );
       const dmPolicyEl = document.getElementById("feishu-dm-policy");
 
       // 飞书使用 accounts 结构
@@ -1227,10 +1227,10 @@ async function submitChannelForm(event) {
         config.channels[channelId].accounts.main.botName =
           botNameEl.value.trim();
       }
-      if (verificationTokenEl && verificationTokenEl.value.trim()) {
-        config.channels[channelId].accounts.main.verificationToken =
-          verificationTokenEl.value.trim();
-      }
+      // if (verificationTokenEl && verificationTokenEl.value.trim()) {
+      //   config.channels[channelId].accounts.main.verificationToken =
+      //     verificationTokenEl.value.trim();
+      // }
       if (dmPolicyEl && dmPolicyEl.value) {
         config.channels[channelId].dmPolicy = dmPolicyEl.value;
       }
@@ -1335,11 +1335,11 @@ async function editChannel(channelId) {
       const botNameEl = document.getElementById("feishu-bot-name");
       if (botNameEl) botNameEl.value = mainAccount.botName || "";
 
-      const verificationTokenEl = document.getElementById(
-        "feishu-verification-token",
-      );
-      if (verificationTokenEl)
-        verificationTokenEl.value = mainAccount.verificationToken || "";
+      // const verificationTokenEl = document.getElementById(
+      //   "feishu-verification-token",
+      // );
+      // if (verificationTokenEl)
+      //   verificationTokenEl.value = mainAccount.verificationToken || "";
 
       const dmPolicyEl = document.getElementById("feishu-dm-policy");
       if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "pairing";
