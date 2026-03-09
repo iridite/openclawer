@@ -28,24 +28,177 @@ export PATH="/var/apps/nodejs_v22/target/bin:${PKGVAR}/node_modules/.bin:$PATH"
 
 # 安装 openclaw 最新版本
 # 在指定目录下安装 openclaw@latest
+# 支持多镜像源切换和重试机制
 install_openclaw() {
     # 1. 确保环境变量和路径锁定
     local OPENCLAW_BIN="${PKGVAR}/node_modules/.bin/openclaw"
 
     log_msg "Installing openclaw@latest in ${PKGVAR}..."
 
-    # 切换到应用目录并执行安装
-    cd "${PKGVAR}" && npm install openclaw@latest >> ${LOG_FILE} 2>&1
+    # 定义多个镜像源（按优先级排序）
+    local REGISTRIES=(
+        "https://registry.npmmirror.com/"     # 淘宝镜像（国内最快）
+        "https://registry.npm.taobao.org/"    # 淘宝镜像备用地址
+        "https://registry.npmjs.org/"         # 官方源（国外）
+    )
 
-    # 2. 替换测试逻辑：尝试执行二进制文件并获取版本号
+    # 每个镜像源的重试次数
+    local MAX_RETRIES=2
+    local INSTALL_SUCCESS=0
+
+    # 遍历所有镜像源
+    for REGISTRY in "${REGISTRIES[@]}"; do
+        log_msg "Trying registry: ${REGISTRY}"
+
+        # 对每个镜像源进行重试
+        for attempt in $(seq 1 $MAX_RETRIES); do
+            log_msg "Attempt ${attempt}/${MAX_RETRIES} with ${REGISTRY}..."
+
+            # 清理可能的残留文件
+            rm -rf "${PKGVAR}/node_modules/openclaw" 2>/dev/null
+            rm -rf "${PKGVAR}/package-lock.json" 2>/dev/null
+
+            # 执行安装，设置超时时间为 120 秒
+            cd "${PKGVAR}" && timeout 120 npm install openclaw@latest \
+                --registry="${REGISTRY}" \
+                --no-audit \
+                --no-fund \
+                --prefer-online \
+                --fetch-timeout=60000 \
+                --fetch-retries=3 >> "${LOG_FILE}" 2>&1
+
+            local INSTALL_EXIT_CODE=$?
+
+            # 检查安装是否成功
+            if [ $INSTALL_EXIT_CODE -eq 0 ]; then
+                log_msg "npm install completed successfully with ${REGISTRY}"
+                INSTALL_SUCCESS=1
+                break 2  # 跳出两层循环
+            else
+                log_msg "npm install failed with exit code ${INSTALL_EXIT_CODE}"
+
+                # 如果不是最后一次尝试，等待 3 秒后重试
+                if [ $attempt -lt $MAX_RETRIES ]; then
+                    log_msg "Waiting 1 seconds before retry..."
+                    sleep 1
+                fi
+            fi
+        done
+
+        # 如果当前镜像源所有重试都失败，尝试下一个镜像源
+        if [ $INSTALL_SUCCESS -eq 0 ]; then
+            log_msg "All attempts failed with ${REGISTRY}, trying next registry..."
+        fi
+    done
+
+    # 检查是否有任何镜像源安装成功
+    if [ $INSTALL_SUCCESS -eq 0 ]; then
+        log_msg "All registries failed for @latest, starting version fallback mechanism..."
+
+        # 版本降级配置
+        local MAX_VERSION_FALLBACK=5  # 最多降级 5 次
+        local PRIMARY_REGISTRY="${REGISTRIES[0]}"  # 使用第一个镜像源进行降级
+
+        # 获取可用的历史版本列表
+        log_msg "Fetching available openclaw versions from ${PRIMARY_REGISTRY}..."
+
+        # 使用 npm view 获取最近的稳定版本列表（排除 beta 版本）
+        # OpenClaw 使用日期版本号格式：YYYY.M.D 或 YYYY.M.D-N
+        local VERSIONS=$(cd "${PKGVAR}" && npm view openclaw versions --json --registry="${PRIMARY_REGISTRY}" 2>>"${LOG_FILE}" | \
+            grep -oP '"\K[0-9]{4}\.[0-9]+\.[0-9]+(-[0-9]+)?(?=")' | \
+            grep -v 'beta' | \
+            tail -n 10 | \
+            tac)
+
+        if [ -z "$VERSIONS" ]; then
+            log_msg "Failed to fetch version list, cannot proceed with fallback"
+            echo "Failed to install openclaw from all registries and version list unavailable." > "$TRIM_TEMP_LOGFILE"
+            echo "" >> "$TRIM_TEMP_LOGFILE"
+            echo "Tried registries:" >> "$TRIM_TEMP_LOGFILE"
+            for reg in "${REGISTRIES[@]}"; do
+                echo "  - ${reg}" >> "$TRIM_TEMP_LOGFILE"
+            done
+            echo "" >> "$TRIM_TEMP_LOGFILE"
+            echo "Last 30 lines of installation log:" >> "$TRIM_TEMP_LOGFILE"
+            tail -n 30 "${LOG_FILE}" >> "$TRIM_TEMP_LOGFILE"
+            exit 1
+        else
+            log_msg "Available versions for fallback: $(echo $VERSIONS | tr '\n' ' ')"
+
+            local fallback_count=0
+            local fallback_success=0
+
+            # 遍历版本列表，尝试安装
+            for VERSION in $VERSIONS; do
+                # 检查是否超过最大降级次数
+                if [ $fallback_count -ge $MAX_VERSION_FALLBACK ]; then
+                    log_msg "Reached maximum fallback attempts (${MAX_VERSION_FALLBACK}), stopping..."
+                    break
+                fi
+
+                fallback_count=$((fallback_count + 1))
+                log_msg "Fallback attempt ${fallback_count}/${MAX_VERSION_FALLBACK}: trying openclaw@${VERSION}..."
+
+                # 清理残留文件
+                rm -rf "${PKGVAR}/node_modules/openclaw" 2>/dev/null
+                rm -rf "${PKGVAR}/package-lock.json" 2>/dev/null
+
+                # 尝试安装指定版本
+                cd "${PKGVAR}" && timeout 120 npm install openclaw@${VERSION} \
+                    --registry="${PRIMARY_REGISTRY}" \
+                    --no-audit \
+                    --no-fund \
+                    --prefer-online \
+                    --fetch-timeout=60000 \
+                    --fetch-retries=3 >> "${LOG_FILE}" 2>&1
+
+                local FALLBACK_EXIT_CODE=$?
+
+                if [ $FALLBACK_EXIT_CODE -eq 0 ]; then
+                    log_msg "Successfully installed openclaw@${VERSION} via fallback"
+                    fallback_success=1
+                    INSTALL_SUCCESS=1
+                    break
+                else
+                    log_msg "Failed to install openclaw@${VERSION}, trying older version..."
+                    sleep 2
+                fi
+            done
+
+            if [ $fallback_success -eq 0 ]; then
+                log_msg "All fallback versions failed"
+                echo "Failed to install openclaw from all available methods." > "$TRIM_TEMP_LOGFILE"
+                echo "" >> "$TRIM_TEMP_LOGFILE"
+                echo "Tried methods:" >> "$TRIM_TEMP_LOGFILE"
+                echo "  1. Latest version from all registries:" >> "$TRIM_TEMP_LOGFILE"
+                for reg in "${REGISTRIES[@]}"; do
+                    echo "     - ${reg}" >> "$TRIM_TEMP_LOGFILE"
+                done
+                echo "  2. Version fallback (up to ${MAX_VERSION_FALLBACK} older versions)" >> "$TRIM_TEMP_LOGFILE"
+                echo "     Tried versions: $(echo "$VERSIONS" | head -n $MAX_VERSION_FALLBACK | tr '\n' ' ')" >> "$TRIM_TEMP_LOGFILE"
+                echo "" >> "$TRIM_TEMP_LOGFILE"
+                echo "Last 40 lines of installation log:" >> "$TRIM_TEMP_LOGFILE"
+                tail -n 40 "${LOG_FILE}" >> "$TRIM_TEMP_LOGFILE"
+                echo "" >> "$TRIM_TEMP_LOGFILE"
+                echo "Possible solutions:" >> "$TRIM_TEMP_LOGFILE"
+                echo "  - Check network connectivity" >> "$TRIM_TEMP_LOGFILE"
+                echo "  - Verify DNS resolution" >> "$TRIM_TEMP_LOGFILE"
+                echo "  - Check if npm registry is accessible" >> "$TRIM_TEMP_LOGFILE"
+                echo "  - Try manual installation: cd ${PKGVAR} && npm install openclaw" >> "$TRIM_TEMP_LOGFILE"
+                exit 1
+            fi
+        fi
+    fi
+
+    # 2. 验证安装：尝试执行二进制文件并获取版本号
     log_msg "Verifying openclaw binary execution..."
 
     # 验证步骤：
-    # a. 检查二进制文件文件是否存在
+    # a. 检查二进制文件是否存在
     # b. 使用指定的 NODE_PATH 尝试运行该文件并获取版本信息
-    if [ -f "$OPENCLAW_BIN" ] && node "$OPENCLAW_BIN" --version >> ${LOG_FILE} 2>&1; then # 双重变量，记得处理下
+    if [ -f "$OPENCLAW_BIN" ] && node "$OPENCLAW_BIN" --version >> ${LOG_FILE} 2>&1; then
         log_msg "openclaw@latest installed and verified successfully"
-        # 获取具体的版本号并记录到日志中（可选）
+        # 获取具体的版本号并记录到日志中
         local VERSION=$(node "$OPENCLAW_BIN" --version 2>/dev/null)
         log_msg "Detected version: $VERSION"
         return 0
@@ -53,11 +206,19 @@ install_openclaw() {
         # 验证失败的处理逻辑
         log_msg "Error: openclaw binary verification failed. Installation might be corrupted."
         echo "Failed to verify openclaw@latest installation." > "$TRIM_TEMP_LOGFILE"
-
-        # 抓取最后 20 行日志辅助诊断
+        echo "" >> "$TRIM_TEMP_LOGFILE"
+        echo "Binary path: ${OPENCLAW_BIN}" >> "$TRIM_TEMP_LOGFILE"
+        echo "Binary exists: $([ -f "$OPENCLAW_BIN" ] && echo 'Yes' || echo 'No')" >> "$TRIM_TEMP_LOGFILE"
+        echo "" >> "$TRIM_TEMP_LOGFILE"
+        echo "Last 20 lines of log:" >> "$TRIM_TEMP_LOGFILE"
         tail -n 20 "${LOG_FILE}" >> "$TRIM_TEMP_LOGFILE"
-        echo "Possible cause: Environment mismatch or incomplete dependencies." >> "$TRIM_TEMP_LOGFILE"
-        echo "Please check the log above for details: ${LOG_FILE}" >> "$TRIM_TEMP_LOGFILE"
+        echo "" >> "$TRIM_TEMP_LOGFILE"
+        echo "Possible causes:" >> "$TRIM_TEMP_LOGFILE"
+        echo "  - Incomplete installation" >> "$TRIM_TEMP_LOGFILE"
+        echo "  - Node.js version mismatch" >> "$TRIM_TEMP_LOGFILE"
+        echo "  - Missing dependencies" >> "$TRIM_TEMP_LOGFILE"
+        echo "" >> "$TRIM_TEMP_LOGFILE"
+        echo "Full log: ${LOG_FILE}" >> "$TRIM_TEMP_LOGFILE"
         exit 1
     fi
 }
