@@ -196,10 +196,8 @@ function loadTabData(tabName) {
     case "config":
       renderQuickAddButtons();
       loadModelsList();
-      loadConfig();
-      break;
-    case "channels":
       loadChannelsList();
+      loadConfig();
       break;
     case "version":
       loadVersionInfo();
@@ -708,8 +706,8 @@ async function loadChannelsList() {
   }
 }
 
-// 显示添加渠道表单
-function showAddChannelForm() {
+// 显示/隐藏添加渠道表单
+function toggleChannelForm() {
   const formCard = document.getElementById("channel-form-card");
   const formTitle = document.getElementById("channel-form-title");
   const submitBtnText = document.getElementById("channel-submit-btn-text");
@@ -724,7 +722,8 @@ function showAddChannelForm() {
   document.getElementById("channel-id").disabled = false;
   document.getElementById("channel-type").value = "telegram";
   document.getElementById("channel-token").value = "";
-  document.getElementById("channel-chat-id").value = "";
+  const chatIdEl = document.getElementById("channel-chat-id");
+  if (chatIdEl) chatIdEl.value = "";
   document.getElementById("channel-enabled").checked = true;
 
   formCard.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -733,18 +732,19 @@ function showAddChannelForm() {
 // 取消添加/编辑渠道
 function cancelChannelForm() {
   document.getElementById("channel-form-card").style.display = "none";
-  document.getElementById("channel-form").reset();
+  document.getElementById("add-channel-form").reset();
 }
 
 // 保存渠道配置
-async function saveChannel(event) {
+async function submitChannelForm(event) {
   event.preventDefault();
 
   const editKey = document.getElementById("edit-channel-key").value;
   const channelId = document.getElementById("channel-id").value.trim();
   const channelType = document.getElementById("channel-type").value;
   const token = document.getElementById("channel-token").value.trim();
-  const chatId = document.getElementById("channel-chat-id").value.trim();
+  const chatIdEl = document.getElementById("channel-chat-id");
+  const chatId = chatIdEl ? chatIdEl.value.trim() : "";
   const enabled = document.getElementById("channel-enabled").checked;
 
   if (!channelId) {
@@ -760,29 +760,41 @@ async function saveChannel(event) {
   try {
     showToast("正在保存渠道配置...", "info");
 
-    const channelData = {
+    // 获取当前配置
+    const config = await apiRequest("/config");
+
+    // 确保 channels 对象存在
+    if (!config.channels) {
+      config.channels = {};
+    }
+
+    // 如果是编辑模式且渠道名称改变了，删除旧的
+    if (editKey && editKey !== channelId) {
+      delete config.channels[editKey];
+    }
+
+    // 添加或更新渠道配置
+    config.channels[channelId] = {
       type: channelType,
       token: token,
       enabled: enabled,
     };
 
     if (chatId) {
-      channelData.chatId = chatId;
+      config.channels[channelId].chatId = chatId;
     }
 
-    const result = await apiRequest("/channels/save", {
+    // 保存整个配置
+    await apiRequest("/config", {
       method: "POST",
-      body: JSON.stringify({
-        channelKey: editKey || channelId,
-        newChannelKey: channelId,
-        channelData: channelData,
-      }),
+      body: JSON.stringify(config),
     });
 
-    showToast(result.message || "渠道配置保存成功！", "success");
+    showToast("渠道配置保存成功！", "success");
 
-    // 重新加载渠道列表
+    // 重新加载渠道列表和配置摘要
     await loadChannelsList();
+    await loadConfigSummary();
 
     // 隐藏表单
     cancelChannelForm();
@@ -817,7 +829,8 @@ async function editChannel(channelKey) {
     document.getElementById("channel-id").disabled = true;
     document.getElementById("channel-type").value = channel.type || "telegram";
     document.getElementById("channel-token").value = channel.token || "";
-    document.getElementById("channel-chat-id").value = channel.chatId || "";
+    const chatIdEl = document.getElementById("channel-chat-id");
+    if (chatIdEl) chatIdEl.value = channel.chatId || "";
     document.getElementById("channel-enabled").checked =
       channel.enabled !== false;
 
@@ -836,15 +849,28 @@ async function deleteChannel(channelKey) {
   try {
     showToast("正在删除渠道...", "info");
 
-    const result = await apiRequest(`/channels/delete`, {
+    // 获取当前配置
+    const config = await apiRequest("/config");
+
+    // 删除指定渠道
+    if (config.channels && config.channels[channelKey]) {
+      delete config.channels[channelKey];
+    } else {
+      showToast("渠道不存在", "error");
+      return;
+    }
+
+    // 保存配置
+    await apiRequest("/config", {
       method: "POST",
-      body: JSON.stringify({ channelKey }),
+      body: JSON.stringify(config),
     });
 
-    showToast(result.message || "渠道删除成功！", "success");
+    showToast("渠道删除成功！", "success");
 
-    // 重新加载渠道列表
+    // 重新加载渠道列表和配置摘要
     await loadChannelsList();
+    await loadConfigSummary();
   } catch (error) {
     showToast("删除渠道失败: " + error.message, "error");
   }
