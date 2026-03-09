@@ -469,9 +469,11 @@ body {
     background: var(--text-dark);
     color: white;
     box-shadow: 0 4px 12px var(--shadow);
-    transform: translateX(400px);
+    transform: translateX(calc(100% + 20px));
     transition: transform 0.3s;
     z-index: 1000;
+    max-width: 400px;
+    word-wrap: break-word;
 }
 
 .toast.show {
