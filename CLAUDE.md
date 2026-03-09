@@ -65,18 +65,21 @@ node app/server/management-api.js
 
 ```bash
 # Ensure executable permissions
-chmod +x cmd/main
+chmod +x cmd/main cmd/install_callback cmd/install_init cmd/uninstall_init
 chmod +x app/ui/index.cgi
 chmod +x app/server/management-api.js
 
 # Package into FPK (from project root)
 tar -czf oc-deploy.fpk app/ cmd/ config/ manifest wizard/
+
+# For versioned releases (update version in manifest first)
+tar -czf oc-deploy_1.0.0_x86_64.fpk app/ cmd/ config/ manifest wizard/
 ```
 
 ### Testing on fnOS
 
 1. Upload the FPK to fnOS App Center
-2. Install and start the application
+2. Install and start the application (installation takes ~2-3 minutes, 40% progress indicates npm dependencies are being installed)
 3. Access via the "Open" button in App Center
 4. Check logs at `/var/apps/oc-deploy/var/info.log`
 
@@ -102,11 +105,15 @@ tar -czf oc-deploy.fpk app/ cmd/ config/ manifest wizard/
 ### Configuration Files
 
 - **OpenClaw Config**: `/root/.openclaw/openclaw.json` (managed by Management API)
+- **Initial Config Template**: Includes `reload: "hybrid"` mode by default
 - **Environment Variables**:
   - `TRIM_PKGVAR`: `/var/apps/oc-deploy/var` (runtime data)
   - `TRIM_APPDEST`: `/var/apps/oc-deploy/target` (application files)
   - `HOME`: `/root` (locked for OpenClaw)
   - `OPENCLAW_CONFIG_PATH`: `/root/.openclaw/openclaw.json`
+  - `CONFIG_FILE`: `/root/.openclaw/openclaw.json` (used by Management API)
+  - `NODE_BIN`: `/var/apps/nodejs_v22/target/bin/node`
+  - `OC_BIN_PATH`: `/var/apps/oc-deploy/var/node_modules/.bin/openclaw`
 
 ## API Endpoints
 
@@ -116,13 +123,36 @@ GET  /api/config              # Get openclaw.json
 POST /api/config              # Save openclaw.json (auto-backup)
 POST /api/config/validate     # Validate JSON config
 POST /api/models/add          # Quick add model
+POST /api/models/delete       # Delete model by ID
 POST /api/gateway/start       # Start gateway
 POST /api/gateway/stop        # Stop gateway (pkill -9)
 POST /api/gateway/restart     # Restart gateway (stop + 2s delay + start)
 GET  /api/version/current     # Get OpenClaw version
+GET  /api/version/latest      # Get latest available version
+POST /api/version/update      # Update OpenClaw to latest version
 GET  /api/console/url         # Get console URL with token
 GET  /api/logs?lines=100      # Get recent logs
 ```
+
+### Status API Response Structure
+
+The `/api/status` endpoint returns a nested object structure:
+
+```javascript
+{
+  success: true,
+  data: {
+    gateway: "running" | "offline",
+    gatewayPid: number | null,
+    system: {
+      cpu: number,      // CPU usage percentage
+      memory: number    // Memory usage in MB
+    }
+  }
+}
+```
+
+**Important**: Always access system metrics via `status.system.cpu` and `status.system.memory`, not at the top level.
 
 ## Code Conventions
 
@@ -247,6 +277,10 @@ cat /var/apps/oc-deploy/var/info.log | tail -50
 ## Current Development Focus
 
 See `TODO.md` for active development tasks. Key areas:
-- Quick model addition interface (partially implemented)
 - Real-time config updates (planned)
 - Dark mode UI toggle (planned)
+
+## Version Information
+
+Current version: 1.0.0 (see `manifest` file)
+README version: 0.2.2 (documentation may be ahead of manifest)
