@@ -580,17 +580,6 @@ span[title] {
     margin-top: 16px;
 }
 
-/* 供应商分组标题 */
-.provider-group-header {
-    grid-column: 1 / -1;
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--text-dark);
-    padding: 16px 0 8px 0;
-    margin-top: 8px;
-    border-bottom: 2px solid var(--primary);
-}
-
 .model-card {
     background: var(--bg-white);
     border: 1px solid var(--border);
@@ -603,6 +592,16 @@ span[title] {
 .model-card:hover {
     box-shadow: 0 4px 12px var(--shadow);
     transform: translateY(-2px);
+}
+
+/* Primary 模型高亮样式 */
+.model-card-primary {
+    border: 2px solid var(--primary);
+    box-shadow: 0 0 0 3px rgba(244, 81, 30, 0.15);
+}
+
+.model-card-primary:hover {
+    box-shadow: 0 0 0 3px rgba(244, 81, 30, 0.15), 0 4px 12px var(--shadow);
 }
 
 .model-card-header {

@@ -684,12 +684,12 @@ async function loadModelsList() {
     const providers = config.models.providers;
     const sortedProviders = Object.keys(providers).sort();
 
+    // 获取 primary 模型
+    const primaryModel = config.model?.primary || "";
+
     let html = "";
     for (const providerName of sortedProviders) {
       const provider = providers[providerName];
-
-      // 供应商分组标题
-      html += `<div class="provider-group-header">${providerName}</div>`;
 
       // 该供应商下的所有模型
       if (provider.models && Array.isArray(provider.models)) {
@@ -699,11 +699,16 @@ async function loadModelsList() {
           const hasKey = apiKey ? "✅ 已配置" : "❌ 未配置";
           const maskedKey = maskApiKey(apiKey);
           const modelId = model.id || model.name;
+          const modelKey = `${providerName}/${modelId}`;
+
+          // 判断是否为 primary 模型
+          const isPrimary = modelKey === primaryModel;
+          const primaryClass = isPrimary ? " model-card-primary" : "";
 
           html += `
-          <div class="model-card">
+          <div class="model-card${primaryClass}">
           <div class="model-card-header">
-            <h3 class="model-card-title">${providerName}/${modelId}</h3>
+            <h3 class="model-card-title">${modelKey}</h3>
           </div>
             <div class="model-card-info">
               <div class="model-card-info-item">
