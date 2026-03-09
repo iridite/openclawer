@@ -16,10 +16,8 @@ NPM_PATH="/var/apps/nodejs_v22/target/bin/npm"
 
 # HTML pages
 MANAGEMENT_API="${BASE_DIR}/target/server/management-api.js"
-IFRAME_PROXY="${BASE_DIR}/target/server/iframe-proxy.js"
 #-----------------
 GATEWAY_PORT="18789"
-PROXY_PORT="18791"
 MANAGEMENT_PORT="18790"
 # ----------------
 
@@ -48,9 +46,7 @@ start_process() {
     # 启动前强制清理可能残留的进程
     log_msg "清理可能残留的进程..."
     pkill -9 -f "management-api.js" 2>/dev/null && log_msg "清理了残留的 management-api.js" || true
-    pkill -9 -f "iframe-proxy.js" 2>/dev/null && log_msg "清理了残留的 iframe-proxy.js" || true
     lsof -ti:${MANAGEMENT_PORT} 2>/dev/null | xargs kill -9 2>/dev/null && log_msg "清理了端口 ${MANAGEMENT_PORT}" || true
-    lsof -ti:${PROXY_PORT} 2>/dev/null | xargs kill -9 2>/dev/null && log_msg "清理了端口 ${PROXY_PORT}" || true
     sleep 1
     log_msg "清理完成"
 
@@ -101,19 +97,9 @@ start_process() {
     fi
     log_msg "✅ Management API 路径: ${MANAGEMENT_API}"
 
-    # 检查 iframe-proxy
-    if [ ! -f "${IFRAME_PROXY}" ]; then
-        log_msg "⚠️  iframe-proxy 未找到: ${IFRAME_PROXY}"
-        log_msg "⚠️  将仅启动 Management API，Dashboard 嵌入功能将不可用"
-        # 不返回错误，继续启动 Management API
-    else
-        log_msg "✅ iframe-proxy 路径: ${IFRAME_PROXY}"
-    fi
-
-
     log_msg "[2/3] 启动服务进程..."
 
-    # 启动 Management API
+    # 启动 Management API（已集成 Dashboard 代理功能）
     log_msg "启动 Management API (端口: ${MANAGEMENT_PORT})..."
     (
         export TRIM_PKGVAR="${TRIM_PKGVAR}"
@@ -128,49 +114,7 @@ start_process() {
     # 将后台进程的 PID 写入 PID 文件
     printf "%s" "${main_pid}" > ${PID_FILE}
     log_msg "✅ Management API 已启动，PID: ${main_pid}"
-
-    # 启动 iframe-proxy（用于嵌入 OpenClaw Dashboard）
-    local proxy_pid_file="${TRIM_PKGVAR}/proxy.pid"
-    if [ -f "${IFRAME_PROXY}" ]; then
-        log_msg "启动 iframe-proxy (端口: ${PROXY_PORT})..."
-        (
-            export GATEWAY_PORT="${GATEWAY_PORT}"
-            export PROXY_PORT="${PROXY_PORT}"
-            export BIND_ADDR="127.0.0.1"
-            export TOKEN_FILE="${TRIM_PKGVAR}/.gateway_token"
-
-            # 从 openclaw.json 读取 token 并写入临时文件
-            if [ -f "/root/.openclaw/openclaw.json" ]; then
-                "${NODE_PATH}" -e "
-                    try {
-                        const fs = require('fs');
-                        const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf8'));
-                        const token = config?.gateway?.auth?.token || '';
-                        if (token) {
-                            fs.writeFileSync('${TRIM_PKGVAR}/.gateway_token', token);
-                            console.log('[启动] 已从 openclaw.json 读取 token');
-                        } else {
-                            console.log('[启动] 警告: openclaw.json 中未找到 token');
-                        }
-                    } catch(e) {
-                        console.log('[启动] 错误: 无法读取 token -', e.message);
-                    }
-                " >> ${LOG_FILE} 2>&1
-            else
-                log_msg "⚠️  未找到 /root/.openclaw/openclaw.json，iframe-proxy 将无法自动注入 token"
-            fi
-
-            exec "${NODE_PATH}" "${IFRAME_PROXY}"
-        ) >> ${LOG_FILE} 2>&1 &
-
-        local proxy_pid=$!
-        printf "%s" "${proxy_pid}" > ${proxy_pid_file}
-        log_msg "✅ iframe-proxy 已启动，PID: ${proxy_pid}"
-    else
-        log_msg "⚠️  跳过 iframe-proxy 启动（文件不存在）"
-    fi
-
-    log_msg "[3/3] 等待服务就绪..."
+    log_msg "ℹ️  Dashboard 代理功能已集成到 Management API 中"
 
     log_msg "[3/3] 等待服务就绪..."
 
@@ -202,42 +146,10 @@ start_process() {
         log_msg "⚠️  Management API 进程正在运行但端口未就绪，可能需要更多时间"
     fi
 
-    # 等待 iframe-proxy 端口就绪
-    if [ -f "${IFRAME_PROXY}" ]; then
-        log_msg "等待 iframe-proxy 端口 ${PROXY_PORT} 就绪..."
-        local proxy_ready=0
-        for i in $(seq 1 10); do
-            sleep 1
-            if ss -ltn 2>/dev/null | grep -q ":${PROXY_PORT}\s"; then
-                proxy_ready=1
-                log_msg "✅ iframe-proxy 端口 ${PROXY_PORT} 已就绪"
-                break
-            fi
-            log_msg "等待 iframe-proxy 中... (${i}/10)"
-        done
-
-        if [ $proxy_ready -eq 0 ]; then
-            log_msg "⚠️  iframe-proxy 端口 ${PROXY_PORT} 未就绪，检查进程状态..."
-
-            # 检查进程是否还活着
-            if ! check_process "${proxy_pid}"; then
-                log_msg "❌ iframe-proxy 进程已退出，启动失败"
-                log_msg "❌ Dashboard 嵌入功能将不可用，但 Management API 仍在运行"
-                log_msg "最近 20 行日志："
-                tail -20 "${LOG_FILE}"
-                rm -f "${proxy_pid_file}"
-            else
-                log_msg "⚠️  iframe-proxy 进程正在运行但端口未就绪，可能需要更多时间"
-            fi
-        fi
-    fi
-
     log_msg "========================================="
     log_msg "服务启动完成"
     log_msg "Management API: http://127.0.0.1:${MANAGEMENT_PORT}"
-    if [ -f "${IFRAME_PROXY}" ]; then
-        log_msg "iframe-proxy: http://127.0.0.1:${PROXY_PORT}"
-    fi
+    log_msg "Dashboard 代理: http://127.0.0.1:${MANAGEMENT_PORT}/dashboard"
     log_msg "========================================="
 
     # # 等待 3 秒后检查进程是否存活
@@ -302,47 +214,11 @@ stop_process() {
         log_msg "Management API PID 文件不存在，跳过"
     fi
 
-    # 停止 iframe-proxy
-    log_msg "[2/2] 停止 iframe-proxy..."
-    local proxy_pid_file="${TRIM_PKGVAR}/proxy.pid"
-    if [ -r "${proxy_pid_file}" ]; then
-        local proxy_pid=$(head -n 1 "${proxy_pid_file}" | tr -d '[:space:]')
-        log_msg "iframe-proxy PID: ${proxy_pid}"
-
-        if check_process "${proxy_pid}"; then
-            log_msg "发送 TERM 信号到 iframe-proxy (PID:${proxy_pid})..."
-            kill -TERM "${proxy_pid}" 2>/dev/null
-
-            # 等待进程退出，最多等待 3 秒
-            local count=0
-            while check_process "${proxy_pid}" && [ $count -lt 3 ]; do
-                sleep 1
-                count=$((count + 1))
-                log_msg "等待 iframe-proxy 退出... (${count}s/3s)"
-            done
-
-            # 如果进程仍在运行，发送 KILL 信号强制��止
-            if check_process "${proxy_pid}"; then
-                log_msg "发送 KILL 信号到 iframe-proxy (PID:${proxy_pid})..."
-                kill -KILL "${proxy_pid}" 2>/dev/null
-                log_msg "✅ iframe-proxy 已强制停止"
-            else
-                log_msg "✅ iframe-proxy 已优雅停止"
-            fi
-        else
-            log_msg "iframe-proxy 进程不存在"
-        fi
-        rm -f "${proxy_pid_file}"
-    else
-        log_msg "iframe-proxy PID 文件不存在，跳过"
-    fi
 
     # 兜底清理
     log_msg "执行兜底清理..."
     pkill -f "management-api.js" 2>/dev/null && log_msg "清理残留的 management-api.js 进程" || true
     pkill -f "node.*${MANAGEMENT_API}" 2>/dev/null && log_msg "清理残留的 Management API 进程" || true
-    pkill -f "iframe-proxy.js" 2>/dev/null && log_msg "清理残留的 iframe-proxy.js 进程" || true
-    pkill -f "node.*${IFRAME_PROXY}" 2>/dev/null && log_msg "清理残留的 iframe-proxy 进程" || true
 
     # 强制清理端口占用
     log_msg "检查端口占用..."
@@ -352,14 +228,6 @@ stop_process() {
         echo "${port_pids}" | xargs kill -9 2>/dev/null || true
     else
         log_msg "端口 ${MANAGEMENT_PORT} 未被占用"
-    fi
-
-    local proxy_port_pids=$(lsof -ti:${PROXY_PORT} 2>/dev/null)
-    if [ -n "${proxy_port_pids}" ]; then
-        log_msg "发现端口 ${PROXY_PORT} 被占用，强制清理 PID: ${proxy_port_pids}"
-        echo "${proxy_port_pids}" | xargs kill -9 2>/dev/null || true
-    else
-        log_msg "端口 ${PROXY_PORT} 未被占用"
     fi
 
     log_msg "========================================="
@@ -387,7 +255,6 @@ check_process() {
 
 status() {
     local main_running=0
-    local proxy_running=0
 
     # 检查 Management API
     if [ -f "${PID_FILE}" ]; then
@@ -404,23 +271,7 @@ status() {
         log_msg "CHECKING: Management API 未运行"
     fi
 
-    # 检查 iframe-proxy
-    local proxy_pid_file="${TRIM_PKGVAR}/proxy.pid"
-    if [ -f "${proxy_pid_file}" ]; then
-        local proxy_pid
-        proxy_pid=$(cat "${proxy_pid_file}" 2>/dev/null)
-        if check_process "${proxy_pid}"; then
-            log_msg "CHECKING: iframe-proxy 正在运行 (PID: ${proxy_pid})"
-            proxy_running=1
-        else
-            log_msg "CHECKING: ERR iframe-proxy 进程已停止，但 PID 文件存在 (PID: ${proxy_pid})"
-            rm -f "${proxy_pid_file}"
-        fi
-    else
-        log_msg "CHECKING: iframe-proxy 未运行"
-    fi
-
-    # 只要 Management API 在运行就返回 0（iframe-proxy 是辅助服务）
+    # Management API 在运行就返回 0
     if [ $main_running -eq 1 ]; then
         return 0
     else

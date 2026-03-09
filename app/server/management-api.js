@@ -94,6 +94,45 @@ function isProcessRunning(pid) {
   }
 }
 
+// 工具函数：生成注入脚本（自动配置 gatewayUrl 和 token）
+function getInjectionScript(token) {
+  if (!token) return "";
+  return `<script>
+(function(){
+  // 自动配置 OpenClaw Control UI 连接参数
+  var SETTINGS_KEY = 'openclaw.control.settings.v1';
+  var wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+  var wsUrl = wsProto + '://' + location.host + '/dashboard';
+  try {
+    var existing = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    existing.gatewayUrl = wsUrl;
+    existing.token = '${token}';
+    if (!existing.sessionKey) existing.sessionKey = 'main';
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(existing));
+  } catch(e) {}
+})();
+</script>`;
+}
+
+// 工具函数：修改响应头（移除 iframe 限制）
+function fixResponseHeaders(headers) {
+  const fixed = Object.assign({}, headers);
+  delete fixed["x-frame-options"];
+  if (fixed["content-security-policy"]) {
+    fixed["content-security-policy"] = fixed["content-security-policy"]
+      .replace(/frame-ancestors\s+'none'/gi, "frame-ancestors *")
+      .replace(/frame-ancestors\s+'self'/gi, "frame-ancestors *")
+      .replace(/script-src\s+'self'/gi, "script-src 'self' 'unsafe-inline'");
+  }
+  return fixed;
+}
+
+// 工具函数：检查是否为 HTML 响应
+function isHtmlResponse(headers) {
+  const ct = headers["content-type"] || "";
+  return ct.includes("text/html");
+}
+
 // 工具函数：从 openclaw.json 读取 token
 function getTokenFromConfig() {
   try {
@@ -631,21 +670,73 @@ function handleRequest(req, res) {
     return;
   }
 
-  // Dashboard 代理处理 - 转发到 iframe-proxy (18791)
+  // Dashboard 代理处理 - 直接转发到 Gateway (18789)
   if (pathname.startsWith("/dashboard")) {
-    const IFRAME_PROXY_PORT = 18791;
     const proxyPath = pathname.replace(/^\/dashboard/, "") || "/";
-    const proxyUrl = `http://127.0.0.1:${IFRAME_PROXY_PORT}${proxyPath}${url.search}`;
+
+    // 读取 token
+    let gatewayToken = "";
+    try {
+      const config = readJSON(CONFIG_FILE);
+      gatewayToken = config?.gateway?.auth?.token || "";
+    } catch (e) {}
+
+    // 添加 token 到 URL
+    let finalPath = proxyPath + url.search;
+    if (gatewayToken && !finalPath.includes("token=")) {
+      const sep = finalPath.includes("?") ? "&" : "?";
+      finalPath += sep + "token=" + gatewayToken;
+    }
+
+    // 构建代理请求头（伪装为 localhost）
+    const proxyHeaders = Object.assign({}, req.headers);
+    proxyHeaders.host = `127.0.0.1:${GATEWAY_PORT}`;
+    proxyHeaders.origin = `http://127.0.0.1:${GATEWAY_PORT}`;
+    proxyHeaders.referer = `http://127.0.0.1:${GATEWAY_PORT}/`;
+    delete proxyHeaders["accept-encoding"]; // 禁用 gzip，方便修改 HTML
 
     const proxyReq = http.request(
-      proxyUrl,
       {
+        hostname: "127.0.0.1",
+        port: GATEWAY_PORT,
+        path: finalPath,
         method: req.method,
-        headers: req.headers,
+        headers: proxyHeaders,
       },
       (proxyRes) => {
-        res.writeHead(proxyRes.statusCode, proxyRes.headers);
-        proxyRes.pipe(res);
+        const headers = fixResponseHeaders(proxyRes.headers);
+
+        // 如果是 HTML 响应，注入脚本
+        if (isHtmlResponse(proxyRes.headers)) {
+          const chunks = [];
+          proxyRes.on("data", (chunk) => chunks.push(chunk));
+          proxyRes.on("end", () => {
+            let body = Buffer.concat(chunks).toString("utf8");
+
+            // 注入脚本：自动配置 gatewayUrl 和 token
+            const injection = getInjectionScript(gatewayToken);
+            if (injection) {
+              if (body.includes("<head>")) {
+                body = body.replace("<head>", "<head>" + injection);
+              } else if (body.includes("<head ")) {
+                body = body.replace(/<head\s[^>]*>/, "$&" + injection);
+              } else {
+                body = injection + body;
+              }
+            }
+
+            const buf = Buffer.from(body, "utf8");
+            headers["content-length"] = String(buf.length);
+            delete headers["content-encoding"];
+
+            res.writeHead(proxyRes.statusCode, headers);
+            res.end(buf);
+          });
+        } else {
+          // 非 HTML 响应，直接转发
+          res.writeHead(proxyRes.statusCode, headers);
+          proxyRes.pipe(res, { end: true });
+        }
       }
     );
 
@@ -653,60 +744,16 @@ function handleRequest(req, res) {
       console.error(`[Dashboard Proxy Error] ${err.message}`);
       res.writeHead(503, { "Content-Type": "text/html; charset=utf-8" });
       res.end(`<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>控制台服务不可用</title>
-    <style>
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            font-family: system-ui, -apple-system, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-            margin: 0;
-        }
-        .container {
-            text-align: center;
-            max-width: 500px;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-        .icon { font-size: 4rem; margin-bottom: 1rem; }
-        h1 { font-size: 1.8rem; margin: 0 0 1rem 0; }
-        p { font-size: 1rem; line-height: 1.6; opacity: 0.9; margin: 0 0 1.5rem 0; }
-        .btn {
-            display: inline-block;
-            padding: 0.8rem 2rem;
-            background: #fff;
-            color: #667eea;
-            text-decoration: none;
-            border-radius: 50px;
-            font-weight: 600;
-            transition: transform 0.2s;
-        }
-        .btn:hover { transform: translateY(-2px); }
-    </style>
-    <meta http-equiv="refresh" content="5">
-</head>
-<body>
-    <div class="container">
-        <div class="icon">🦀</div>
-        <h1>控制台服务启动中</h1>
-        <p>OpenClaw Dashboard 代理服务正在启动，请稍候...</p>
-        <p style="font-size: 0.9rem; opacity: 0.7;">页面将在 5 秒后自动刷新</p>
-        <a href="javascript:location.reload()" class="btn">立即刷新</a>
-    </div>
-</body>
-</html>`);
+<html><head><meta charset="UTF-8"><title>OpenClaw</title>
+<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;
+font-family:system-ui,sans-serif;background:#fff5f0;color:#666;}
+.c{text-align:center;}.s{font-size:3rem;margin-bottom:1rem;}
+</style><meta http-equiv="refresh" content="3">
+</head><body><div class="c"><div class="s">🦀</div>
+<h2>OpenClaw Gateway 启动中...</h2><p>页面将自动刷新</p></div></body></html>`);
     });
 
-    req.pipe(proxyReq);
+    req.pipe(proxyReq, { end: true });
     return;
   }
 
@@ -791,12 +838,96 @@ function readBody(req) {
 // 启动服务器
 const server = http.createServer(handleRequest);
 
+// WebSocket 升级处理 - 转发到 Gateway
+server.on("upgrade", (req, socket, head) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const pathname = url.pathname;
+
+  // 只处理 /dashboard 路径下的 WebSocket 连接
+  if (!pathname.startsWith("/dashboard")) {
+    socket.destroy();
+    return;
+  }
+
+  // 读取 token 并注入到 URL
+  let gatewayToken = "";
+  try {
+    const config = readJSON(CONFIG_FILE);
+    gatewayToken = config?.gateway?.auth?.token || "";
+  } catch (e) {
+    console.error("[WebSocket] Failed to read token:", e.message);
+  }
+
+  // 构建转发路径（去掉 /dashboard 前缀）
+  let proxyPath = pathname.replace(/^\/dashboard/, "") || "/";
+  if (url.search) {
+    proxyPath += url.search;
+  }
+  if (gatewayToken && !proxyPath.includes("token=")) {
+    const sep = proxyPath.includes("?") ? "&" : "?";
+    proxyPath += sep + "token=" + gatewayToken;
+  }
+
+  // 构建代理请求头（伪装为 localhost）
+  const proxyHeaders = Object.assign({}, req.headers);
+  proxyHeaders.host = `127.0.0.1:${GATEWAY_PORT}`;
+  proxyHeaders.origin = `http://127.0.0.1:${GATEWAY_PORT}`;
+  proxyHeaders.referer = `http://127.0.0.1:${GATEWAY_PORT}/`;
+
+  console.log(`[WebSocket] Upgrading: ${pathname} -> Gateway:${GATEWAY_PORT}${proxyPath}`);
+
+  // 向 Gateway 发起 WebSocket 升级请求
+  const proxyReq = http.request({
+    hostname: "127.0.0.1",
+    port: GATEWAY_PORT,
+    path: proxyPath,
+    method: "GET",
+    headers: proxyHeaders,
+  });
+
+  proxyReq.on("upgrade", (proxyRes, proxySocket, proxyHead) => {
+    // 转发升级响应给客户端
+    let response = "HTTP/1.1 101 Switching Protocols\r\n";
+    for (const [key, value] of Object.entries(proxyRes.headers)) {
+      response += `${key}: ${value}\r\n`;
+    }
+    response += "\r\n";
+
+    socket.write(response);
+    if (proxyHead && proxyHead.length) {
+      socket.write(proxyHead);
+    }
+
+    // 双向管道连接
+    proxySocket.pipe(socket);
+    socket.pipe(proxySocket);
+
+    // 错误处理
+    proxySocket.on("error", (err) => {
+      console.error("[WebSocket] Gateway socket error:", err.message);
+      socket.destroy();
+    });
+    socket.on("error", (err) => {
+      console.error("[WebSocket] Client socket error:", err.message);
+      proxySocket.destroy();
+    });
+  });
+
+  proxyReq.on("error", (err) => {
+    console.error("[WebSocket] Proxy request error:", err.message);
+    socket.destroy();
+  });
+
+  proxyReq.end();
+});
+
 server.listen(PORT, BIND_ADDR, () => {
   console.log(`[management-api] Listening on ${BIND_ADDR}:${PORT}`);
   console.log(`[management-api] Config file: ${CONFIG_FILE}`);
   console.log(
     `[management-api] Token source: openclaw.json (gateway.auth.token)`,
   );
+  console.log(`[management-api] WebSocket upgrade enabled for /dashboard -> Gateway:${GATEWAY_PORT}`);
 });
 
 // 优雅退出
