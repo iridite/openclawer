@@ -185,7 +185,6 @@ log_msg "Starting OpenClaw configuration setup..."
 
 # 运行 openclaw setup
 setup_openclaw_config
-setup_management_api_deps
 generate_oc_token
 
 exit 0
