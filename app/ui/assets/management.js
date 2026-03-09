@@ -1730,7 +1730,7 @@ async function loadConsoleInfo() {
 
 async function openConsole() {
   try {
-    // 直接跳转到 dashboard 代理路径（通过 iframe-proxy）
+    // 直接跳转到 /dashboard/ (通过 Management API 代理到 iframe-proxy)
     window.location.href = "/dashboard/";
   } catch (error) {
     showToast("打开控制台失败: " + error.message, "error");

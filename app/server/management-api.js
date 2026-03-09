@@ -631,6 +631,85 @@ function handleRequest(req, res) {
     return;
   }
 
+  // Dashboard 代理处理 - 转发到 iframe-proxy (18791)
+  if (pathname.startsWith("/dashboard")) {
+    const IFRAME_PROXY_PORT = 18791;
+    const proxyPath = pathname.replace(/^\/dashboard/, "") || "/";
+    const proxyUrl = `http://127.0.0.1:${IFRAME_PROXY_PORT}${proxyPath}${url.search}`;
+
+    const proxyReq = http.request(
+      proxyUrl,
+      {
+        method: req.method,
+        headers: req.headers,
+      },
+      (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res);
+      }
+    );
+
+    proxyReq.on("error", (err) => {
+      console.error(`[Dashboard Proxy Error] ${err.message}`);
+      res.writeHead(503, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>控制台服务不可用</title>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            max-width: 500px;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .icon { font-size: 4rem; margin-bottom: 1rem; }
+        h1 { font-size: 1.8rem; margin: 0 0 1rem 0; }
+        p { font-size: 1rem; line-height: 1.6; opacity: 0.9; margin: 0 0 1.5rem 0; }
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 2rem;
+            background: #fff;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+    </style>
+    <meta http-equiv="refresh" content="5">
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🦀</div>
+        <h1>控制台服务启动中</h1>
+        <p>OpenClaw Dashboard 代理服务正在启动，请稍候...</p>
+        <p style="font-size: 0.9rem; opacity: 0.7;">页面将在 5 秒后自动刷新</p>
+        <a href="javascript:location.reload()" class="btn">立即刷新</a>
+    </div>
+</body>
+</html>`);
+    });
+
+    req.pipe(proxyReq);
+    return;
+  }
+
   // API 路由处理
   if (pathname.startsWith("/api/")) {
     const routes = {
