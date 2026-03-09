@@ -1501,11 +1501,13 @@ async function loadConfig() {
     currentConfig = config;
     const jsonStr = JSON.stringify(config, null, 2);
 
-    if (editorMode === "ace" && aceEditor) {
+    // 同时更新两个编辑器，确保切换时不会丢失内容
+    if (aceEditor) {
       aceEditor.setValue(jsonStr, -1);
-    } else {
-      const textarea = document.getElementById("config-editor-textarea");
-      if (textarea) textarea.value = jsonStr;
+    }
+    const textarea = document.getElementById("config-editor-textarea");
+    if (textarea) {
+      textarea.value = jsonStr;
     }
 
     validateConfigInput();
@@ -1687,9 +1689,9 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("OpenClaw Management Console 初始化...");
 
   // 初始化 Ace Editor
-  const editorElement = document.getElementById("config-editor");
+  const editorElement = document.getElementById("config-editor-ace");
   if (editorElement && typeof ace !== "undefined") {
-    aceEditor = ace.edit("config-editor");
+    aceEditor = ace.edit("config-editor-ace");
     aceEditor.setTheme("ace/theme/monokai");
     aceEditor.session.setMode("ace/mode/json");
     aceEditor.setOptions({
