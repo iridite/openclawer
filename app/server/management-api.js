@@ -183,8 +183,10 @@ async function getStatus() {
   const status = {
     gateway: "unknown",
     gatewayPid: null,
-    cpu: 0,
-    memory: 0,
+    system: {
+      cpuUsage: 0,
+      memoryUsage: 0,
+    },
     version: "unknown",
     configExists: fs.existsSync(CONFIG_FILE),
     token: getTokenFromConfig(),
@@ -228,11 +230,11 @@ async function getStatus() {
       const stats = psOut.trim().split(/\s+/);
 
       // 写入 CPU 数据
-      status.cpu = parseFloat(stats[0]) || 0;
+      status.system.cpuUsage = parseFloat(stats[0]) || 0;
 
-      // 计算并写入内存数据 (直接转换为 MB 并保留一位小数，保持输出格式不变)
+      // 计算并写入内存数据 (转换为 MB)
       const memoryBytes = parseInt(stats[1]) * 1024;
-      status.memory = memoryBytes ? (memoryBytes / 1024 / 1024).toFixed(1) : 0;
+      status.system.memoryUsage = memoryBytes ? memoryBytes / 1024 / 1024 : 0;
 
       // 解析启动时间并计算 uptime (毫秒)
       const startTimeStr = stats.slice(2).join(" ");

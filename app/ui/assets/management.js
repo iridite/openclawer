@@ -234,6 +234,18 @@ async function refreshDashboard() {
     document.getElementById("dash-config-status").textContent =
       status.configExists ? "✅ 已配置" : "⚠️ 未配置";
 
+    // 更新系统资源信息
+    if (status.system) {
+      document.getElementById("dash-cpu-usage").textContent =
+        status.system.cpuUsage !== undefined
+          ? `${status.system.cpuUsage.toFixed(1)}%`
+          : "N/A";
+      document.getElementById("dash-memory-usage").textContent =
+        status.system.memoryUsage !== undefined
+          ? `${status.system.memoryUsage.toFixed(1)}%`
+          : "N/A";
+    }
+
     // 加载配置摘要
     loadConfigSummary();
 
@@ -418,13 +430,21 @@ function renderQuickAddButtons() {
   for (const [modelId, modelData] of Object.entries(QUICK_ADD_MODELS)) {
     const providerIcon = getProviderIcon(modelData.providerName);
     html += `
-      <button class="quick-add-btn" onclick="quickAddModel('${modelId}')">
+      <button class="quick-add-btn" data-model-id="${modelId}">
         <span class="quick-add-icon">${providerIcon}</span>
         <span class="quick-add-name">${modelId}</span>
       </button>
     `;
   }
   container.innerHTML = html;
+
+  // 添加事件监听器
+  container.querySelectorAll(".quick-add-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const modelId = btn.dataset.modelId;
+      quickAddModel(modelId);
+    });
+  });
 }
 
 // 获取供应商图标
@@ -606,7 +626,7 @@ async function loadModelsList() {
                   ${
                     apiKey
                       ? `<code style="margin-left: 8px; font-size: 0.85em;">${maskedKey}</code>
-                  <button class="btn btn-secondary btn-sm" style="margin-left: 4px; padding: 2px 6px; font-size: 0.85em;" onclick="copyToClipboard('${apiKey.replace(/'/g, "\\'")}', 'API Key')" title="复制 API Key">
+                  <button class="btn btn-secondary btn-sm copy-apikey-btn" style="margin-left: 4px; padding: 2px 6px; font-size: 0.85em;" data-apikey="${apiKey.replace(/"/g, "&quot;")}" title="复制 API Key">
                     📋
                   </button>`
                       : ""
@@ -619,10 +639,10 @@ async function loadModelsList() {
               </div>
             </div>
             <div class="model-card-actions">
-              <button class="btn btn-secondary btn-sm" onclick="editModel('${providerName}', '${modelId}')">
+              <button class="btn btn-secondary btn-sm edit-model-btn" data-provider="${providerName}" data-model="${modelId}">
                 ✏️ 编辑
               </button>
-              <button class="btn btn-secondary btn-sm" onclick="deleteModel('${providerName}', '${modelId}')">
+              <button class="btn btn-secondary btn-sm delete-model-btn" data-provider="${providerName}" data-model="${modelId}">
                 🗑️ 删除
               </button>
             </div>
@@ -633,6 +653,15 @@ async function loadModelsList() {
     }
 
     modelsListEl.innerHTML = html;
+
+    // 为复制按钮添加事件监听器
+    document.querySelectorAll(".copy-apikey-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const apiKey = btn.getAttribute("data-apikey");
+        copyToClipboard(apiKey, "API Key");
+      });
+    });
   } catch (error) {
     document.getElementById("models-list").innerHTML =
       '<p class="loading">加载失败: ' + error.message + "</p>";
@@ -762,10 +791,10 @@ async function loadChannelsList() {
             <div class="channel-status ${statusClass}">${statusText}</div>
           </div>
           <div class="channel-actions">
-            <button class="btn btn-secondary btn-sm" onclick="editChannel('${channelType}')">
+            <button class="btn btn-secondary btn-sm edit-channel-btn" data-channel="${channelType}">
               ✏️ 编辑
             </button>
-            <button class="btn btn-secondary btn-sm" onclick="deleteChannel('${channelType}')">
+            <button class="btn btn-secondary btn-sm delete-channel-btn" data-channel="${channelType}">
               🗑️ 删除
             </button>
           </div>
@@ -774,6 +803,22 @@ async function loadChannelsList() {
     }
 
     channelsListEl.innerHTML = html;
+
+    // 绑定编辑按钮事件
+    channelsListEl.querySelectorAll(".edit-channel-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const channelType = btn.dataset.channel;
+        editChannel(channelType);
+      });
+    });
+
+    // 绑定删除按钮事件
+    channelsListEl.querySelectorAll(".delete-channel-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const channelType = btn.dataset.channel;
+        deleteChannel(channelType);
+      });
+    });
   } catch (error) {
     document.getElementById("channels-list").innerHTML =
       '<p class="loading">加载失败: ' + error.message + "</p>";
