@@ -894,6 +894,12 @@ async function loadChannelsList() {
       const statusClass = enabled ? "status-running" : "status-stopped";
       const statusText = enabled ? "已启用" : "已禁用";
 
+      // 获取用户定义的名称
+      let displayName = channelType;
+      if (channelType === "feishu" && channel.accounts?.main?.botName) {
+        displayName = channel.accounts.main.botName;
+      }
+
       // 构建渠道信息摘要
       let infoItems = [];
 
@@ -907,7 +913,6 @@ async function loadChannelsList() {
         // 飞书使用 accounts.main 结构
         const mainAccount = channel.accounts?.main || {};
         if (mainAccount.appId) infoItems.push(`App ID: ${mainAccount.appId}`);
-        if (mainAccount.botName) infoItems.push(`机器人名称: ${mainAccount.botName}`);
         if (channel.dmPolicy) infoItems.push(`私聊策略: ${channel.dmPolicy}`);
       } else {
         // 其他渠道类型
@@ -920,7 +925,7 @@ async function loadChannelsList() {
         <div class="channel-card">
           <div class="channel-card-header">
             <div>
-              <h3 class="channel-card-title">${channelType}</h3>
+              <h3 class="channel-card-title">${displayName}</h3>
               <span class="channel-card-type">${channelType}</span>
             </div>
             <span class="channel-status ${statusClass}">${statusText}</span>
@@ -1387,12 +1392,14 @@ async function submitModelForm(event) {
 
     // 构建请求数据
     const modelData = {
-      modelKey: isEditMode ? editModelKey : formData.get("modelId"),
+      modelId: formData.get("modelId"),
       providerName: formData.get("providerName"),
       baseUrl: formData.get("baseUrl"),
       apiKey: formData.get("apiKey"),
       apiProtocol: formData.get("apiProtocol"),
       apiType: formData.get("apiType"),
+      isEditMode: isEditMode,
+      editModelKey: isEditMode ? editModelKey : undefined,
       advanced: {
         reasoning: reasoningEl ? reasoningEl.checked : false,
         input: inputTypes,

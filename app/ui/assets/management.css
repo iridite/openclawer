@@ -849,8 +849,9 @@ span[title] {
 /* 消息渠道网格 */
 .channels-grid {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
 }
 
 .channel-card {

@@ -311,8 +311,33 @@ async function addModel(modelData) {
     config.agents.defaults = config.agents.defaults || {};
     config.agents.defaults.models = config.agents.defaults.models || {};
 
-    const { providerName, modelId, baseUrl, apiKey, apiProtocol, apiType, advanced } =
+    const { providerName, modelId, baseUrl, apiKey, apiProtocol, apiType, advanced, isEditMode, editModelKey } =
       modelData;
+
+    // 验证必需字段
+    if (!modelId) {
+      throw new Error("模型 ID 不能为空");
+    }
+    if (!providerName) {
+      throw new Error("供应商名称不能为空");
+    }
+
+    // 如果是编辑模式，需要先删除旧模型
+    if (isEditMode && editModelKey) {
+      const [oldProvider, oldModelId] = editModelKey.split("/");
+      if (config.models.providers[oldProvider]) {
+        const oldModelIndex = config.models.providers[oldProvider].models?.findIndex(
+          (m) => m.id === oldModelId || m.name === oldModelId
+        );
+        if (oldModelIndex >= 0) {
+          config.models.providers[oldProvider].models.splice(oldModelIndex, 1);
+        }
+        // 从 agents.defaults.models 中删除
+        if (config.agents.defaults.models[editModelKey]) {
+          delete config.agents.defaults.models[editModelKey];
+        }
+      }
+    }
 
     // 创建或更新供应商配置
     if (!config.models.providers[providerName]) {
@@ -323,7 +348,13 @@ async function addModel(modelData) {
         models: [],
       };
     } else {
-      // 确保 models 数组存在（不覆盖现有供应商配置）
+      // 更新现有供应商的配置
+      if (baseUrl) config.models.providers[providerName].baseUrl = baseUrl;
+      if (apiKey) config.models.providers[providerName].apiKey = apiKey;
+      if (apiType || apiProtocol) {
+        config.models.providers[providerName].api = apiType || apiProtocol;
+      }
+      // 确保 models 数组存在
       if (!config.models.providers[providerName].models) {
         config.models.providers[providerName].models = [];
       }
@@ -332,7 +363,7 @@ async function addModel(modelData) {
     // 检查模型是否已存在
     const existingModelIndex = config.models.providers[
       providerName
-    ].models.findIndex((m) => m.id === modelId);
+    ].models.findIndex((m) => m.id === modelId || m.name === modelId);
 
     // 构建模型配置
     const modelConfig = {
@@ -379,11 +410,11 @@ async function addModel(modelData) {
 
     return {
       success: true,
-      message: "模型添加成功",
+      message: isEditMode ? "模型修改成功" : "模型添加成功",
       modelKey: agentModelKey,
     };
   } catch (err) {
-    throw new Error("添加模型失败: " + err.message);
+    throw new Error((isEditMode ? "修改模型失败: " : "添加模型失败: ") + err.message);
   }
 }
 
