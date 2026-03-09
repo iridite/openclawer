@@ -109,7 +109,10 @@ function getInjectionScript(token) {
     existing.token = '${token}';
     if (!existing.sessionKey) existing.sessionKey = 'main';
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(existing));
-  } catch(e) {}
+    console.log('[OC-Deploy] Auto-configured:', { gatewayUrl: wsUrl, token: '${token}'.substring(0, 8) + '...' });
+  } catch(e) {
+    console.error('[OC-Deploy] Failed to configure:', e);
+  }
 })();
 </script>`;
 }
