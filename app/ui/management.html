@@ -5,10 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>OpenClaw 管理控制台</title>
         <link rel="stylesheet" href="assets/management.css" />
-        <!-- Ace Editor - 使用国内 CDN -->
-        <script src="https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/ace.js"></script>
-        <script src="https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/mode-json.js"></script>
-        <script src="https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/theme-monokai.js"></script>
+        <script src="assets/management.js" defer></script>
     </head>
     <body>
         <div class="container">
@@ -1075,10 +1072,10 @@
                                         class="btn btn-secondary btn-sm"
                                         onclick="toggleEditorMode()"
                                         id="toggle-editor-btn"
-                                        title="切换编辑器模式"
+                                        title="切换到高级编辑器（语法高亮）"
                                         style="font-size: 0.85em"
                                     >
-                                        🔄 切换
+                                        ✨ 切换到高级编辑器
                                     </button>
                                     <button
                                         class="btn btn-secondary btn-sm"
@@ -1094,22 +1091,22 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="editor-container">
-                                <!-- Ace Editor 容器 -->
+                            <div class="editor-container" style="position: relative;">
+                                <!-- Ace Editor 容器（默认隐藏） -->
                                 <div
                                     id="config-editor-ace"
                                     style="
                                         height: 500px;
                                         width: 100%;
-                                        display: block;
+                                        display: none;
                                     "
                                 ></div>
-                                <!-- 原生 Textarea（备用） -->
+                                <!-- 原生 Textarea（默认显示） -->
                                 <textarea
                                     id="config-editor-textarea"
                                     spellcheck="false"
                                     style="
-                                        display: none;
+                                        display: block;
                                         height: 500px;
                                         width: 100%;
                                         font-family: monospace;
@@ -1119,6 +1116,27 @@
                                         border-radius: 4px;
                                     "
                                 ></textarea>
+                                <!-- Loading 遮罩 -->
+                                <div
+                                    id="editor-loading"
+                                    style="
+                                        display: none;
+                                        position: absolute;
+                                        top: 0;
+                                        left: 0;
+                                        right: 0;
+                                        bottom: 0;
+                                        background: rgba(255, 255, 255, 0.9);
+                                        z-index: 10;
+                                        align-items: center;
+                                        justify-content: center;
+                                        flex-direction: column;
+                                        gap: 10px;
+                                    "
+                                >
+                                    <div style="font-size: 24px;">⏳</div>
+                                    <div style="font-size: 14px; color: #666;">正在加载高级编辑器...</div>
+                                </div>
                             </div>
                             <div class="editor-footer">
                                 <div
@@ -1535,7 +1553,5 @@
 
         <!-- 通知提示 -->
         <div id="toast" class="toast"></div>
-
-        <script src="assets/management.js"></script>
     </body>
 </html>

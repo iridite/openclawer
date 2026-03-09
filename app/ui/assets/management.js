@@ -7,7 +7,9 @@ const API_BASE = "/api";
 let currentConfig = null;
 let currentStatus = null;
 let aceEditor = null; // Ace Editor 实例
-let editorMode = "ace"; // 编辑器模式：'ace' 或 'textarea'
+let editorMode = "textarea"; // 编辑器模式：'ace' 或 'textarea'（默认 textarea）
+let aceEditorLoaded = false; // Ace Editor 是否已加载
+let aceEditorLoading = false; // Ace Editor 是否正在加载
 
 // 快速添加模型预设
 const QUICK_ADD_MODELS = {
@@ -51,6 +53,91 @@ const QUICK_ADD_MODELS = {
     },
   },
 };
+
+// ============================================================================
+// Ace Editor 动态加载
+// ============================================================================
+
+// 动态加载 Ace Editor
+async function loadAceEditor() {
+  if (aceEditorLoaded) {
+    return true;
+  }
+
+  if (aceEditorLoading) {
+    // 等待加载完成
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (aceEditorLoaded || !aceEditorLoading) {
+          clearInterval(checkInterval);
+          resolve(aceEditorLoaded);
+        }
+      }, 100);
+    });
+  }
+
+  aceEditorLoading = true;
+
+  try {
+    // 加载 Ace Editor 核心库
+    await loadScript("https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/ace.js");
+
+    // 加载 JSON 模式和主题
+    await Promise.all([
+      loadScript("https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/mode-json.js"),
+      loadScript("https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/theme-monokai.js")
+    ]);
+
+    aceEditorLoaded = true;
+    console.log("Ace Editor 加载成功");
+    return true;
+  } catch (error) {
+    console.error("Ace Editor 加载失败:", error);
+    aceEditorLoaded = false;
+    return false;
+  } finally {
+    aceEditorLoading = false;
+  }
+}
+
+// 加载单个脚本
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+// 初始化 Ace Editor 实例
+function initAceEditorInstance() {
+  const editorElement = document.getElementById("config-editor-ace");
+  if (!editorElement || typeof ace === "undefined") {
+    return false;
+  }
+
+  aceEditor = ace.edit("config-editor-ace");
+  aceEditor.setTheme("ace/theme/monokai");
+  aceEditor.session.setMode("ace/mode/json");
+  aceEditor.setOptions({
+    fontSize: "14px",
+    showPrintMargin: false,
+    enableBasicAutocompletion: true,
+    enableLiveAutocompletion: true,
+    tabSize: 2,
+    useSoftTabs: true,
+  });
+
+  // 监听编辑器变化，实时验证
+  aceEditor.session.on("change", () => {
+    validateConfigInput();
+  });
+
+  console.log("Ace Editor 实例初始化成功");
+  return true;
+}
 
 // ============================================================================
 // 工具函数
@@ -147,7 +234,12 @@ function loadTabData(tabName) {
 
 async function refreshDashboard() {
   try {
-    const status = await apiRequest("/status");
+    // 并行请求状态和配置数据，日志延迟到控制台标签页加载
+    const [status, config] = await Promise.all([
+      apiRequest("/status"),
+      apiRequest("/config")
+    ]);
+
     currentStatus = status;
 
     // 更新状态显示
@@ -187,19 +279,16 @@ async function refreshDashboard() {
       }
     }
 
-    // 加载配置摘要
-    loadConfigSummary();
-
-    // 加载运行日志
-    refreshLogs();
+    // 更新配置摘要（使用已获取的 config 数据）
+    updateConfigSummary(config);
   } catch (error) {
     showToast("加载状态失败: " + error.message, "error");
   }
 }
 
-async function loadConfigSummary() {
+// 更新配置摘要（使用已有的 config 数据，避免重复请求）
+function updateConfigSummary(config) {
   try {
-    const config = await apiRequest("/config");
     const summaryEl = document.getElementById("config-summary");
 
     // 正确解析模型：检查 config.models.providers
@@ -259,6 +348,16 @@ async function loadConfigSummary() {
     }
 
     summaryEl.innerHTML = html;
+  } catch (error) {
+    document.getElementById("config-summary").innerHTML =
+      '<p class="loading">加载失败</p>';
+  }
+}
+
+async function loadConfigSummary() {
+  try {
+    const config = await apiRequest("/config");
+    updateConfigSummary(config);
   } catch (error) {
     document.getElementById("config-summary").innerHTML =
       '<p class="loading">加载失败</p>';
@@ -1396,31 +1495,70 @@ function resetModelForm() {
 // ============================================================================
 
 // 切换编辑器模式
-function toggleEditorMode() {
+async function toggleEditorMode() {
   const aceContainer = document.getElementById("config-editor-ace");
   const textareaContainer = document.getElementById("config-editor-textarea");
   const toggleBtn = document.getElementById("toggle-editor-btn");
+  const loadingOverlay = document.getElementById("editor-loading");
 
   if (editorMode === "ace") {
-    // 切换到 textarea
+    // 从 Ace 切换到 textarea
     const content = aceEditor ? aceEditor.getValue() : "";
     textareaContainer.value = content;
     aceContainer.style.display = "none";
     textareaContainer.style.display = "block";
     editorMode = "textarea";
-    toggleBtn.textContent = "🔄 高级";
-    toggleBtn.title = "切换到高级编辑器";
+    toggleBtn.textContent = "✨ 切换到高级编辑器";
+    toggleBtn.title = "切换到高级编辑器（语法高亮）";
   } else {
-    // 切换到 ace
+    // 从 textarea 切换到 Ace
     const content = textareaContainer.value;
-    if (aceEditor) {
-      aceEditor.setValue(content, -1);
+
+    // 如果 Ace Editor 还没加载，先加载
+    if (!aceEditorLoaded) {
+      // 显示 loading 遮罩
+      loadingOverlay.style.display = "flex";
+      toggleBtn.disabled = true;
+
+      try {
+        const loaded = await loadAceEditor();
+        if (loaded) {
+          // 初始化 Ace Editor 实例
+          const initialized = initAceEditorInstance();
+          if (initialized) {
+            // 设置内容
+            aceEditor.setValue(content, -1);
+            // 切换显示
+            textareaContainer.style.display = "none";
+            aceContainer.style.display = "block";
+            editorMode = "ace";
+            toggleBtn.textContent = "📝 切换到简单编辑器";
+            toggleBtn.title = "切换到简单编辑器";
+          } else {
+            showToast("高级编辑器初始化失败，继续使用简单编辑器", "error");
+          }
+        } else {
+          showToast("高级编辑器加载失败，继续使用简单编辑器", "error");
+        }
+      } catch (error) {
+        console.error("加载 Ace Editor 失败:", error);
+        showToast("高级编辑器加载失败: " + error.message, "error");
+      } finally {
+        // 隐藏 loading 遮罩
+        loadingOverlay.style.display = "none";
+        toggleBtn.disabled = false;
+      }
+    } else {
+      // Ace Editor 已经加载过，直接切换
+      if (aceEditor) {
+        aceEditor.setValue(content, -1);
+      }
+      textareaContainer.style.display = "none";
+      aceContainer.style.display = "block";
+      editorMode = "ace";
+      toggleBtn.textContent = "📝 切换到简单编辑器";
+      toggleBtn.title = "切换到简单编辑器";
     }
-    aceContainer.style.display = "block";
-    textareaContainer.style.display = "none";
-    editorMode = "ace";
-    toggleBtn.textContent = "🔄 切换";
-    toggleBtn.title = "切换到简单编辑器";
   }
 
   validateConfigInput();
@@ -1432,10 +1570,12 @@ async function loadConfig() {
     currentConfig = config;
     const jsonStr = JSON.stringify(config, null, 2);
 
-    // 同时更新两个编辑器，确保切换时不会丢失内容
-    if (aceEditor) {
+    // 根据当前编辑器模式更新内容
+    if (editorMode === "ace" && aceEditor) {
       aceEditor.setValue(jsonStr, -1);
     }
+
+    // 始终更新 textarea（作为数据源）
     const textarea = document.getElementById("config-editor-textarea");
     if (textarea) {
       textarea.value = jsonStr;
@@ -1618,38 +1758,8 @@ async function refreshLogs() {
 document.addEventListener("DOMContentLoaded", () => {
   console.log("OpenClaw Management Console 初始化...");
 
-  // 初始化 Ace Editor
-  const editorElement = document.getElementById("config-editor-ace");
-  if (editorElement && typeof ace !== "undefined") {
-    aceEditor = ace.edit("config-editor-ace");
-    aceEditor.setTheme("ace/theme/monokai");
-    aceEditor.session.setMode("ace/mode/json");
-    aceEditor.setOptions({
-      fontSize: "14px",
-      showPrintMargin: false,
-      enableBasicAutocompletion: true,
-      enableLiveAutocompletion: true,
-      tabSize: 2,
-      useSoftTabs: true,
-    });
-
-    // 监听编辑器变化，实时验证
-    aceEditor.session.on("change", () => {
-      validateConfigInput();
-    });
-
-    console.log("Ace Editor 初始化成功");
-  } else {
-    console.warn("Ace Editor 未加载，使用 textarea");
-    editorMode = "textarea";
-    const aceContainer = document.getElementById("config-editor-ace");
-    if (aceContainer) aceContainer.style.display = "none";
-    const textarea = document.getElementById("config-editor-textarea");
-    if (textarea) {
-      textarea.style.display = "block";
-      textarea.addEventListener("input", validateConfigInput);
-    }
-  }
+  // 不再在初始化时加载 Ace Editor，改为按需加载
+  // Ace Editor 将在用户首次点击"配置编辑"标签页时加载
 
   // 添加 Ctrl+S / Cmd+S 快捷键保存配置
   document.addEventListener("keydown", (e) => {
@@ -1665,6 +1775,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
+
+  // 初始化 textarea 的 input 事件监听器（用于实时验证）
+  const textarea = document.getElementById("config-editor-textarea");
+  if (textarea) {
+    textarea.addEventListener("input", validateConfigInput);
+  }
 
   // 初始化标签页
   initTabs();
