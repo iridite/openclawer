@@ -919,16 +919,16 @@ async function loadChannelsList() {
     }
 
     let html = "";
-    for (const [channelType, channel] of Object.entries(channels)) {
+    for (const [channelId, channel] of Object.entries(channels)) {
       const enabled = channel.enabled !== false;
       const statusClass = enabled ? "status-running" : "status-stopped";
       const statusText = enabled ? "已启用" : "已禁用";
 
-      // 获取用户定义的名称
-      let displayName = channelType;
-      if (channelType === "feishu" && channel.accounts?.main?.botName) {
-        displayName = channel.accounts.main.botName;
-      }
+      // 获取渠道类型
+      const channelType = channel.type || "unknown";
+
+      // 使用渠道名称作为标题
+      const displayName = channelId;
 
       // 构建渠道信息摘要
       let infoItems = [];
@@ -964,10 +964,10 @@ async function loadChannelsList() {
             ${infoItems.map(item => `<div class="channel-card-info-item">${item}</div>`).join('')}
           </div>
           <div class="channel-card-actions">
-            <button class="btn btn-secondary btn-sm edit-channel-btn" data-channel="${channelType}">
+            <button class="btn btn-secondary btn-sm edit-channel-btn" data-channel="${channelId}">
               ✏️ 编辑
             </button>
-            <button class="btn btn-danger btn-sm delete-channel-btn" data-channel="${channelType}">
+            <button class="btn btn-danger btn-sm delete-channel-btn" data-channel="${channelId}">
               🗑️ 删除
             </button>
           </div>
@@ -980,16 +980,16 @@ async function loadChannelsList() {
     // 绑定编辑按钮事件
     channelsListEl.querySelectorAll(".edit-channel-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const channelType = btn.dataset.channel;
-        editChannel(channelType);
+        const channelId = btn.dataset.channel;
+        editChannel(channelId);
       });
     });
 
     // 绑定删除按钮事件
     channelsListEl.querySelectorAll(".delete-channel-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const channelType = btn.dataset.channel;
-        deleteChannel(channelType);
+        const channelId = btn.dataset.channel;
+        deleteChannel(channelId);
       });
     });
   } catch (error) {
@@ -1095,6 +1095,9 @@ function toggleChannelForm() {
 function cancelChannelForm() {
   document.getElementById("channel-form-card").style.display = "none";
   document.getElementById("add-channel-form").reset();
+  document.getElementById("edit-channel-key").value = "";
+  document.getElementById("channel-id").disabled = false;
+  document.getElementById("channel-type").disabled = false;
 }
 
 // 保存渠道配置
@@ -1102,11 +1105,17 @@ async function submitChannelForm(event) {
   event.preventDefault();
 
   const editKey = document.getElementById("edit-channel-key").value;
+  const channelId = document.getElementById("channel-id").value.trim();
   const channelType = document.getElementById("channel-type").value;
   const token = document.getElementById("channel-token").value.trim();
   const chatIdEl = document.getElementById("channel-chat-id");
   const chatId = chatIdEl ? chatIdEl.value.trim() : "";
   const enabled = document.getElementById("channel-enabled").checked;
+
+  if (!channelId) {
+    showToast("请输入渠道名称", "error");
+    return;
+  }
 
   if (!channelType) {
     showToast("请选择渠道类型", "error");
@@ -1146,19 +1155,20 @@ async function submitChannelForm(event) {
       config.channels = {};
     }
 
-    // 如果是编辑模式且渠道类型改变了，删除旧的
-    if (editKey && editKey !== channelType) {
+    // 如果是编辑模式且渠道名称改变了，删除旧的
+    if (editKey && editKey !== channelId) {
       delete config.channels[editKey];
     }
 
-    // 添加或更新渠道配置（使用渠道类型作为 key）
-    config.channels[channelType] = {
+    // 添加或更新渠道配置（使用渠道名称作为 key）
+    config.channels[channelId] = {
+      type: channelType,  // 保存渠道类型
       enabled: enabled,
     };
 
     // 非飞书渠道才需要 botToken
     if (channelType !== "feishu") {
-      config.channels[channelType].botToken = token;
+      config.channels[channelId].botToken = token;
     }
 
     // Telegram 特定配置
@@ -1171,20 +1181,20 @@ async function submitChannelForm(event) {
       );
 
       if (dmPolicyEl && dmPolicyEl.value) {
-        config.channels[channelType].dmPolicy = dmPolicyEl.value;
+        config.channels[channelId].dmPolicy = dmPolicyEl.value;
       }
       if (groupPolicyEl && groupPolicyEl.value) {
-        config.channels[channelType].groupPolicy = groupPolicyEl.value;
+        config.channels[channelId].groupPolicy = groupPolicyEl.value;
       }
       if (allowFromEl && allowFromEl.value.trim()) {
         // 将逗号分隔的字符串转换为数组
-        config.channels[channelType].allowFrom = allowFromEl.value
+        config.channels[channelId].allowFrom = allowFromEl.value
           .split(",")
           .map((id) => id.trim())
           .filter((id) => id);
       }
       if (groupAllowFromEl && groupAllowFromEl.value.trim()) {
-        config.channels[channelType].groupAllowFrom = groupAllowFromEl.value
+        config.channels[channelId].groupAllowFrom = groupAllowFromEl.value
           .split(",")
           .map((id) => id.trim())
           .filter((id) => id);
@@ -1202,32 +1212,32 @@ async function submitChannelForm(event) {
       const dmPolicyEl = document.getElementById("feishu-dm-policy");
 
       // 飞书使用 accounts 结构
-      config.channels[channelType].accounts = {
+      config.channels[channelId].accounts = {
         main: {},
       };
 
       if (appIdEl && appIdEl.value.trim()) {
-        config.channels[channelType].accounts.main.appId = appIdEl.value.trim();
+        config.channels[channelId].accounts.main.appId = appIdEl.value.trim();
       }
       if (appSecretEl && appSecretEl.value.trim()) {
-        config.channels[channelType].accounts.main.appSecret =
+        config.channels[channelId].accounts.main.appSecret =
           appSecretEl.value.trim();
       }
       if (botNameEl && botNameEl.value.trim()) {
-        config.channels[channelType].accounts.main.botName =
+        config.channels[channelId].accounts.main.botName =
           botNameEl.value.trim();
       }
       if (verificationTokenEl && verificationTokenEl.value.trim()) {
-        config.channels[channelType].accounts.main.verificationToken =
+        config.channels[channelId].accounts.main.verificationToken =
           verificationTokenEl.value.trim();
       }
       if (dmPolicyEl && dmPolicyEl.value) {
-        config.channels[channelType].dmPolicy = dmPolicyEl.value;
+        config.channels[channelId].dmPolicy = dmPolicyEl.value;
       }
     }
 
     if (chatId) {
-      config.channels[channelType].chatId = chatId;
+      config.channels[channelId].chatId = chatId;
     }
 
     // 保存整个配置
@@ -1251,15 +1261,18 @@ async function submitChannelForm(event) {
 }
 
 // 编辑渠道
-async function editChannel(channelType) {
+async function editChannel(channelId) {
   try {
     const config = await apiRequest("/config");
-    const channel = config.channels[channelType];
+    const channel = config.channels[channelId];
 
     if (!channel) {
       showToast("渠道不存在", "error");
       return;
     }
+
+    // 获取渠道类型
+    const channelType = channel.type || "telegram";
 
     // 显示表单
     const formCard = document.getElementById("channel-form-card");
@@ -1271,9 +1284,11 @@ async function editChannel(channelType) {
     submitBtnText.textContent = "💾 保存修改";
 
     // 填充表单数据
-    document.getElementById("edit-channel-key").value = channelType;
+    document.getElementById("edit-channel-key").value = channelId;
+    document.getElementById("channel-id").value = channelId;
+    document.getElementById("channel-id").disabled = true;  // 编辑时不允许修改渠道名称
     document.getElementById("channel-type").value = channelType;
-    document.getElementById("channel-type").disabled = true;
+    document.getElementById("channel-type").disabled = false;  // 允许修改渠道类型
     document.getElementById("channel-token").value =
       channel.botToken || channel.token || "";
     const chatIdEl = document.getElementById("channel-chat-id");
@@ -1347,8 +1362,8 @@ async function editChannel(channelType) {
 }
 
 // 删除渠道
-async function deleteChannel(channelType) {
-  if (!confirm(`确定要删除渠道 "${channelType}" 吗？此操作不可撤销。`)) {
+async function deleteChannel(channelId) {
+  if (!confirm(`确定要删除渠道 "${channelId}" 吗？此操作不可撤销。`)) {
     return;
   }
 
@@ -1359,8 +1374,8 @@ async function deleteChannel(channelType) {
     const config = await apiRequest("/config");
 
     // 删除指定渠道
-    if (config.channels && config.channels[channelType]) {
-      delete config.channels[channelType];
+    if (config.channels && config.channels[channelId]) {
+      delete config.channels[channelId];
     } else {
       showToast("渠道不存在", "error");
       return;
