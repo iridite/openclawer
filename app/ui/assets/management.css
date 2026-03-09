@@ -582,6 +582,16 @@ span[title] {
     margin-top: 16px;
 }
 
+/* 空状态提示居中显示 */
+.models-grid > p,
+.channels-grid > p {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #999;
+    padding: 40px;
+    margin: 0;
+}
+
 .model-card {
     background: var(--bg-white);
     border: 1px solid var(--border);

@@ -687,7 +687,7 @@ async function loadModelsList() {
       Object.keys(config.models.providers).length === 0
     ) {
       modelsListEl.innerHTML =
-        '<p style="text-align: center; color: #999; padding: 40px;">暂无模型，点击"添加新模型"开始配置</p>';
+        '<p>暂无模型，点击"添加新模型"开始配置</p>';
       return;
     }
 
@@ -893,7 +893,7 @@ async function loadChannelsList() {
     const channelsListEl = document.getElementById("channels-list");
 
     if (Object.keys(channels).length === 0) {
-      channelsListEl.innerHTML = '<p class="loading">暂无消息渠道配置</p>';
+      channelsListEl.innerHTML = '<p>暂无消息渠道配置</p>';
       return;
     }
 
