@@ -651,8 +651,9 @@ async function deleteModel(modelKey) {
 
     showToast(result.message || "模型删除成功！", "success");
 
-    // 重新加载模型列表
+    // 重新加载模型列表和配置编辑器
     await loadModelsList();
+    await loadConfig();
   } catch (error) {
     showToast("删除模型失败: " + error.message, "error");
   }
@@ -856,9 +857,10 @@ async function submitChannelForm(event) {
 
     showToast("渠道配置保存成功！", "success");
 
-    // 重新加载渠道列表和配置摘要
+    // 重新加载渠道列表、配置摘要和配置编辑器
     await loadChannelsList();
     await loadConfigSummary();
+    await loadConfig();
 
     // 隐藏表单
     cancelChannelForm();
@@ -969,9 +971,10 @@ async function deleteChannel(channelKey) {
 
     showToast("渠道删除成功！", "success");
 
-    // 重新加载渠道列表和配置摘要
+    // 重新加载渠道列表、配置摘要和配置编辑器
     await loadChannelsList();
     await loadConfigSummary();
+    await loadConfig();
   } catch (error) {
     showToast("删除渠道失败: " + error.message, "error");
   }
@@ -1044,9 +1047,10 @@ async function submitModelForm(event) {
     // 重置表单并隐藏
     cancelModelForm();
 
-    // 刷新列表
+    // 刷新列表和配置编辑器
     await loadModelsList();
     await loadConfigSummary();
+    await loadConfig();
   } catch (error) {
     showToast(
       (document.getElementById("edit-model-key").value
