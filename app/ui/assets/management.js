@@ -16,6 +16,7 @@ const QUICK_ADD_MODELS = {
     providerName: "anthropic",
     baseUrl: "https://api.anthropic.com/v1",
     apiProtocol: "anthropic",
+    apiType: "anthropic-messages",
     advanced: {
       reasoning: false,
       input: ["text", "image"],
@@ -28,6 +29,7 @@ const QUICK_ADD_MODELS = {
     providerName: "anthropic",
     baseUrl: "https://api.anthropic.com/v1",
     apiProtocol: "anthropic",
+    apiType: "anthropic-messages",
     advanced: {
       reasoning: false,
       input: ["text", "image"],
@@ -40,6 +42,7 @@ const QUICK_ADD_MODELS = {
     providerName: "openai",
     baseUrl: "https://api.openai.com/v1",
     apiProtocol: "openai",
+    apiType: "openai-completions",
     advanced: {
       reasoning: false,
       input: ["text", "image"],
@@ -52,6 +55,7 @@ const QUICK_ADD_MODELS = {
     providerName: "openai",
     baseUrl: "https://api.openai.com/v1",
     apiProtocol: "openai",
+    apiType: "openai-completions",
     advanced: {
       reasoning: false,
       input: ["text", "image"],
@@ -64,6 +68,7 @@ const QUICK_ADD_MODELS = {
     providerName: "openai",
     baseUrl: "https://api.openai.com/v1",
     apiProtocol: "openai",
+    apiType: "openai-completions",
     advanced: {
       reasoning: true,
       input: ["text", "image"],
@@ -76,6 +81,7 @@ const QUICK_ADD_MODELS = {
     providerName: "google",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta",
     apiProtocol: "google-ai",
+    apiType: "google-generative-ai",
     advanced: {
       reasoning: false,
       input: ["text", "image"],
@@ -88,6 +94,7 @@ const QUICK_ADD_MODELS = {
     providerName: "google",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta",
     apiProtocol: "google-ai",
+    apiType: "google-generative-ai",
     advanced: {
       reasoning: false,
       input: ["text", "image"],
@@ -100,6 +107,7 @@ const QUICK_ADD_MODELS = {
     providerName: "deepseek",
     baseUrl: "https://api.deepseek.com/v1",
     apiProtocol: "openai",
+    apiType: "openai-completions",
     advanced: {
       reasoning: false,
       input: ["text"],
@@ -112,6 +120,7 @@ const QUICK_ADD_MODELS = {
     providerName: "deepseek",
     baseUrl: "https://api.deepseek.com/v1",
     apiProtocol: "openai",
+    apiType: "openai-completions",
     advanced: {
       reasoning: true,
       input: ["text"],
@@ -421,6 +430,30 @@ const PROVIDER_BASE_URLS = {
   moonshot: "https://api.moonshot.cn/v1",
 };
 
+// API 类型选项（OpenClaw 支持的所有 API 类型）
+const API_TYPES = {
+  openai: [
+    { value: "openai-completions", label: "OpenAI Completions", default: true },
+    { value: "openai-responses", label: "OpenAI Responses" },
+    { value: "openai-codex-responses", label: "OpenAI Codex Responses" },
+  ],
+  anthropic: [
+    { value: "anthropic-messages", label: "Anthropic Messages", default: true },
+  ],
+  google: [
+    { value: "google-generative-ai", label: "Google Generative AI", default: true },
+  ],
+  github: [
+    { value: "github-copilot", label: "GitHub Copilot", default: true },
+  ],
+  bedrock: [
+    { value: "bedrock-converse-stream", label: "Bedrock Converse Stream", default: true },
+  ],
+  ollama: [
+    { value: "ollama", label: "Ollama", default: true },
+  ],
+};
+
 // 渲染快速添加按钮
 function renderQuickAddButtons() {
   const container = document.getElementById("quick-add-grid");
@@ -458,6 +491,52 @@ function getProviderIcon(provider) {
   return icons[provider] || "⭐";
 }
 
+// 更新 API 类型下拉框选项
+function updateApiTypeOptions(protocol) {
+  const apiTypeSelect = document.getElementById("api-type");
+  if (!apiTypeSelect) return;
+
+  // 清空现有选项
+  apiTypeSelect.innerHTML = "";
+
+  // 根据协议获取对应的 API 类型
+  let options = [];
+  if (protocol === "openai") {
+    options = API_TYPES.openai;
+  } else if (protocol === "anthropic") {
+    options = API_TYPES.anthropic;
+  } else if (protocol === "google-ai") {
+    options = API_TYPES.google;
+  } else if (protocol === "github") {
+    options = API_TYPES.github;
+  } else if (protocol === "bedrock") {
+    options = API_TYPES.bedrock;
+  } else if (protocol === "ollama") {
+    options = API_TYPES.ollama;
+  } else {
+    // 默认显示所有 OpenAI 选项
+    options = API_TYPES.openai;
+  }
+
+  // 添加选项并自动选择默认值
+  let defaultValue = null;
+  options.forEach((opt) => {
+    const option = document.createElement("option");
+    option.value = opt.value;
+    option.textContent = opt.label;
+    apiTypeSelect.appendChild(option);
+
+    if (opt.default) {
+      defaultValue = opt.value;
+    }
+  });
+
+  // 自动选择默认值
+  if (defaultValue) {
+    apiTypeSelect.value = defaultValue;
+  }
+}
+
 // 快速添加模型
 async function quickAddModel(modelId) {
   const modelData = QUICK_ADD_MODELS[modelId];
@@ -482,6 +561,12 @@ async function quickAddModel(modelId) {
   document.getElementById("provider-name").value = modelData.providerName;
   document.getElementById("base-url").value = modelData.baseUrl;
   document.getElementById("api-protocol").value = modelData.apiProtocol;
+
+  // 更新 API 类型下拉框并设置值
+  updateApiTypeOptions(modelData.apiProtocol);
+  if (modelData.apiType) {
+    document.getElementById("api-type").value = modelData.apiType;
+  }
 
   // 高级配置
   if (modelData.advanced) {
@@ -525,6 +610,8 @@ function toggleModelForm() {
     formTitle.textContent = "➕ 添加新模型";
     submitBtnText.textContent = "✅ 添加模型";
     resetModelForm();
+    // 初始化 API 类型下拉框（默认 openai）
+    updateApiTypeOptions("openai");
     formCard.scrollIntoView({ behavior: "smooth", block: "start" });
   } else {
     formCard.style.display = "none";
@@ -706,6 +793,7 @@ async function editModel(providerName, modelId) {
       `${providerName}/${modelId}`;
     document.getElementById("model-id").value = modelId;
     document.getElementById("model-id").disabled = true; // 编辑时不允许修改模型名
+    document.getElementById("model-name").value = model.name || "";
     document.getElementById("provider-name").value = providerName;
     document.getElementById("base-url").value =
       provider.baseUrl || provider.baseURL || "";
@@ -831,7 +919,9 @@ function handleChannelTypeChange() {
   const telegramConfig = document.getElementById("telegram-specific-config");
   const feishuConfig = document.getElementById("feishu-specific-config");
   const tokenField = document.getElementById("channel-token");
-  const tokenLabel = tokenField ? tokenField.parentElement.querySelector("label") : null;
+  const tokenLabel = tokenField
+    ? tokenField.parentElement.querySelector("label")
+    : null;
 
   // 隐藏所有特定配置
   if (telegramConfig) telegramConfig.style.display = "none";
@@ -896,7 +986,9 @@ function toggleChannelForm() {
   if (feishuAppSecretEl) feishuAppSecretEl.value = "";
   const feishuBotNameEl = document.getElementById("feishu-bot-name");
   if (feishuBotNameEl) feishuBotNameEl.value = "";
-  const feishuVerificationTokenEl = document.getElementById("feishu-verification-token");
+  const feishuVerificationTokenEl = document.getElementById(
+    "feishu-verification-token",
+  );
   if (feishuVerificationTokenEl) feishuVerificationTokenEl.value = "";
   const feishuDmPolicyEl = document.getElementById("feishu-dm-policy");
   if (feishuDmPolicyEl) feishuDmPolicyEl.value = "pairing";
@@ -1245,11 +1337,12 @@ async function submitModelForm(event) {
 
     // 构建请求数据
     const modelData = {
-      modelId: isEditMode ? editModelKey : formData.get("modelId"),
+      modelKey: isEditMode ? editModelKey : formData.get("modelId"),
       providerName: formData.get("providerName"),
       baseUrl: formData.get("baseUrl"),
       apiKey: formData.get("apiKey"),
       apiProtocol: formData.get("apiProtocol"),
+      apiType: formData.get("apiType"),
       advanced: {
         reasoning: reasoningEl ? reasoningEl.checked : false,
         input: inputTypes,
@@ -1609,6 +1702,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // 初始化 API 类型下拉框（默认 openai）
+  updateApiTypeOptions("openai");
 
   console.log("初始化完成");
 });

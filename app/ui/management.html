@@ -534,12 +534,46 @@
                                                 id="api-protocol"
                                                 name="apiProtocol"
                                                 required
+                                                onchange="updateApiTypeOptions(this.value)"
                                             >
                                                 <option value="openai">
                                                     OpenAI 协议
                                                 </option>
                                                 <option value="anthropic">
                                                     Anthropic 协议
+                                                </option>
+                                                <option value="google-ai">
+                                                    Google AI 协议
+                                                </option>
+                                                <option value="github">
+                                                    GitHub Copilot 协议
+                                                </option>
+                                                <option value="bedrock">
+                                                    AWS Bedrock 协议
+                                                </option>
+                                                <option value="ollama">
+                                                    Ollama 协议
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>
+                                                API 类型
+                                                <span class="required">*</span>
+                                                <span
+                                                    class="tooltip-icon"
+                                                    data-tooltip="选择具体的 API 实现类型"
+                                                    >ⓘ</span
+                                                >
+                                            </label>
+                                            <select
+                                                id="api-type"
+                                                name="apiType"
+                                                required
+                                            >
+                                                <option value="openai-completions">
+                                                    OpenAI Completions
                                                 </option>
                                             </select>
                                         </div>

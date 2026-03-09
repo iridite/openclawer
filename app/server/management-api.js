@@ -311,7 +311,7 @@ async function addModel(modelData) {
     config.agents.defaults = config.agents.defaults || {};
     config.agents.defaults.models = config.agents.defaults.models || {};
 
-    const { providerName, modelId, baseUrl, apiKey, apiProtocol, advanced } =
+    const { providerName, modelId, baseUrl, apiKey, apiProtocol, apiType, advanced } =
       modelData;
 
     // 创建或更新供应商配置
@@ -319,14 +319,14 @@ async function addModel(modelData) {
       config.models.providers[providerName] = {
         baseUrl: baseUrl,
         apiKey: apiKey,
-        api: apiProtocol,
+        api: apiType || apiProtocol, // 优先使用 apiType，回退到 apiProtocol
         models: [],
       };
     } else {
-      // 更新现有供应商的配置
-      config.models.providers[providerName].baseUrl = baseUrl;
-      config.models.providers[providerName].apiKey = apiKey;
-      config.models.providers[providerName].api = apiProtocol;
+      // 确保 models 数组存在（不覆盖现有供应商配置）
+      if (!config.models.providers[providerName].models) {
+        config.models.providers[providerName].models = [];
+      }
     }
 
     // 检查模型是否已存在
