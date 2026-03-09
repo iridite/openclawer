@@ -820,7 +820,6 @@ async function editModel(providerName, modelId) {
       `${providerName}/${modelId}`;
     document.getElementById("model-id").value = modelId;
     document.getElementById("model-id").disabled = true; // 编辑时不允许修改模型名
-    document.getElementById("model-name").value = model.name || "";
     document.getElementById("provider-name").value = providerName;
     document.getElementById("base-url").value =
       provider.baseUrl || provider.baseURL || "";
