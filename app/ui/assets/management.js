@@ -1657,6 +1657,39 @@ async function loadConsoleInfo() {
   }
 }
 
+// 加载 Dashboard iframe
+async function loadDashboard() {
+  try {
+    const iframe = document.getElementById("dashboard-iframe");
+    const container = document.getElementById("dashboard-container");
+    const loadBtn = document.getElementById("load-dashboard-btn");
+    const reloadBtn = document.getElementById("reload-dashboard-btn");
+    const infoText = document.getElementById("console-info-text");
+
+    // 设置 iframe src 为代理路径
+    iframe.src = "/dashboard/";
+
+    // 显示 iframe 容器
+    container.style.display = "block";
+    infoText.style.display = "none";
+
+    // 切换按钮
+    loadBtn.style.display = "none";
+    reloadBtn.style.display = "inline-block";
+
+    showToast("正在加载控制台...", "info");
+  } catch (error) {
+    showToast("加载控制台失败: " + error.message, "error");
+  }
+}
+
+// 刷新 Dashboard iframe
+function reloadDashboard() {
+  const iframe = document.getElementById("dashboard-iframe");
+  iframe.src = iframe.src;
+  showToast("正在刷新控制台...", "info");
+}
+
 async function openConsole() {
   try {
     const info = await apiRequest("/console/url");

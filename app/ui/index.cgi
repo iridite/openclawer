@@ -9,6 +9,8 @@
 BASE_PATH="${TRIM_APPDEST}/ui"
 # Management API 地址
 MANAGEMENT_API="http://127.0.0.1:18790"
+# iframe-proxy 地址
+IFRAME_PROXY="http://127.0.0.1:18791"
 
 # 从 REQUEST_URI 中提取相对路径
 URI_NO_QUERY="${REQUEST_URI%%\?*}"
@@ -44,6 +46,28 @@ if [[ "$REL_PATH" == /api/* ]]; then
     echo "Access-Control-Allow-Origin: *"
     echo ""
     echo "$RESPONSE"
+    exit 0
+fi
+
+# 处理 Dashboard 代理请求 - 代理到 iframe-proxy
+if [[ "$REL_PATH" == /dashboard* ]]; then
+    # 去掉 /dashboard 前缀，转发到 iframe-proxy
+    PROXY_PATH="${REL_PATH#/dashboard}"
+    if [ -z "$PROXY_PATH" ]; then
+        PROXY_PATH="/"
+    fi
+
+    # 转发所有请求到 iframe-proxy
+    if [[ "$REQUEST_METHOD" == "POST" ]]; then
+        if [ -n "$CONTENT_LENGTH" ]; then
+            BODY=$(head -c "$CONTENT_LENGTH")
+        fi
+        curl -s -X POST "${IFRAME_PROXY}${PROXY_PATH}${QUERY_STRING:+?$QUERY_STRING}" \
+            -H "Content-Type: ${CONTENT_TYPE:-application/octet-stream}" \
+            --data-binary "$BODY"
+    else
+        curl -s "${IFRAME_PROXY}${PROXY_PATH}${QUERY_STRING:+?$QUERY_STRING}"
+    fi
     exit 0
 fi
 
