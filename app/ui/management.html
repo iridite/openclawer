@@ -217,7 +217,7 @@
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="模型的唯一标识符，如 gpt-4、claude-3-opus"
+                                                        data-tooltip="模型的唯一名称，用于在对话中调用这个模型。例如：gpt-4、claude-3-opus、my-custom-model。建议使用简短易记的名称。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -238,7 +238,7 @@
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="模型提供商，如 openai、anthropic"
+                                                        data-tooltip="AI 模型的提供商名称。常见的有：openai（ChatGPT）、anthropic（Claude）、google（Gemini）等。这个名称需要与实际使用的 API 提供商匹配。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -278,7 +278,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="API 端点地址"
+                                                    data-tooltip="API 服务器的网址。官方地址如：https://api.openai.com（OpenAI）、https://api.anthropic.com（Anthropic）。如果使用第三方代理或自建服务器，请填写对应的完整网址。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -302,7 +302,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="供应商提供的 API 密钥"
+                                                    data-tooltip="从 AI 服务提供商获取的密钥，用于身份验证和计费。格式通常是 sk- 开头的长字符串。请妥善保管，不要泄露给他人。添加后会自动隐藏显示。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -321,7 +321,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="选择 API 兼容协议"
+                                                    data-tooltip="选择 API 的通信协议。OpenAI 协议：适用于 ChatGPT 和兼容 OpenAI 格式的服务；Anthropic 协议：适用于 Claude 模型。大多数第三方服务使用 OpenAI 协议。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -358,7 +358,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="选择具体的 API 实现类型"
+                                                    data-tooltip="选择具体的 API 实现方式。Chat：对话式 API（最常用，适合聊天场景）；Completion：文本补全 API（适合生成文本）；Embedding：文本向量化 API（适合语义搜索）。一般选择 Chat 即可。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -394,7 +394,7 @@
                                                             上下文窗口
                                                             <span
                                                                 class="tooltip-icon"
-                                                                data-tooltip="模型支持的最大上下文长度"
+                                                                data-tooltip="模型能够"记住"的最大对话长度，以 token 为单位（约等于 0.75 个汉字或 1 个英文单词）。例如：4096 表示约 3000 字的上下文。数值越大，模型能记住的对话历史越长，但成本也越高。"
                                                                 >ⓘ</span
                                                             >
                                                         </label>
@@ -412,7 +412,7 @@
                                                             最大 Tokens
                                                             <span
                                                                 class="tooltip-icon"
-                                                                data-tooltip="模型单次输出的最大 token 数"
+                                                                data-tooltip="模型单次回复的最大长度限制，以 token 为单位。例如：2048 表示约 1500 字的回复长度。设置过小可能导致回复被截断，设置过大会增加响应时间和成本。建议根据实际需求调整。"
                                                                 >ⓘ</span
                                                             >
                                                         </label>
@@ -440,7 +440,7 @@
                                                         >
                                                         <span
                                                             class="tooltip-icon"
-                                                            data-tooltip="模型是否支持推理模式"
+                                                            data-tooltip="推理模式（Reasoning）是一种特殊的思考模式，模型会在回答前进行深度思考和推理。适用于需要复杂逻辑分析的场景，如数学题、编程问题等。目前仅部分高级模型支持此功能。"
                                                             >ⓘ</span
                                                         >
                                                     </label>
@@ -451,7 +451,7 @@
                                                         输入类型
                                                         <span
                                                             class="tooltip-icon"
-                                                            data-tooltip="模型支持的输入类型"
+                                                            data-tooltip="模型能够处理的输入内容类型。Text：纯文本；Multimodal：多模态（文本+图片+音频等）。如果模型支持图片识别、语音输入等功能，请选择 Multimodal。大多数基础模型只支持 Text。"
                                                             >ⓘ</span
                                                         >
                                                     </label>
@@ -558,7 +558,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="渠道的唯一标识符"
+                                                    data-tooltip="消息渠道的唯一名称，用于标识这个渠道。例如：my-telegram、work-discord。建议使用有意义的名称，方便后续管理和区分不同的机器人账号。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -577,7 +577,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="选择消息渠道类型"
+                                                    data-tooltip="选择要使用的消息平台。Telegram：电报机器人；Discord：Discord 机器人；Feishu：飞书机器人。不同平台需要不同的配置信息，请根据实际使用的平台选择。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -607,7 +607,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="机器人令牌"
+                                                    data-tooltip="Telegram 机器人的访问令牌，从 @BotFather 创建机器人时获得。格式类似：123456789:ABCdefGHIjklMNOpqrsTUVwxyz。这是机器人的身份凭证，请妥善保管。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -630,7 +630,7 @@
                                                     私信策略
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="控制如何处理私信：open=允许所有私信（默认），pairing=配对模式（需要配对码），allowlist=仅允许列表，disabled=禁用"
+                                                        data-tooltip="控制谁可以给机器人发私信。open：任何人都可以发私信（推荐新手使用）；pairing：需要先输入配对码才能使用；allowlist：只有白名单中的用户可以发私信；disabled：完全禁用私信功能。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -658,7 +658,7 @@
                                                     群组策略
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="控制如何处理群组消息：allowlist=仅允许列表（默认），open=开放，disabled=禁用"
+                                                        data-tooltip="控制机器人在群组中的行为。allowlist：只在白名单中的群组响应（推荐，更安全）；open：在所有群组中都响应；disabled：完全禁用群组功能，只能私聊使用。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -683,7 +683,7 @@
                                                     私信允许列表
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="允许私信的用户ID列表，用逗号分隔。例如: 123456789, 987654321"
+                                                        data-tooltip="允许给机器人发私信的用户 ID 列表，多个 ID 用英文逗号分隔。例如：123456789, 987654321。用户 ID 可以通过 @userinfobot 等机器人获取。仅在 DM Policy 设置为 allowlist 时生效。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -700,7 +700,7 @@
                                                     群组发送者允许列表
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="允许在群组中发送消息的用户ID列表，用逗号分隔"
+                                                        data-tooltip="允许在群组中使用机器人的用户 ID 列表，多个 ID 用英文逗号分隔。只有这些用户在群组中 @ 机器人时才会得到响应。仅在 Group Policy 设置为 allowlist 时生效。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -724,7 +724,7 @@
                                                     <span class="required">*</span>
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="Discord 机器人令牌（从 Discord Developer Portal 获取）"
+                                                        data-tooltip="Discord 机器人的访问令牌，从 Discord Developer Portal 创建应用并添加 Bot 后获得。格式是一串长字符串。这是机器人登录 Discord 的凭证，请妥善保管，不要泄露。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -750,7 +750,7 @@
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="飞书应用的 App ID，格式如 cli_xxx"
+                                                        data-tooltip="飞书应用的唯一标识符，格式通常是 cli_ 开头的字符串（如 cli_a1b2c3d4e5f6）。在飞书开放平台创建应用后，可以在"凭证与基础信息"页面找到 App ID。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -770,7 +770,7 @@
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="飞书应用的 App Secret"
+                                                        data-tooltip="飞书应用的密钥，用于验证应用身份和调用 API。在飞书开放平台的"凭证与基础信息"页面可以找到 App Secret。这是敏感信息，请妥善保管，不要泄露。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -787,7 +787,7 @@
                                                     机器人名称
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="机器人的显示名称（可选）"
+                                                        data-tooltip="机器人在飞书中显示的名称，用户看到的就是这个名字。可以自定义，例如：AI助手、小智等。这是可选项，不填写则使用应用默认名称。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -804,7 +804,7 @@
                                                     Verification Token
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="飞书应用的 Verification Token（可选，用于验证回调请求）"
+                                                        data-tooltip="飞书应用的验证令牌，用于验证飞书服务器发来的回调请求是否合法。在飞书开放平台的"事件订阅"页面可以找到 Verification Token。这是可选项，建议填写以提高安全性。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -821,7 +821,7 @@
                                                     私信策略
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="控制如何处理私信：open=允许所有私信（默认），pairing=配对模式（需要配对码），allowlist=仅允许列表，disabled=禁用"
+                                                        data-tooltip="控制谁可以给机器人发私信。open：任何人都可以发私信（推荐新手使用）；pairing：需要先输入配对码才能使用；allowlist：只有白名单中的用户可以发私信；disabled：完全禁用私信功能。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
