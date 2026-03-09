@@ -362,14 +362,21 @@
                                         <h2>⚡ 快速添加模型</h2>
                                     </div>
                                     <div class="quick-add-container">
-                                        <div class="quick-add-grid" id="quick-add-grid">
+                                        <div
+                                            class="quick-add-grid"
+                                            id="quick-add-grid"
+                                        >
                                             <!-- 快速添加按钮将通过 JS 动态生成 -->
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- 快速添加模型表单 -->
-                                <div class="card" id="model-form-card" style="display: none">
+                                <div
+                                    class="card"
+                                    id="model-form-card"
+                                    style="display: none"
+                                >
                                     <div class="card-header">
                                         <h2 id="form-title">➕ 添加新模型</h2>
                                         <button
@@ -384,13 +391,24 @@
                                         onsubmit="submitModelForm(event)"
                                         class="model-form"
                                     >
-                                        <input type="hidden" id="edit-model-key" value="" />
+                                        <input
+                                            type="hidden"
+                                            id="edit-model-key"
+                                            value=""
+                                        />
 
                                         <div class="form-row">
                                             <div class="form-group">
                                                 <label>
-                                                    模型名称 <span class="required">*</span>
-                                                    <span class="tooltip-icon" data-tooltip="模型的唯一标识符，如 gpt-4、claude-3-opus">ⓘ</span>
+                                                    模型名称
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="模型的唯一标识符，如 gpt-4、claude-3-opus"
+                                                        >ⓘ</span
+                                                    >
                                                 </label>
                                                 <input
                                                     type="text"
@@ -403,8 +421,15 @@
 
                                             <div class="form-group">
                                                 <label>
-                                                    供应商 <span class="required">*</span>
-                                                    <span class="tooltip-icon" data-tooltip="模型提供商，如 openai、anthropic">ⓘ</span>
+                                                    供应商
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="模型提供商，如 openai、anthropic"
+                                                        >ⓘ</span
+                                                    >
                                                 </label>
                                                 <input
                                                     type="text"
@@ -414,20 +439,37 @@
                                                     placeholder="选择或输入供应商"
                                                     required
                                                 />
-                                                <datalist id="provider-suggestions">
-                                                    <option value="openai">OpenAI</option>
-                                                    <option value="anthropic">Anthropic</option>
-                                                    <option value="bailian">阿里百炼</option>
-                                                    <option value="zhipu">智谱 AI</option>
-                                                    <option value="moonshot">Moonshot</option>
+                                                <datalist
+                                                    id="provider-suggestions"
+                                                >
+                                                    <option value="openai">
+                                                        OpenAI
+                                                    </option>
+                                                    <option value="anthropic">
+                                                        Anthropic
+                                                    </option>
+                                                    <option value="bailian">
+                                                        阿里百炼
+                                                    </option>
+                                                    <option value="zhipu">
+                                                        智谱 AI
+                                                    </option>
+                                                    <option value="moonshot">
+                                                        Moonshot
+                                                    </option>
                                                 </datalist>
                                             </div>
                                         </div>
 
                                         <div class="form-group">
                                             <label>
-                                                Base URL <span class="required">*</span>
-                                                <span class="tooltip-icon" data-tooltip="API 端点地址">ⓘ</span>
+                                                Base URL
+                                                <span class="required">*</span>
+                                                <span
+                                                    class="tooltip-icon"
+                                                    data-tooltip="API 端点地址"
+                                                    >ⓘ</span
+                                                >
                                             </label>
                                             <input
                                                 type="url"
@@ -437,14 +479,21 @@
                                                 required
                                             />
                                             <div class="form-hint warning">
-                                                ⚠️ 请务必确认 Base URL 正确！错误的 URL 可能导致请求失败。
+                                                ⚠️ 请务必确认 Base URL
+                                                正确！错误的 URL
+                                                可能导致请求失败。
                                             </div>
                                         </div>
 
                                         <div class="form-group">
                                             <label>
-                                                API Key <span class="required">*</span>
-                                                <span class="tooltip-icon" data-tooltip="供应商提供的 API 密钥">ⓘ</span>
+                                                API Key
+                                                <span class="required">*</span>
+                                                <span
+                                                    class="tooltip-icon"
+                                                    data-tooltip="供应商提供的 API 密钥"
+                                                    >ⓘ</span
+                                                >
                                             </label>
                                             <input
                                                 type="password"
@@ -457,26 +506,52 @@
 
                                         <div class="form-group">
                                             <label>
-                                                API 协议 <span class="required">*</span>
-                                                <span class="tooltip-icon" data-tooltip="选择 API 兼容协议">ⓘ</span>
+                                                API 协议
+                                                <span class="required">*</span>
+                                                <span
+                                                    class="tooltip-icon"
+                                                    data-tooltip="选择 API 兼容协议"
+                                                    >ⓘ</span
+                                                >
                                             </label>
-                                            <select id="api-protocol" name="apiProtocol" required>
-                                                <option value="openai">OpenAI 协议</option>
-                                                <option value="anthropic">Anthropic 协议</option>
+                                            <select
+                                                id="api-protocol"
+                                                name="apiProtocol"
+                                                required
+                                            >
+                                                <option value="openai">
+                                                    OpenAI 协议
+                                                </option>
+                                                <option value="anthropic">
+                                                    Anthropic 协议
+                                                </option>
                                             </select>
                                         </div>
 
                                         <!-- 高级配置 -->
                                         <div class="form-section">
-                                            <h3 onclick="toggleAdvanced()" style="cursor: pointer;">
-                                                ⚙️ 高级配置 <span id="advanced-toggle">▼</span>
+                                            <h3
+                                                onclick="toggleAdvanced()"
+                                                style="cursor: pointer"
+                                            >
+                                                ⚙️ 高级配置
+                                                <span id="advanced-toggle"
+                                                    >▼</span
+                                                >
                                             </h3>
-                                            <div id="advanced-config" style="display: none">
+                                            <div
+                                                id="advanced-config"
+                                                style="display: none"
+                                            >
                                                 <div class="form-row">
                                                     <div class="form-group">
                                                         <label>
                                                             上下文窗口
-                                                            <span class="tooltip-icon" data-tooltip="模型支持的最大上下文长度">ⓘ</span>
+                                                            <span
+                                                                class="tooltip-icon"
+                                                                data-tooltip="模型支持的最大上下文长度"
+                                                                >ⓘ</span
+                                                            >
                                                         </label>
                                                         <input
                                                             type="number"
@@ -490,7 +565,11 @@
                                                     <div class="form-group">
                                                         <label>
                                                             最大 Tokens
-                                                            <span class="tooltip-icon" data-tooltip="模型单次输出的最大 token 数">ⓘ</span>
+                                                            <span
+                                                                class="tooltip-icon"
+                                                                data-tooltip="模型单次输出的最大 token 数"
+                                                                >ⓘ</span
+                                                            >
                                                         </label>
                                                         <input
                                                             type="number"
@@ -503,24 +582,38 @@
                                                 </div>
 
                                                 <div class="form-group">
-                                                    <label class="checkbox-label">
+                                                    <label
+                                                        class="checkbox-label"
+                                                    >
                                                         <input
                                                             type="checkbox"
                                                             id="reasoning"
                                                             name="reasoning"
                                                         />
-                                                        <span>支持推理模式</span>
-                                                        <span class="tooltip-icon" data-tooltip="模型是否支持推理模式">ⓘ</span>
+                                                        <span
+                                                            >支持推理模式</span
+                                                        >
+                                                        <span
+                                                            class="tooltip-icon"
+                                                            data-tooltip="模型是否支持推理模式"
+                                                            >ⓘ</span
+                                                        >
                                                     </label>
                                                 </div>
 
                                                 <div class="form-group">
                                                     <label>
                                                         输入类型
-                                                        <span class="tooltip-icon" data-tooltip="模型支持的输入类型">ⓘ</span>
+                                                        <span
+                                                            class="tooltip-icon"
+                                                            data-tooltip="模型支持的输入类型"
+                                                            >ⓘ</span
+                                                        >
                                                     </label>
                                                     <div class="checkbox-group">
-                                                        <label class="checkbox-label">
+                                                        <label
+                                                            class="checkbox-label"
+                                                        >
                                                             <input
                                                                 type="checkbox"
                                                                 id="input-type-text"
@@ -529,7 +622,9 @@
                                                             />
                                                             <span>文本</span>
                                                         </label>
-                                                        <label class="checkbox-label">
+                                                        <label
+                                                            class="checkbox-label"
+                                                        >
                                                             <input
                                                                 type="checkbox"
                                                                 id="input-image"
@@ -543,11 +638,20 @@
                                         </div>
 
                                         <div class="form-actions">
-                                            <button type="button" class="btn btn-secondary" onclick="cancelModelForm()">
+                                            <button
+                                                type="button"
+                                                class="btn btn-secondary"
+                                                onclick="cancelModelForm()"
+                                            >
                                                 取消
                                             </button>
-                                            <button type="submit" class="btn btn-primary">
-                                                <span id="submit-btn-text">✅ 添加模型</span>
+                                            <button
+                                                type="submit"
+                                                class="btn btn-primary"
+                                            >
+                                                <span id="submit-btn-text"
+                                                    >✅ 添加模型</span
+                                                >
                                             </button>
                                         </div>
                                     </form>
@@ -567,15 +671,24 @@
                                             ➕ 添加渠道
                                         </button>
                                     </div>
-                                    <div id="channels-list" class="channels-grid">
+                                    <div
+                                        id="channels-list"
+                                        class="channels-grid"
+                                    >
                                         <p class="loading">加载中...</p>
                                     </div>
                                 </div>
 
                                 <!-- 快速添加渠道表单 -->
-                                <div class="card" id="channel-form-card" style="display: none">
+                                <div
+                                    class="card"
+                                    id="channel-form-card"
+                                    style="display: none"
+                                >
                                     <div class="card-header">
-                                        <h2 id="channel-form-title">➕ 添加新渠道</h2>
+                                        <h2 id="channel-form-title">
+                                            ➕ 添加新渠道
+                                        </h2>
                                         <button
                                             class="btn btn-secondary btn-sm"
                                             onclick="cancelChannelForm()"
@@ -588,12 +701,21 @@
                                         onsubmit="submitChannelForm(event)"
                                         class="channel-form"
                                     >
-                                        <input type="hidden" id="edit-channel-key" value="" />
+                                        <input
+                                            type="hidden"
+                                            id="edit-channel-key"
+                                            value=""
+                                        />
 
                                         <div class="form-group">
                                             <label>
-                                                渠道名称 <span class="required">*</span>
-                                                <span class="tooltip-icon" data-tooltip="渠道的唯一标识符">ⓘ</span>
+                                                渠道名称
+                                                <span class="required">*</span>
+                                                <span
+                                                    class="tooltip-icon"
+                                                    data-tooltip="渠道的唯一标识符"
+                                                    >ⓘ</span
+                                                >
                                             </label>
                                             <input
                                                 type="text"
@@ -606,22 +728,46 @@
 
                                         <div class="form-group">
                                             <label>
-                                                渠道类型 <span class="required">*</span>
-                                                <span class="tooltip-icon" data-tooltip="选择消息渠道类型">ⓘ</span>
+                                                渠道类型
+                                                <span class="required">*</span>
+                                                <span
+                                                    class="tooltip-icon"
+                                                    data-tooltip="选择消息渠道类型"
+                                                    >ⓘ</span
+                                                >
                                             </label>
-                                            <select id="channel-type" name="channelType" required>
-                                                <option value="">请选择...</option>
-                                                <option value="telegram">Telegram</option>
-                                                <option value="discord">Discord</option>
-                                                <option value="slack">Slack</option>
-                                                <option value="wechat">微信</option>
+                                            <select
+                                                id="channel-type"
+                                                name="channelType"
+                                                required
+                                            >
+                                                <option value="">
+                                                    请选择...
+                                                </option>
+                                                <option value="telegram">
+                                                    Telegram
+                                                </option>
+                                                <option value="discord">
+                                                    Discord
+                                                </option>
+                                                <option value="slack">
+                                                    Slack
+                                                </option>
+                                                <option value="wechat">
+                                                    微信
+                                                </option>
                                             </select>
                                         </div>
 
                                         <div class="form-group">
                                             <label>
-                                                Bot Token <span class="required">*</span>
-                                                <span class="tooltip-icon" data-tooltip="机器人令牌">ⓘ</span>
+                                                Bot Token
+                                                <span class="required">*</span>
+                                                <span
+                                                    class="tooltip-icon"
+                                                    data-tooltip="机器人令牌"
+                                                    >ⓘ</span
+                                                >
                                             </label>
                                             <input
                                                 type="password"
@@ -630,6 +776,99 @@
                                                 placeholder="输入 Bot Token"
                                                 required
                                             />
+                                        </div>
+
+                                        <!-- Telegram 特定配置 -->
+                                        <div
+                                            id="telegram-specific-config"
+                                            style="display: none"
+                                        >
+                                            <div class="form-group">
+                                                <label>
+                                                    私信策略
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="控制如何处理私信：pairing=配对模式（默认），allowlist=仅允许列表，open=开放，disabled=禁用"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <select
+                                                    id="telegram-dm-policy"
+                                                    name="dmPolicy"
+                                                >
+                                                    <option value="pairing">
+                                                        Pairing（配对模式）
+                                                    </option>
+                                                    <option value="allowlist">
+                                                        Allowlist（仅允许列表）
+                                                    </option>
+                                                    <option value="open">
+                                                        Open（开放）
+                                                    </option>
+                                                    <option value="disabled">
+                                                        Disabled（禁用）
+                                                    </option>
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>
+                                                    群组策略
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="控制如何处理群组消息：allowlist=仅允许列表（默认），open=开放，disabled=禁用"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <select
+                                                    id="telegram-group-policy"
+                                                    name="groupPolicy"
+                                                >
+                                                    <option value="allowlist">
+                                                        Allowlist（仅允许列表）
+                                                    </option>
+                                                    <option value="open">
+                                                        Open（开放）
+                                                    </option>
+                                                    <option value="disabled">
+                                                        Disabled（禁用）
+                                                    </option>
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>
+                                                    私信允许列表
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="允许私信的用户ID列表，用逗号分隔。例如: 123456789, 987654321"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="telegram-allow-from"
+                                                    name="allowFrom"
+                                                    placeholder="用户ID，用逗号分隔"
+                                                />
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>
+                                                    群组发送者允许列表
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="允许在群组中发送消息的用户ID列表，用逗号分隔"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="telegram-group-allow-from"
+                                                    name="groupAllowFrom"
+                                                    placeholder="用户ID，用逗号分隔"
+                                                />
+                                            </div>
                                         </div>
 
                                         <div class="form-group">
@@ -645,11 +884,21 @@
                                         </div>
 
                                         <div class="form-actions">
-                                            <button type="button" class="btn btn-secondary" onclick="cancelChannelForm()">
+                                            <button
+                                                type="button"
+                                                class="btn btn-secondary"
+                                                onclick="cancelChannelForm()"
+                                            >
                                                 取消
                                             </button>
-                                            <button type="submit" class="btn btn-primary">
-                                                <span id="channel-submit-btn-text">✅ 添加渠道</span>
+                                            <button
+                                                type="submit"
+                                                class="btn btn-primary"
+                                            >
+                                                <span
+                                                    id="channel-submit-btn-text"
+                                                    >✅ 添加渠道</span
+                                                >
                                             </button>
                                         </div>
                                     </form>
@@ -743,13 +992,19 @@
                         <div class="card">
                             <h2>模型列表</h2>
                             <div class="models-toolbar">
-                                <button class="btn btn-primary" id="refresh-models">
+                                <button
+                                    class="btn btn-primary"
+                                    id="refresh-models"
+                                >
                                     🔄 刷新列表
                                 </button>
                                 <button class="btn btn-success" id="add-model">
                                     ➕ 添加模型
                                 </button>
-                                <button class="btn btn-info" id="quick-add-model">
+                                <button
+                                    class="btn btn-info"
+                                    id="quick-add-model"
+                                >
                                     ⚡ 快速添加
                                 </button>
                             </div>

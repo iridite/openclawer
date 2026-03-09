@@ -706,6 +706,20 @@ async function loadChannelsList() {
   }
 }
 
+// 处理渠道类型切换
+function handleChannelTypeChange() {
+  const channelType = document.getElementById("channel-type").value;
+  const telegramConfig = document.getElementById("telegram-specific-config");
+
+  if (telegramConfig) {
+    if (channelType === "telegram") {
+      telegramConfig.style.display = "block";
+    } else {
+      telegramConfig.style.display = "none";
+    }
+  }
+}
+
 // 显示/隐藏添加渠道表单
 function toggleChannelForm() {
   const formCard = document.getElementById("channel-form-card");
@@ -725,6 +739,26 @@ function toggleChannelForm() {
   const chatIdEl = document.getElementById("channel-chat-id");
   if (chatIdEl) chatIdEl.value = "";
   document.getElementById("channel-enabled").checked = true;
+
+  // 清空 Telegram 特定字段
+  const dmPolicyEl = document.getElementById("telegram-dm-policy");
+  if (dmPolicyEl) dmPolicyEl.value = "pairing";
+  const groupPolicyEl = document.getElementById("telegram-group-policy");
+  if (groupPolicyEl) groupPolicyEl.value = "allowlist";
+  const allowFromEl = document.getElementById("telegram-allow-from");
+  if (allowFromEl) allowFromEl.value = "";
+  const groupAllowFromEl = document.getElementById("telegram-group-allow-from");
+  if (groupAllowFromEl) groupAllowFromEl.value = "";
+
+  // 显示对应类型的配置
+  handleChannelTypeChange();
+
+  // 绑定类型切换事件
+  const channelTypeEl = document.getElementById("channel-type");
+  if (channelTypeEl) {
+    channelTypeEl.removeEventListener("change", handleChannelTypeChange);
+    channelTypeEl.addEventListener("change", handleChannelTypeChange);
+  }
 
   formCard.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -776,9 +810,39 @@ async function submitChannelForm(event) {
     // 添加或更新渠道配置
     config.channels[channelId] = {
       type: channelType,
-      token: token,
+      botToken: token,
       enabled: enabled,
     };
+
+    // Telegram 特定配置
+    if (channelType === "telegram") {
+      const dmPolicyEl = document.getElementById("telegram-dm-policy");
+      const groupPolicyEl = document.getElementById("telegram-group-policy");
+      const allowFromEl = document.getElementById("telegram-allow-from");
+      const groupAllowFromEl = document.getElementById(
+        "telegram-group-allow-from",
+      );
+
+      if (dmPolicyEl && dmPolicyEl.value) {
+        config.channels[channelId].dmPolicy = dmPolicyEl.value;
+      }
+      if (groupPolicyEl && groupPolicyEl.value) {
+        config.channels[channelId].groupPolicy = groupPolicyEl.value;
+      }
+      if (allowFromEl && allowFromEl.value.trim()) {
+        // 将逗号分隔的字符串转换为数组
+        config.channels[channelId].allowFrom = allowFromEl.value
+          .split(",")
+          .map((id) => id.trim())
+          .filter((id) => id);
+      }
+      if (groupAllowFromEl && groupAllowFromEl.value.trim()) {
+        config.channels[channelId].groupAllowFrom = groupAllowFromEl.value
+          .split(",")
+          .map((id) => id.trim())
+          .filter((id) => id);
+      }
+    }
 
     if (chatId) {
       config.channels[channelId].chatId = chatId;
@@ -828,11 +892,48 @@ async function editChannel(channelKey) {
     document.getElementById("channel-id").value = channelKey;
     document.getElementById("channel-id").disabled = true;
     document.getElementById("channel-type").value = channel.type || "telegram";
-    document.getElementById("channel-token").value = channel.token || "";
+    document.getElementById("channel-token").value =
+      channel.botToken || channel.token || "";
     const chatIdEl = document.getElementById("channel-chat-id");
     if (chatIdEl) chatIdEl.value = channel.chatId || "";
     document.getElementById("channel-enabled").checked =
       channel.enabled !== false;
+
+    // 填充 Telegram 特定字段
+    if (channel.type === "telegram") {
+      const dmPolicyEl = document.getElementById("telegram-dm-policy");
+      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "pairing";
+
+      const groupPolicyEl = document.getElementById("telegram-group-policy");
+      if (groupPolicyEl)
+        groupPolicyEl.value = channel.groupPolicy || "allowlist";
+
+      const allowFromEl = document.getElementById("telegram-allow-from");
+      if (allowFromEl && channel.allowFrom) {
+        allowFromEl.value = Array.isArray(channel.allowFrom)
+          ? channel.allowFrom.join(", ")
+          : channel.allowFrom;
+      }
+
+      const groupAllowFromEl = document.getElementById(
+        "telegram-group-allow-from",
+      );
+      if (groupAllowFromEl && channel.groupAllowFrom) {
+        groupAllowFromEl.value = Array.isArray(channel.groupAllowFrom)
+          ? channel.groupAllowFrom.join(", ")
+          : channel.groupAllowFrom;
+      }
+    }
+
+    // 显示对应类型的配置
+    handleChannelTypeChange();
+
+    // 绑定类型切换事件
+    const channelTypeEl = document.getElementById("channel-type");
+    if (channelTypeEl) {
+      channelTypeEl.removeEventListener("change", handleChannelTypeChange);
+      channelTypeEl.addEventListener("change", handleChannelTypeChange);
+    }
 
     formCard.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
