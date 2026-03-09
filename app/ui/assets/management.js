@@ -516,52 +516,100 @@ function cancelModelForm() {
   resetModelForm();
 }
 
+// API Key 脱敏显示
+function maskApiKey(key) {
+  if (!key || key.length < 8) {
+    return "***";
+  }
+  const start = key.substring(0, 4);
+  const end = key.substring(key.length - 4);
+  return `${start}${"*".repeat(Math.min(20, key.length - 8))}${end}`;
+}
+
+// 复制到剪贴板
+function copyToClipboard(text, label) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        showToast(`${label || "内容"}已复制到剪贴板`, "success");
+      })
+      .catch((err) => {
+        showToast("复制失败: " + err.message, "error");
+      });
+  } else {
+    // 降级方案：使用 textarea
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand("copy");
+      showToast(`${label || "内容"}已复制到剪贴板`, "success");
+    } catch (err) {
+      showToast("复制失败", "error");
+    }
+    document.body.removeChild(textarea);
+  }
+}
+
 // 加载模型列表
 async function loadModelsList() {
   try {
     const config = await apiRequest("/config");
     const modelsListEl = document.getElementById("models-list");
 
-    if (!config.models || Object.keys(config.models).length === 0) {
+    // 检查是否有 providers 配置
+    if (
+      !config.models ||
+      !config.models.providers ||
+      Object.keys(config.models.providers).length === 0
+    ) {
       modelsListEl.innerHTML =
         '<p style="text-align: center; color: #999; padding: 40px;">暂无模型，点击"添加新模型"开始配置</p>';
       return;
     }
 
-    // 按供应商分组
-    const groupedModels = {};
-    for (const [key, model] of Object.entries(config.models)) {
-      const provider = model.provider || "未知";
-      if (!groupedModels[provider]) {
-        groupedModels[provider] = [];
-      }
-      groupedModels[provider].push({ key, model });
-    }
-
-    // 按供应商名称排序
-    const sortedProviders = Object.keys(groupedModels).sort();
+    const providers = config.models.providers;
+    const sortedProviders = Object.keys(providers).sort();
 
     let html = "";
-    for (const provider of sortedProviders) {
-      const models = groupedModels[provider];
+    for (const providerName of sortedProviders) {
+      const provider = providers[providerName];
 
       // 供应商分组标题
-      html += `<div class="provider-group-header">${provider}</div>`;
+      html += `<div class="provider-group-header">${providerName}</div>`;
 
       // 该供应商下的所有模型
-      for (const { key, model } of models) {
-        const baseUrl = model.baseURL || model.baseUrl || "未配置";
-        const hasKey = model.apiKey ? "✅ 已配置" : "❌ 未配置";
+      if (provider.models && Array.isArray(provider.models)) {
+        for (const model of provider.models) {
+          const baseUrl = provider.baseUrl || provider.baseURL || "未配置";
+          const apiKey = provider.apiKey || "";
+          const hasKey = apiKey ? "✅ 已配置" : "❌ 未配置";
+          const maskedKey = maskApiKey(apiKey);
+          const modelId = model.id || model.name;
 
-        html += `
+          html += `
           <div class="model-card">
-            <div class="model-card-header">
-              <h3 class="model-card-title">${key}</h3>
-            </div>
+          <div class="model-card-header">
+            <h3 class="model-card-title">${providerName}/${modelId}</h3>
+          </div>
             <div class="model-card-info">
               <div class="model-card-info-item">
                 <span>API Key:</span>
-                <span>${hasKey}</span>
+                <span>
+                  ${hasKey}
+                  ${
+                    apiKey
+                      ? `<code style="margin-left: 8px; font-size: 0.85em;">${maskedKey}</code>
+                  <button class="btn btn-secondary btn-sm" style="margin-left: 4px; padding: 2px 6px; font-size: 0.85em;" onclick="copyToClipboard('${apiKey.replace(/'/g, "\\'")}', 'API Key')" title="复制 API Key">
+                    📋
+                  </button>`
+                      : ""
+                  }
+                </span>
               </div>
               <div class="model-card-info-item">
                 <span>Base URL:</span>
@@ -569,15 +617,16 @@ async function loadModelsList() {
               </div>
             </div>
             <div class="model-card-actions">
-              <button class="btn btn-secondary btn-sm" onclick="editModel('${key}')">
+              <button class="btn btn-secondary btn-sm" onclick="editModel('${providerName}', '${modelId}')">
                 ✏️ 编辑
               </button>
-              <button class="btn btn-secondary btn-sm" onclick="deleteModel('${key}')">
+              <button class="btn btn-secondary btn-sm" onclick="deleteModel('${providerName}', '${modelId}')">
                 🗑️ 删除
               </button>
             </div>
           </div>
         `;
+        }
       }
     }
 
@@ -589,10 +638,23 @@ async function loadModelsList() {
 }
 
 // 编辑模型
-async function editModel(modelKey) {
+async function editModel(providerName, modelId) {
   try {
     const config = await apiRequest("/config");
-    const model = config.models[modelKey];
+
+    if (
+      !config.models ||
+      !config.models.providers ||
+      !config.models.providers[providerName]
+    ) {
+      showToast("供应商不存在", "error");
+      return;
+    }
+
+    const provider = config.models.providers[providerName];
+    const model = provider.models?.find(
+      (m) => m.id === modelId || m.name === modelId,
+    );
 
     if (!model) {
       showToast("模型不存在", "error");
@@ -609,24 +671,31 @@ async function editModel(modelKey) {
     submitBtnText.textContent = "💾 保存修改";
 
     // 填充表单数据
-    document.getElementById("edit-model-key").value = modelKey;
-    document.getElementById("model-id").value = modelKey;
+    document.getElementById("edit-model-key").value =
+      `${providerName}/${modelId}`;
+    document.getElementById("model-id").value = modelId;
     document.getElementById("model-id").disabled = true; // 编辑时不允许修改模型名
-    document.getElementById("provider-name").value = model.provider || "";
+    document.getElementById("provider-name").value = providerName;
     document.getElementById("base-url").value =
-      model.baseURL || model.baseUrl || "";
-    document.getElementById("api-key").value = model.apiKey || "";
-    document.getElementById("api-protocol").value = model.api || "openai";
+      provider.baseUrl || provider.baseURL || "";
+    document.getElementById("api-key").value = provider.apiKey || "";
+    document.getElementById("api-protocol").value = provider.api || "openai";
 
-    // 高级配置
+    // 填充高级配置（如果存在）
     if (model.contextWindow) {
       document.getElementById("context-window").value = model.contextWindow;
     }
     if (model.maxTokens) {
       document.getElementById("max-tokens").value = model.maxTokens;
     }
-    if (model.reasoning) {
+    if (model.reasoning !== undefined) {
       document.getElementById("reasoning").checked = model.reasoning;
+    }
+    if (model.input) {
+      document.getElementById("input-type-text").checked =
+        model.input.includes("text");
+      document.getElementById("input-image").checked =
+        model.input.includes("image");
     }
 
     formCard.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -636,14 +705,17 @@ async function editModel(modelKey) {
 }
 
 // 删除模型
-async function deleteModel(modelKey) {
-  if (!confirm(`确定要删除模型 "${modelKey}" 吗？此操作不可撤销。`)) {
+async function deleteModel(providerName, modelId) {
+  if (
+    !confirm(`确定要删除模型 "${providerName}/${modelId}" 吗？此操作不可撤销。`)
+  ) {
     return;
   }
 
   try {
     showToast("正在删除模型...", "info");
 
+    const modelKey = `${providerName}/${modelId}`;
     const result = await apiRequest(`/models/delete`, {
       method: "POST",
       body: JSON.stringify({ modelKey }),
