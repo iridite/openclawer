@@ -879,29 +879,65 @@ span[title] {
     font-size: 1rem;
 }
 
-.channel-type {
+/* 消息渠道卡片样式 */
+.channel-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.3s;
+}
+
+.channel-card:hover {
+    box-shadow: 0 4px 12px var(--shadow);
+    transform: translateY(-2px);
+}
+
+.channel-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.channel-card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin: 0 0 4px 0;
+}
+
+.channel-card-type {
     display: inline-block;
-    padding: 4px 12px;
+    padding: 4px 8px;
     background: rgba(244, 81, 30, 0.1);
     color: var(--primary);
-    border-radius: 12px;
-    font-size: 0.85rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
     font-weight: 500;
 }
 
-.channel-info {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 12px;
-    font-size: 0.9rem;
+.channel-card-info {
+    margin: 12px 0;
+    font-size: 0.85rem;
     color: var(--text-gray);
 }
 
-.channel-actions {
+.channel-card-info-item {
+    padding: 4px 0;
+    line-height: 1.5;
+}
+
+.channel-card-actions {
     display: flex;
     gap: 8px;
-    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+.channel-card-actions .btn {
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 0.85rem;
 }
 
 /* 渠道表单样式 */

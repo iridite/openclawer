@@ -754,6 +754,24 @@ async function loadModelsList() {
         copyToClipboard(apiKey, "API Key");
       });
     });
+
+    // 为编辑按钮添加事件监听器
+    document.querySelectorAll(".edit-model-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const providerName = btn.dataset.provider;
+        const modelId = btn.dataset.model;
+        editModel(providerName, modelId);
+      });
+    });
+
+    // 为删除按钮添加事件监听器
+    document.querySelectorAll(".delete-model-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const providerName = btn.dataset.provider;
+        const modelId = btn.dataset.model;
+        deleteModel(providerName, modelId);
+      });
+    });
   } catch (error) {
     document.getElementById("models-list").innerHTML =
       '<p class="loading">加载失败: ' + error.message + "</p>";
@@ -876,18 +894,45 @@ async function loadChannelsList() {
       const statusClass = enabled ? "status-running" : "status-stopped";
       const statusText = enabled ? "已启用" : "已禁用";
 
+      // 构建渠道信息摘要
+      let infoItems = [];
+
+      if (channelType === "telegram") {
+        const token = channel.botToken || channel.token;
+        if (token) infoItems.push(`Token: ${token.substring(0, 10)}...`);
+        if (channel.chatId) infoItems.push(`Chat ID: ${channel.chatId}`);
+        if (channel.dmPolicy) infoItems.push(`私聊策略: ${channel.dmPolicy}`);
+        if (channel.groupPolicy) infoItems.push(`群组策略: ${channel.groupPolicy}`);
+      } else if (channelType === "feishu") {
+        // 飞书使用 accounts.main 结构
+        const mainAccount = channel.accounts?.main || {};
+        if (mainAccount.appId) infoItems.push(`App ID: ${mainAccount.appId}`);
+        if (mainAccount.botName) infoItems.push(`机器人名称: ${mainAccount.botName}`);
+        if (channel.dmPolicy) infoItems.push(`私聊策略: ${channel.dmPolicy}`);
+      } else {
+        // 其他渠道类型
+        const token = channel.botToken || channel.token;
+        if (token) infoItems.push(`Token: ${token.substring(0, 10)}...`);
+        if (channel.chatId) infoItems.push(`Chat ID: ${channel.chatId}`);
+      }
+
       html += `
-        <div class="channel-item ${enabled ? "" : "disabled"}">
-          <div class="channel-info">
-            <div class="channel-name">${channelType}</div>
-            <div class="channel-type">${channelType}</div>
-            <div class="channel-status ${statusClass}">${statusText}</div>
+        <div class="channel-card">
+          <div class="channel-card-header">
+            <div>
+              <h3 class="channel-card-title">${channelType}</h3>
+              <span class="channel-card-type">${channelType}</span>
+            </div>
+            <span class="channel-status ${statusClass}">${statusText}</span>
           </div>
-          <div class="channel-actions">
+          <div class="channel-card-info">
+            ${infoItems.map(item => `<div class="channel-card-info-item">${item}</div>`).join('')}
+          </div>
+          <div class="channel-card-actions">
             <button class="btn btn-secondary btn-sm edit-channel-btn" data-channel="${channelType}">
               ✏️ 编辑
             </button>
-            <button class="btn btn-secondary btn-sm delete-channel-btn" data-channel="${channelType}">
+            <button class="btn btn-danger btn-sm delete-channel-btn" data-channel="${channelType}">
               🗑️ 删除
             </button>
           </div>
