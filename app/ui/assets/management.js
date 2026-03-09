@@ -939,6 +939,9 @@ async function loadChannelsList() {
         if (channel.chatId) infoItems.push(`Chat ID: ${channel.chatId}`);
         if (channel.dmPolicy) infoItems.push(`私聊策略: ${channel.dmPolicy}`);
         if (channel.groupPolicy) infoItems.push(`群组策略: ${channel.groupPolicy}`);
+      } else if (channelType === "discord") {
+        // Discord 只有 token
+        if (channel.token) infoItems.push(`Token: ${channel.token.substring(0, 10)}...`);
       } else if (channelType === "feishu") {
         // 飞书使用 accounts.main 结构
         const mainAccount = channel.accounts?.main || {};
@@ -1002,6 +1005,7 @@ async function loadChannelsList() {
 function handleChannelTypeChange() {
   const channelType = document.getElementById("channel-type").value;
   const telegramConfig = document.getElementById("telegram-specific-config");
+  const discordConfig = document.getElementById("discord-specific-config");
   const feishuConfig = document.getElementById("feishu-specific-config");
   const tokenField = document.getElementById("channel-token");
   const tokenLabel = tokenField
@@ -1010,11 +1014,18 @@ function handleChannelTypeChange() {
 
   // 隐藏所有特定配置
   if (telegramConfig) telegramConfig.style.display = "none";
+  if (discordConfig) discordConfig.style.display = "none";
   if (feishuConfig) feishuConfig.style.display = "none";
 
   // 根据渠道类型调整 Token 字段
   if (channelType === "feishu") {
     // 飞书不需要 Bot Token 字段，隐藏它
+    if (tokenField) {
+      tokenField.parentElement.style.display = "none";
+      tokenField.removeAttribute("required");
+    }
+  } else if (channelType === "discord") {
+    // Discord 不需要通用 Bot Token 字段（使用专用字段）
     if (tokenField) {
       tokenField.parentElement.style.display = "none";
       tokenField.removeAttribute("required");
@@ -1030,6 +1041,8 @@ function handleChannelTypeChange() {
   // 显示对应类型的配置
   if (channelType === "telegram" && telegramConfig) {
     telegramConfig.style.display = "block";
+  } else if (channelType === "discord" && discordConfig) {
+    discordConfig.style.display = "block";
   } else if (channelType === "feishu" && feishuConfig) {
     feishuConfig.style.display = "block";
   }
@@ -1122,10 +1135,20 @@ async function submitChannelForm(event) {
     return;
   }
 
-  // 飞书渠道不需要 token，其他渠道需要
-  if (channelType !== "feishu" && !token) {
+  // 飞书渠道不需要 token，Discord 使用专用字段，其他渠道需要通用 token
+  if (channelType !== "feishu" && channelType !== "discord" && !token) {
     showToast("请输入 Token", "error");
     return;
+  }
+
+  // Discord 渠道需要验证必填字段
+  if (channelType === "discord") {
+    const discordTokenEl = document.getElementById("discord-token");
+
+    if (!discordTokenEl || !discordTokenEl.value.trim()) {
+      showToast("请输入 Discord Bot Token", "error");
+      return;
+    }
   }
 
   // 飞书渠道需要验证必填字段
@@ -1166,9 +1189,17 @@ async function submitChannelForm(event) {
       enabled: enabled,
     };
 
-    // 非飞书渠道才需要 botToken
-    if (channelType !== "feishu") {
+    // 非飞书和非 Discord 渠道才需要通用 botToken
+    if (channelType !== "feishu" && channelType !== "discord") {
       config.channels[channelId].botToken = token;
+    }
+
+    // Discord 特定配置
+    if (channelType === "discord") {
+      const discordTokenEl = document.getElementById("discord-token");
+      if (discordTokenEl && discordTokenEl.value.trim()) {
+        config.channels[channelId].token = discordTokenEl.value.trim();
+      }
     }
 
     // Telegram 特定配置
@@ -1320,6 +1351,12 @@ async function editChannel(channelId) {
           ? channel.groupAllowFrom.join(", ")
           : channel.groupAllowFrom;
       }
+    }
+
+    // 填充 Discord 特定字段
+    if (channelType === "discord") {
+      const discordTokenEl = document.getElementById("discord-token");
+      if (discordTokenEl) discordTokenEl.value = channel.token || "";
     }
 
     // 填充飞书特定字段
