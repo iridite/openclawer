@@ -1303,33 +1303,16 @@
                         <div class="card">
                             <h2>OpenClaw 原生控制台</h2>
                             <p>
-                                OpenClaw 原生 Web 控制台已嵌入下方，您可以直接在此管理 AI 智能体、查看会话记录等。
+                                点击下方按钮可直接跳转到 OpenClaw 原生 Web 控制台，您可以在控制台中管理 AI 智能体、查看会话记录等。使用浏览器的后退按钮即可返回此管理界面。
                             </p>
+
                             <div class="action-buttons" style="margin-bottom: 15px;">
                                 <button
                                     class="btn btn-primary"
-                                    onclick="loadDashboard()"
-                                    id="load-dashboard-btn"
+                                    onclick="openConsole()"
                                 >
-                                    🔄 加载控制台
+                                    🎮 打开控制台
                                 </button>
-                                <button
-                                    class="btn btn-secondary"
-                                    onclick="reloadDashboard()"
-                                    id="reload-dashboard-btn"
-                                    style="display: none;"
-                                >
-                                    🔃 刷新控制台
-                                </button>
-                            </div>
-
-                            <!-- iframe 容器 -->
-                            <div id="dashboard-container" style="display: none; margin-top: 15px;">
-                                <iframe
-                                    id="dashboard-iframe"
-                                    src=""
-                                    style="width: 100%; height: 80vh; border: 1px solid #ddd; border-radius: 4px;">
-                                </iframe>
                             </div>
 
                             <div class="console-info" id="console-info-text">
