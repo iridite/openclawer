@@ -14,7 +14,7 @@ const http = require("http");
 const fs = require("fs");
 
 const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || "18789", 10);
-const PROXY_PORT = parseInt(process.env.PROXY_PORT || "18790", 10);
+const PROXY_PORT = parseInt(process.env.PROXY_PORT || "18791", 10);
 const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
 
 // 读取 token

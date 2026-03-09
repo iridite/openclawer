@@ -57,17 +57,108 @@ if [[ "$REL_PATH" == /dashboard* ]]; then
         PROXY_PATH="/"
     fi
 
-    # 转发所有请求到 iframe-proxy
+    # 转发所有请求到 iframe-proxy，使用 -i 获取完整响应头
     if [[ "$REQUEST_METHOD" == "POST" ]]; then
         if [ -n "$CONTENT_LENGTH" ]; then
             BODY=$(head -c "$CONTENT_LENGTH")
         fi
-        curl -s -X POST "${IFRAME_PROXY}${PROXY_PATH}${QUERY_STRING:+?$QUERY_STRING}" \
+        RESPONSE=$(curl -i -s --max-time 5 -X POST "${IFRAME_PROXY}${PROXY_PATH}${QUERY_STRING:+?$QUERY_STRING}" \
             -H "Content-Type: ${CONTENT_TYPE:-application/octet-stream}" \
-            --data-binary "$BODY"
+            --data-binary "$BODY" 2>&1)
+        CURL_EXIT=$?
     else
-        curl -s "${IFRAME_PROXY}${PROXY_PATH}${QUERY_STRING:+?$QUERY_STRING}"
+        RESPONSE=$(curl -i -s --max-time 5 "${IFRAME_PROXY}${PROXY_PATH}${QUERY_STRING:+?$QUERY_STRING}" 2>&1)
+        CURL_EXIT=$?
     fi
+
+    # 检查 curl 是否成功
+    if [ $CURL_EXIT -ne 0 ]; then
+        echo "Status: 503 Service Unavailable"
+        echo "Content-Type: text/html; charset=utf-8"
+        echo ""
+        cat <<'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>控制台服务不可用</title>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            max-width: 500px;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .icon { font-size: 4rem; margin-bottom: 1rem; }
+        h1 { font-size: 1.8rem; margin: 0 0 1rem 0; }
+        p { font-size: 1rem; line-height: 1.6; opacity: 0.9; margin: 0 0 1.5rem 0; }
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 2rem;
+            background: #fff;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+    </style>
+    <meta http-equiv="refresh" content="5">
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🦀</div>
+        <h1>控制台服务启动中</h1>
+        <p>OpenClaw Dashboard 代理服务正在启动，请稍候...</p>
+        <p style="font-size: 0.9rem; opacity: 0.7;">页面将在 5 秒后自动刷新</p>
+        <a href="javascript:location.reload()" class="btn">立即刷新</a>
+    </div>
+</body>
+</html>
+EOF
+        exit 0
+    fi
+
+    # 解析响应：分离状态行、响应头和响应体
+    # 读取第一行作为状态行
+    STATUS_LINE=$(echo "$RESPONSE" | head -n 1 | tr -d '\r')
+    # 提取状态码
+    STATUS_CODE=$(echo "$STATUS_LINE" | cut -d' ' -f2)
+
+    # 输出状态码
+    if [ -n "$STATUS_CODE" ] && [ "$STATUS_CODE" != "200" ]; then
+        echo "Status: $STATUS_CODE"
+    fi
+
+    # 输出响应头（跳过状态行，直到空行）
+    echo "$RESPONSE" | sed '1d' | sed '/^$/q' | while IFS= read -r line; do
+        line=$(echo "$line" | tr -d '\r')
+        # 跳过某些不需要的响应头
+        if [[ ! "$line" =~ ^Transfer-Encoding: ]] && [[ ! "$line" =~ ^Connection: ]]; then
+            echo "$line"
+        fi
+    done
+
+    # 输出空行分隔符
+    echo ""
+
+    # 输出响应体（空行之后的所有内容）
+    echo "$RESPONSE" | sed '1,/^$/d'
+
     exit 0
 fi
 
