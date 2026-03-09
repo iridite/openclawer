@@ -229,7 +229,7 @@
                 <button class="tab-btn active" data-tab="dashboard">
                     📊 仪表板
                 </button>
-                <button class="tab-btn" data-tab="config">⚙️ 配置编辑</button>
+                <button class="tab-btn" data-tab="config">🔧 配置管理</button>
                 <button class="tab-btn" data-tab="version">🔄 版本管理</button>
                 <button class="tab-btn" data-tab="console">🎮 控制台</button>
             </nav>
@@ -333,210 +333,328 @@
                     </div>
                 </section>
 
-                <!-- 配置编辑 -->
+                <!-- 配置管理 -->
                 <section class="tab-content" id="tab-config">
-                    <div class="config-editor">
-                        <!-- 已添加的模型列表 -->
-                        <div class="card">
-                            <div class="card-header">
-                                <h2>🤖 已添加的模型</h2>
-                                <button
-                                    class="btn btn-primary"
-                                    onclick="toggleModelForm()"
-                                    id="toggle-form-btn"
-                                >
-                                    ➕ 添加新模型
-                                </button>
-                            </div>
-                            <div id="models-list" class="models-grid">
-                                <p class="loading">加载中...</p>
-                            </div>
-                        </div>
-
-                        <!-- 快速添加模型表单 -->
-                        <div class="card" id="model-form-card" style="display: none">
-                            <div class="card-header">
-                                <h2 id="form-title">➕ 添加新模型</h2>
-                                <button
-                                    class="btn btn-secondary btn-sm"
-                                    onclick="cancelModelForm()"
-                                >
-                                    ✕ 取消
-                                </button>
-                            </div>
-                            <form
-                                id="add-model-form"
-                                onsubmit="submitModelForm(event)"
-                                class="model-form"
-                            >
-                                <input type="hidden" id="edit-model-key" value="" />
-
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>
-                                            模型名称 <span class="required">*</span>
-                                            <span class="tooltip-icon" data-tooltip="模型的唯一标识符，如 gpt-4、claude-3-opus">ⓘ</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            id="model-id"
-                                            name="modelId"
-                                            placeholder="例如: gpt-4, claude-3-opus"
-                                            required
-                                        />
+                    <div class="config-manager">
+                        <!-- 上半部分：左右分栏 -->
+                        <div class="config-split-view">
+                            <!-- 左侧：模型管理 -->
+                            <div class="config-panel">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h2>🤖 模型管理</h2>
+                                        <button
+                                            class="btn btn-primary btn-sm"
+                                            onclick="toggleModelForm()"
+                                            id="toggle-form-btn"
+                                        >
+                                            ➕ 添加模型
+                                        </button>
                                     </div>
-
-                                    <div class="form-group">
-                                        <label>
-                                            供应商 <span class="required">*</span>
-                                            <span class="tooltip-icon" data-tooltip="模型提供商，如 openai、anthropic">ⓘ</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            id="provider-name"
-                                            name="providerName"
-                                            list="provider-suggestions"
-                                            placeholder="选择或输入供应商"
-                                            required
-                                        />
-                                        <datalist id="provider-suggestions">
-                                            <option value="openai">OpenAI</option>
-                                            <option value="anthropic">Anthropic</option>
-                                            <option value="bailian">阿里百炼</option>
-                                            <option value="zhipu">智谱 AI</option>
-                                            <option value="moonshot">Moonshot</option>
-                                        </datalist>
+                                    <div id="models-list" class="models-grid">
+                                        <p class="loading">加载中...</p>
                                     </div>
                                 </div>
 
-                                <div class="form-group">
-                                    <label>
-                                        Base URL <span class="required">*</span>
-                                        <span class="tooltip-icon" data-tooltip="API 端点地址">ⓘ</span>
-                                    </label>
-                                    <input
-                                        type="url"
-                                        id="base-url"
-                                        name="baseUrl"
-                                        placeholder="例如: https://api.openai.com/v1"
-                                        required
-                                    />
-                                    <div class="form-hint warning">
-                                        ⚠️ 请务必确认 Base URL 正确！错误的 URL 可能导致请求失败。
+                                <!-- 快速添加模型 -->
+                                <div class="card" id="quick-add-section">
+                                    <div class="card-header">
+                                        <h2>⚡ 快速添加模型</h2>
+                                    </div>
+                                    <div class="quick-add-container">
+                                        <div class="quick-add-grid" id="quick-add-grid">
+                                            <!-- 快速添加按钮将通过 JS 动态生成 -->
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div class="form-group">
-                                    <label>
-                                        API Key <span class="required">*</span>
-                                        <span class="tooltip-icon" data-tooltip="供应商提供的 API 密钥">ⓘ</span>
-                                    </label>
-                                    <input
-                                        type="password"
-                                        id="api-key"
-                                        name="apiKey"
-                                        placeholder="输入 API Key"
-                                        required
-                                    />
-                                </div>
+                                <!-- 快速添加模型表单 -->
+                                <div class="card" id="model-form-card" style="display: none">
+                                    <div class="card-header">
+                                        <h2 id="form-title">➕ 添加新模型</h2>
+                                        <button
+                                            class="btn btn-secondary btn-sm"
+                                            onclick="cancelModelForm()"
+                                        >
+                                            ✕ 取消
+                                        </button>
+                                    </div>
+                                    <form
+                                        id="add-model-form"
+                                        onsubmit="submitModelForm(event)"
+                                        class="model-form"
+                                    >
+                                        <input type="hidden" id="edit-model-key" value="" />
 
-                                <div class="form-group">
-                                    <label>
-                                        API 协议 <span class="required">*</span>
-                                        <span class="tooltip-icon" data-tooltip="选择 API 兼容协议">ⓘ</span>
-                                    </label>
-                                    <select id="api-protocol" name="apiProtocol" required>
-                                        <option value="openai">OpenAI 协议</option>
-                                        <option value="anthropic">Anthropic 协议</option>
-                                    </select>
-                                </div>
-
-                                <!-- 高级配置 -->
-                                <div class="form-section">
-                                    <h3 onclick="toggleAdvanced()" style="cursor: pointer;">
-                                        ⚙️ 高级配置 <span id="advanced-toggle">▼</span>
-                                    </h3>
-                                    <div id="advanced-config" style="display: none">
                                         <div class="form-row">
                                             <div class="form-group">
                                                 <label>
-                                                    上下文窗口
-                                                    <span class="tooltip-icon" data-tooltip="模型支持的最大上下文长度">ⓘ</span>
+                                                    模型名称 <span class="required">*</span>
+                                                    <span class="tooltip-icon" data-tooltip="模型的唯一标识符，如 gpt-4、claude-3-opus">ⓘ</span>
                                                 </label>
                                                 <input
-                                                    type="number"
-                                                    id="context-window"
-                                                    name="contextWindow"
-                                                    value="200000"
-                                                    min="1000"
+                                                    type="text"
+                                                    id="model-id"
+                                                    name="modelId"
+                                                    placeholder="例如: gpt-4, claude-3-opus"
+                                                    required
                                                 />
                                             </div>
 
                                             <div class="form-group">
                                                 <label>
-                                                    最大 Tokens
-                                                    <span class="tooltip-icon" data-tooltip="模型单次输出的最大 token 数">ⓘ</span>
+                                                    供应商 <span class="required">*</span>
+                                                    <span class="tooltip-icon" data-tooltip="模型提供商，如 openai、anthropic">ⓘ</span>
                                                 </label>
                                                 <input
-                                                    type="number"
-                                                    id="max-tokens"
-                                                    name="maxTokens"
-                                                    value="8192"
-                                                    min="100"
+                                                    type="text"
+                                                    id="provider-name"
+                                                    name="providerName"
+                                                    list="provider-suggestions"
+                                                    placeholder="选择或输入供应商"
+                                                    required
                                                 />
+                                                <datalist id="provider-suggestions">
+                                                    <option value="openai">OpenAI</option>
+                                                    <option value="anthropic">Anthropic</option>
+                                                    <option value="bailian">阿里百炼</option>
+                                                    <option value="zhipu">智谱 AI</option>
+                                                    <option value="moonshot">Moonshot</option>
+                                                </datalist>
                                             </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>
+                                                Base URL <span class="required">*</span>
+                                                <span class="tooltip-icon" data-tooltip="API 端点地址">ⓘ</span>
+                                            </label>
+                                            <input
+                                                type="url"
+                                                id="base-url"
+                                                name="baseUrl"
+                                                placeholder="例如: https://api.openai.com/v1"
+                                                required
+                                            />
+                                            <div class="form-hint warning">
+                                                ⚠️ 请务必确认 Base URL 正确！错误的 URL 可能导致请求失败。
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>
+                                                API Key <span class="required">*</span>
+                                                <span class="tooltip-icon" data-tooltip="供应商提供的 API 密钥">ⓘ</span>
+                                            </label>
+                                            <input
+                                                type="password"
+                                                id="api-key"
+                                                name="apiKey"
+                                                placeholder="输入 API Key"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>
+                                                API 协议 <span class="required">*</span>
+                                                <span class="tooltip-icon" data-tooltip="选择 API 兼容协议">ⓘ</span>
+                                            </label>
+                                            <select id="api-protocol" name="apiProtocol" required>
+                                                <option value="openai">OpenAI 协议</option>
+                                                <option value="anthropic">Anthropic 协议</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- 高级配置 -->
+                                        <div class="form-section">
+                                            <h3 onclick="toggleAdvanced()" style="cursor: pointer;">
+                                                ⚙️ 高级配置 <span id="advanced-toggle">▼</span>
+                                            </h3>
+                                            <div id="advanced-config" style="display: none">
+                                                <div class="form-row">
+                                                    <div class="form-group">
+                                                        <label>
+                                                            上下文窗口
+                                                            <span class="tooltip-icon" data-tooltip="模型支持的最大上下文长度">ⓘ</span>
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            id="context-window"
+                                                            name="contextWindow"
+                                                            value="200000"
+                                                            min="1000"
+                                                        />
+                                                    </div>
+
+                                                    <div class="form-group">
+                                                        <label>
+                                                            最大 Tokens
+                                                            <span class="tooltip-icon" data-tooltip="模型单次输出的最大 token 数">ⓘ</span>
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            id="max-tokens"
+                                                            name="maxTokens"
+                                                            value="8192"
+                                                            min="100"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label class="checkbox-label">
+                                                        <input
+                                                            type="checkbox"
+                                                            id="reasoning"
+                                                            name="reasoning"
+                                                        />
+                                                        <span>支持推理模式</span>
+                                                        <span class="tooltip-icon" data-tooltip="模型是否支持推理模式">ⓘ</span>
+                                                    </label>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>
+                                                        输入类型
+                                                        <span class="tooltip-icon" data-tooltip="模型支持的输入类型">ⓘ</span>
+                                                    </label>
+                                                    <div class="checkbox-group">
+                                                        <label class="checkbox-label">
+                                                            <input
+                                                                type="checkbox"
+                                                                id="input-type-text"
+                                                                name="inputText"
+                                                                checked
+                                                            />
+                                                            <span>文本</span>
+                                                        </label>
+                                                        <label class="checkbox-label">
+                                                            <input
+                                                                type="checkbox"
+                                                                id="input-image"
+                                                                name="inputImage"
+                                                            />
+                                                            <span>图像</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-actions">
+                                            <button type="button" class="btn btn-secondary" onclick="cancelModelForm()">
+                                                取消
+                                            </button>
+                                            <button type="submit" class="btn btn-primary">
+                                                <span id="submit-btn-text">✅ 添加模型</span>
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <!-- 右侧：消息渠道管理 -->
+                            <div class="config-panel">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h2>📡 消息渠道</h2>
+                                        <button
+                                            class="btn btn-primary btn-sm"
+                                            onclick="toggleChannelForm()"
+                                            id="toggle-channel-btn"
+                                        >
+                                            ➕ 添加渠道
+                                        </button>
+                                    </div>
+                                    <div id="channels-list" class="channels-grid">
+                                        <p class="loading">加载中...</p>
+                                    </div>
+                                </div>
+
+                                <!-- 快速添加渠道表单 -->
+                                <div class="card" id="channel-form-card" style="display: none">
+                                    <div class="card-header">
+                                        <h2 id="channel-form-title">➕ 添加新渠道</h2>
+                                        <button
+                                            class="btn btn-secondary btn-sm"
+                                            onclick="cancelChannelForm()"
+                                        >
+                                            ✕ 取消
+                                        </button>
+                                    </div>
+                                    <form
+                                        id="add-channel-form"
+                                        onsubmit="submitChannelForm(event)"
+                                        class="channel-form"
+                                    >
+                                        <input type="hidden" id="edit-channel-key" value="" />
+
+                                        <div class="form-group">
+                                            <label>
+                                                渠道名称 <span class="required">*</span>
+                                                <span class="tooltip-icon" data-tooltip="渠道的唯一标识符">ⓘ</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="channel-id"
+                                                name="channelId"
+                                                placeholder="例如: my-telegram, discord-bot"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>
+                                                渠道类型 <span class="required">*</span>
+                                                <span class="tooltip-icon" data-tooltip="选择消息渠道类型">ⓘ</span>
+                                            </label>
+                                            <select id="channel-type" name="channelType" required>
+                                                <option value="">请选择...</option>
+                                                <option value="telegram">Telegram</option>
+                                                <option value="discord">Discord</option>
+                                                <option value="slack">Slack</option>
+                                                <option value="wechat">微信</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>
+                                                Bot Token <span class="required">*</span>
+                                                <span class="tooltip-icon" data-tooltip="机器人令牌">ⓘ</span>
+                                            </label>
+                                            <input
+                                                type="password"
+                                                id="channel-token"
+                                                name="channelToken"
+                                                placeholder="输入 Bot Token"
+                                                required
+                                            />
                                         </div>
 
                                         <div class="form-group">
                                             <label class="checkbox-label">
                                                 <input
                                                     type="checkbox"
-                                                    id="reasoning"
-                                                    name="reasoning"
+                                                    id="channel-enabled"
+                                                    name="channelEnabled"
+                                                    checked
                                                 />
-                                                <span>支持推理模式</span>
-                                                <span class="tooltip-icon" data-tooltip="模型是否支持推理模式">ⓘ</span>
+                                                <span>启用此渠道</span>
                                             </label>
                                         </div>
 
-                                        <div class="form-group">
-                                            <label>
-                                                输入类型
-                                                <span class="tooltip-icon" data-tooltip="模型支持的输入类型">ⓘ</span>
-                                            </label>
-                                            <div class="checkbox-group">
-                                                <label class="checkbox-label">
-                                                    <input
-                                                        type="checkbox"
-                                                        id="input-type-text"
-                                                        name="inputText"
-                                                        checked
-                                                    />
-                                                    <span>文本</span>
-                                                </label>
-                                                <label class="checkbox-label">
-                                                    <input
-                                                        type="checkbox"
-                                                        id="input-image"
-                                                        name="inputImage"
-                                                    />
-                                                    <span>图像</span>
-                                                </label>
-                                            </div>
+                                        <div class="form-actions">
+                                            <button type="button" class="btn btn-secondary" onclick="cancelChannelForm()">
+                                                取消
+                                            </button>
+                                            <button type="submit" class="btn btn-primary">
+                                                <span id="channel-submit-btn-text">✅ 添加渠道</span>
+                                            </button>
                                         </div>
-                                    </div>
+                                    </form>
                                 </div>
-
-                                <div class="form-actions">
-                                    <button type="button" class="btn btn-secondary" onclick="cancelModelForm()">
-                                        取消
-                                    </button>
-                                    <button type="submit" class="btn btn-primary">
-                                        <span id="submit-btn-text">✅ 添加模型</span>
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                            </div>
                         </div>
 
                         <div class="card">
@@ -614,6 +732,29 @@
   }
 }</pre
                                 >
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 模型管理 -->
+                <section class="tab-content" id="tab-models">
+                    <div class="models-manager">
+                        <div class="card">
+                            <h2>模型列表</h2>
+                            <div class="models-toolbar">
+                                <button class="btn btn-primary" id="refresh-models">
+                                    🔄 刷新列表
+                                </button>
+                                <button class="btn btn-success" id="add-model">
+                                    ➕ 添加模型
+                                </button>
+                                <button class="btn btn-info" id="quick-add-model">
+                                    ⚡ 快速添加
+                                </button>
+                            </div>
+                            <div class="models-list" id="models-list">
+                                <div class="loading">加载中...</div>
                             </div>
                         </div>
                     </div>

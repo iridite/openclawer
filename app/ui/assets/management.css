@@ -299,6 +299,39 @@ body {
     line-height: 1.5;
     resize: vertical;
     background: #f8f8f8;
+    color: #333;
+}
+
+/* YAML 语法高亮 */
+.yaml-key {
+    color: #0066cc;
+    font-weight: 600;
+}
+
+.yaml-string {
+    color: #22863a;
+}
+
+.yaml-number {
+    color: #005cc5;
+}
+
+.yaml-boolean {
+    color: #d73a49;
+    font-weight: 600;
+}
+
+.yaml-comment {
+    color: #6a737d;
+    font-style: italic;
+}
+
+.yaml-null {
+    color: #6f42c1;
+}
+
+.yaml-anchor {
+    color: #e36209;
 }
 
 .editor-footer {
@@ -547,6 +580,17 @@ span[title] {
     margin-top: 16px;
 }
 
+/* 供应商分组标题 */
+.provider-group-header {
+    grid-column: 1 / -1;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    padding: 16px 0 8px 0;
+    margin-top: 8px;
+    border-bottom: 2px solid var(--primary);
+}
+
 .model-card {
     background: var(--bg-white);
     border: 1px solid var(--border);
@@ -716,6 +760,161 @@ span[title] {
     }
 
     .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 快速添加模型样式 */
+.quick-add-section {
+    margin-bottom: 24px;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(244, 81, 30, 0.05) 0%, rgba(255, 112, 67, 0.05) 100%);
+    border: 2px dashed rgba(244, 81, 30, 0.3);
+    border-radius: 12px;
+}
+
+.quick-add-section h3 {
+    margin: 0 0 16px 0;
+    font-size: 1.1rem;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quick-add-section h3::before {
+    content: '⚡';
+    font-size: 1.3rem;
+}
+
+.quick-add-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.quick-add-btn {
+    padding: 16px;
+    background: var(--bg-white);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.quick-add-btn:hover {
+    border-color: var(--primary);
+    background: rgba(244, 81, 30, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(244, 81, 30, 0.15);
+}
+
+.quick-add-btn .provider-name {
+    display: block;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 4px;
+}
+
+.quick-add-btn .model-name {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-gray);
+}
+
+@media (max-width: 768px) {
+    .quick-add-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}
+
+/* 配置页面左右分栏布局 */
+.config-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.config-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 消息渠道网格 */
+.channels-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.channel-card {
+    padding: 16px;
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.channel-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(244, 81, 30, 0.1);
+}
+
+.channel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.channel-name {
+    font-weight: 600;
+    color: var(--text-dark);
+    font-size: 1rem;
+}
+
+.channel-type {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(244, 81, 30, 0.1);
+    color: var(--primary);
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.channel-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: var(--text-gray);
+}
+
+.channel-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+/* 渠道表单样式 */
+.channel-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* 响应式：小屏幕改为单列 */
+@media (max-width: 1200px) {
+    .config-container {
         grid-template-columns: 1fr;
     }
 }

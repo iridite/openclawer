@@ -7,6 +7,118 @@ const API_BASE = "/api";
 let currentConfig = null;
 let currentStatus = null;
 
+// 快速添加模型预设
+const QUICK_ADD_MODELS = {
+  "claude-opus-4": {
+    modelId: "claude-opus-4",
+    providerName: "anthropic",
+    baseUrl: "https://api.anthropic.com/v1",
+    apiProtocol: "anthropic",
+    advanced: {
+      reasoning: false,
+      input: ["text", "image"],
+      contextWindow: 200000,
+      maxTokens: 8192,
+    },
+  },
+  "claude-sonnet-4": {
+    modelId: "claude-sonnet-4",
+    providerName: "anthropic",
+    baseUrl: "https://api.anthropic.com/v1",
+    apiProtocol: "anthropic",
+    advanced: {
+      reasoning: false,
+      input: ["text", "image"],
+      contextWindow: 200000,
+      maxTokens: 8192,
+    },
+  },
+  "gpt-4o": {
+    modelId: "gpt-4o",
+    providerName: "openai",
+    baseUrl: "https://api.openai.com/v1",
+    apiProtocol: "openai",
+    advanced: {
+      reasoning: false,
+      input: ["text", "image"],
+      contextWindow: 128000,
+      maxTokens: 16384,
+    },
+  },
+  "gpt-4o-mini": {
+    modelId: "gpt-4o-mini",
+    providerName: "openai",
+    baseUrl: "https://api.openai.com/v1",
+    apiProtocol: "openai",
+    advanced: {
+      reasoning: false,
+      input: ["text", "image"],
+      contextWindow: 128000,
+      maxTokens: 16384,
+    },
+  },
+  o1: {
+    modelId: "o1",
+    providerName: "openai",
+    baseUrl: "https://api.openai.com/v1",
+    apiProtocol: "openai",
+    advanced: {
+      reasoning: true,
+      input: ["text", "image"],
+      contextWindow: 200000,
+      maxTokens: 100000,
+    },
+  },
+  "gemini-2.0-flash-exp": {
+    modelId: "gemini-2.0-flash-exp",
+    providerName: "google",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    apiProtocol: "google-ai",
+    advanced: {
+      reasoning: false,
+      input: ["text", "image"],
+      contextWindow: 1000000,
+      maxTokens: 8192,
+    },
+  },
+  "gemini-exp-1206": {
+    modelId: "gemini-exp-1206",
+    providerName: "google",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    apiProtocol: "google-ai",
+    advanced: {
+      reasoning: false,
+      input: ["text", "image"],
+      contextWindow: 2000000,
+      maxTokens: 8192,
+    },
+  },
+  "deepseek-chat": {
+    modelId: "deepseek-chat",
+    providerName: "deepseek",
+    baseUrl: "https://api.deepseek.com/v1",
+    apiProtocol: "openai",
+    advanced: {
+      reasoning: false,
+      input: ["text"],
+      contextWindow: 64000,
+      maxTokens: 8192,
+    },
+  },
+  "deepseek-reasoner": {
+    modelId: "deepseek-reasoner",
+    providerName: "deepseek",
+    baseUrl: "https://api.deepseek.com/v1",
+    apiProtocol: "openai",
+    advanced: {
+      reasoning: true,
+      input: ["text"],
+      contextWindow: 64000,
+      maxTokens: 8192,
+    },
+  },
+};
+
 // ============================================================================
 // 工具函数
 // ============================================================================
@@ -82,8 +194,12 @@ function loadTabData(tabName) {
       refreshDashboard();
       break;
     case "config":
+      renderQuickAddButtons();
       loadModelsList();
       loadConfig();
+      break;
+    case "channels":
+      loadChannelsList();
       break;
     case "version":
       loadVersionInfo();
@@ -110,7 +226,9 @@ async function refreshDashboard() {
     document.getElementById("dash-gateway-status").textContent =
       status.gateway === "running" ? "✅ 运行中" : "⭕ 已停止";
     document.getElementById("dash-gateway-pid").textContent =
-      status.gatewayPid && status.gateway === "running" ? status.gatewayPid : "(未运行)";
+      status.gatewayPid && status.gateway === "running"
+        ? status.gatewayPid
+        : "(未运行)";
     document.getElementById("dash-version").textContent =
       status.version || "unknown";
     document.getElementById("dash-config-status").textContent =
@@ -131,7 +249,13 @@ async function loadConfigSummary() {
     const config = await apiRequest("/config");
     const summaryEl = document.getElementById("config-summary");
 
-    const modelCount = config.models ? Object.keys(config.models).length : 0;
+    // 正确解析模型：检查 config.models.providers
+    let models = {};
+    if (config.models && config.models.providers) {
+      models = config.models.providers;
+    }
+
+    const modelCount = Object.keys(models).length;
     const channelCount = config.channels
       ? Object.keys(config.channels).length
       : 0;
@@ -153,10 +277,12 @@ async function loadConfigSummary() {
     if (modelCount > 0) {
       html +=
         '<div style="margin-top: 15px;"><strong>📦 已配置模型：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
-      for (const [name, model] of Object.entries(config.models)) {
-        const provider = model.provider || "未知";
+      for (const [name, model] of Object.entries(models)) {
+        const provider = name; // provider 名称就是 key
         const hasKey = model.apiKey ? "✅" : "❌";
-        html += `<li><code>${name}</code> (${provider}) ${hasKey}</li>`;
+        const baseUrl = model.baseURL || model.baseUrl || "";
+        const urlHint = baseUrl ? ` - ${baseUrl.split("/")[2] || baseUrl}` : "";
+        html += `<li><code>${provider}</code>${urlHint} ${hasKey}</li>`;
       }
       html += "</ul></div>";
     } else {
@@ -283,6 +409,91 @@ const PROVIDER_BASE_URLS = {
   moonshot: "https://api.moonshot.cn/v1",
 };
 
+// 渲染快速添加按钮
+function renderQuickAddButtons() {
+  const container = document.getElementById("quick-add-grid");
+  if (!container) return;
+
+  let html = "";
+  for (const [modelId, modelData] of Object.entries(QUICK_ADD_MODELS)) {
+    const providerIcon = getProviderIcon(modelData.providerName);
+    html += `
+      <button class="quick-add-btn" onclick="quickAddModel('${modelId}')">
+        <span class="quick-add-icon">${providerIcon}</span>
+        <span class="quick-add-name">${modelId}</span>
+      </button>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+// 获取供应商图标
+function getProviderIcon(provider) {
+  const icons = {
+    anthropic: "🤖",
+    openai: "🟢",
+    google: "🔵",
+    deepseek: "🔷",
+  };
+  return icons[provider] || "⭐";
+}
+
+// 快速添加模型
+async function quickAddModel(modelId) {
+  const modelData = QUICK_ADD_MODELS[modelId];
+  if (!modelData) {
+    showToast("模型预设不存在", "error");
+    return;
+  }
+
+  // 显示表单并填充数据
+  const formCard = document.getElementById("model-form-card");
+  const formTitle = document.getElementById("form-title");
+  const submitBtnText = document.getElementById("submit-btn-text");
+
+  formCard.style.display = "block";
+  formTitle.textContent = `⚡ 快速添加 ${modelId}`;
+  submitBtnText.textContent = "✅ 添加模型";
+
+  // 填充表单
+  document.getElementById("edit-model-key").value = "";
+  document.getElementById("model-id").value = modelData.modelId;
+  document.getElementById("model-id").disabled = false;
+  document.getElementById("provider-name").value = modelData.providerName;
+  document.getElementById("base-url").value = modelData.baseUrl;
+  document.getElementById("api-protocol").value = modelData.apiProtocol;
+
+  // 高级配置
+  if (modelData.advanced) {
+    const { reasoning, input, contextWindow, maxTokens } = modelData.advanced;
+
+    if (contextWindow) {
+      document.getElementById("context-window").value = contextWindow;
+    }
+    if (maxTokens) {
+      document.getElementById("max-tokens").value = maxTokens;
+    }
+    if (reasoning !== undefined) {
+      document.getElementById("reasoning").checked = reasoning;
+    }
+
+    // 输入类型
+    if (input) {
+      document.getElementById("input-type-text").checked =
+        input.includes("text");
+      document.getElementById("input-image").checked = input.includes("image");
+    }
+  }
+
+  // 滚动到表单
+  formCard.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  // 聚焦到 API Key 输入框
+  setTimeout(() => {
+    document.getElementById("api-key").focus();
+  }, 300);
+}
+
 // 展开/收起表单
 function toggleModelForm() {
   const formCard = document.getElementById("model-form-card");
@@ -297,6 +508,7 @@ function toggleModelForm() {
     formCard.scrollIntoView({ behavior: "smooth", block: "start" });
   } else {
     formCard.style.display = "none";
+    resetModelForm();
   }
 }
 
@@ -313,49 +525,68 @@ async function loadModelsList() {
     const modelsListEl = document.getElementById("models-list");
 
     if (!config.models || Object.keys(config.models).length === 0) {
-      modelsListEl.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">暂无模型，点击"添加新模型"开始配置</p>';
+      modelsListEl.innerHTML =
+        '<p style="text-align: center; color: #999; padding: 40px;">暂无模型，点击"添加新模型"开始配置</p>';
       return;
     }
 
-    let html = '';
+    // 按供应商分组
+    const groupedModels = {};
     for (const [key, model] of Object.entries(config.models)) {
       const provider = model.provider || "未知";
-      const baseUrl = model.baseURL || model.baseUrl || "未配置";
-      const hasKey = model.apiKey ? "✅ 已配置" : "❌ 未配置";
+      if (!groupedModels[provider]) {
+        groupedModels[provider] = [];
+      }
+      groupedModels[provider].push({ key, model });
+    }
 
-      html += `
-        <div class="model-card">
-          <div class="model-card-header">
-            <div>
+    // 按供应商名称排序
+    const sortedProviders = Object.keys(groupedModels).sort();
+
+    let html = "";
+    for (const provider of sortedProviders) {
+      const models = groupedModels[provider];
+
+      // 供应商分组标题
+      html += `<div class="provider-group-header">${provider}</div>`;
+
+      // 该供应商下的所有模型
+      for (const { key, model } of models) {
+        const baseUrl = model.baseURL || model.baseUrl || "未配置";
+        const hasKey = model.apiKey ? "✅ 已配置" : "❌ 未配置";
+
+        html += `
+          <div class="model-card">
+            <div class="model-card-header">
               <h3 class="model-card-title">${key}</h3>
-              <span class="model-card-provider">${provider}</span>
+            </div>
+            <div class="model-card-info">
+              <div class="model-card-info-item">
+                <span>API Key:</span>
+                <span>${hasKey}</span>
+              </div>
+              <div class="model-card-info-item">
+                <span>Base URL:</span>
+                <span style="font-size: 0.75rem; word-break: break-all;">${baseUrl}</span>
+              </div>
+            </div>
+            <div class="model-card-actions">
+              <button class="btn btn-secondary btn-sm" onclick="editModel('${key}')">
+                ✏️ 编辑
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="deleteModel('${key}')">
+                🗑️ 删除
+              </button>
             </div>
           </div>
-          <div class="model-card-info">
-            <div class="model-card-info-item">
-              <span>API Key:</span>
-              <span>${hasKey}</span>
-            </div>
-            <div class="model-card-info-item">
-              <span>Base URL:</span>
-              <span style="font-size: 0.75rem; word-break: break-all;">${baseUrl}</span>
-            </div>
-          </div>
-          <div class="model-card-actions">
-            <button class="btn btn-secondary btn-sm" onclick="editModel('${key}')">
-              ✏️ 编辑
-            </button>
-            <button class="btn btn-secondary btn-sm" onclick="deleteModel('${key}')">
-              🗑️ 删除
-            </button>
-          </div>
-        </div>
-      `;
+        `;
+      }
     }
 
     modelsListEl.innerHTML = html;
   } catch (error) {
-    document.getElementById("models-list").innerHTML = '<p class="loading">加载失败: ' + error.message + '</p>';
+    document.getElementById("models-list").innerHTML =
+      '<p class="loading">加载失败: ' + error.message + "</p>";
   }
 }
 
@@ -384,7 +615,8 @@ async function editModel(modelKey) {
     document.getElementById("model-id").value = modelKey;
     document.getElementById("model-id").disabled = true; // 编辑时不允许修改模型名
     document.getElementById("provider-name").value = model.provider || "";
-    document.getElementById("base-url").value = model.baseURL || model.baseUrl || "";
+    document.getElementById("base-url").value =
+      model.baseURL || model.baseUrl || "";
     document.getElementById("api-key").value = model.apiKey || "";
     document.getElementById("api-protocol").value = model.api || "openai";
 
@@ -421,11 +653,200 @@ async function deleteModel(modelKey) {
 
     showToast(result.message || "模型删除成功！", "success");
 
-    // 刷新列表
+    // 重新加载模型列表
     await loadModelsList();
-    await loadConfigSummary();
   } catch (error) {
-    showToast("删除失败: " + error.message, "error");
+    showToast("删除模型失败: " + error.message, "error");
+  }
+}
+
+// ==================== 消息渠道管理 ====================
+
+// 加载消息渠道列表
+async function loadChannelsList() {
+  try {
+    const config = await apiRequest("/config");
+    const channels = config.channels || {};
+
+    const channelsListEl = document.getElementById("channels-list");
+
+    if (Object.keys(channels).length === 0) {
+      channelsListEl.innerHTML = '<p class="loading">暂无消息渠道配置</p>';
+      return;
+    }
+
+    let html = "";
+    for (const [key, channel] of Object.entries(channels)) {
+      const type = channel.type || "未知";
+      const enabled = channel.enabled !== false;
+      const statusClass = enabled ? "status-running" : "status-stopped";
+      const statusText = enabled ? "已启用" : "已禁用";
+
+      html += `
+        <div class="channel-item ${enabled ? "" : "disabled"}">
+          <div class="channel-info">
+            <div class="channel-name">${key}</div>
+            <div class="channel-type">${type}</div>
+            <div class="channel-status ${statusClass}">${statusText}</div>
+          </div>
+          <div class="channel-actions">
+            <button class="btn btn-secondary btn-sm" onclick="editChannel('${key}')">
+              ✏️ 编辑
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="deleteChannel('${key}')">
+              🗑️ 删除
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    channelsListEl.innerHTML = html;
+  } catch (error) {
+    document.getElementById("channels-list").innerHTML =
+      '<p class="loading">加载失败: ' + error.message + "</p>";
+  }
+}
+
+// 显示添加渠道表单
+function showAddChannelForm() {
+  const formCard = document.getElementById("channel-form-card");
+  const formTitle = document.getElementById("channel-form-title");
+  const submitBtnText = document.getElementById("channel-submit-btn-text");
+
+  formCard.style.display = "block";
+  formTitle.textContent = "➕ 添加消息渠道";
+  submitBtnText.textContent = "💾 保存渠道";
+
+  // 清空表单
+  document.getElementById("edit-channel-key").value = "";
+  document.getElementById("channel-id").value = "";
+  document.getElementById("channel-id").disabled = false;
+  document.getElementById("channel-type").value = "telegram";
+  document.getElementById("channel-token").value = "";
+  document.getElementById("channel-chat-id").value = "";
+  document.getElementById("channel-enabled").checked = true;
+
+  formCard.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// 取消添加/编辑渠道
+function cancelChannelForm() {
+  document.getElementById("channel-form-card").style.display = "none";
+  document.getElementById("channel-form").reset();
+}
+
+// 保存渠道配置
+async function saveChannel(event) {
+  event.preventDefault();
+
+  const editKey = document.getElementById("edit-channel-key").value;
+  const channelId = document.getElementById("channel-id").value.trim();
+  const channelType = document.getElementById("channel-type").value;
+  const token = document.getElementById("channel-token").value.trim();
+  const chatId = document.getElementById("channel-chat-id").value.trim();
+  const enabled = document.getElementById("channel-enabled").checked;
+
+  if (!channelId) {
+    showToast("请输入渠道 ID", "error");
+    return;
+  }
+
+  if (!token) {
+    showToast("请输入 Token", "error");
+    return;
+  }
+
+  try {
+    showToast("正在保存渠道配置...", "info");
+
+    const channelData = {
+      type: channelType,
+      token: token,
+      enabled: enabled,
+    };
+
+    if (chatId) {
+      channelData.chatId = chatId;
+    }
+
+    const result = await apiRequest("/channels/save", {
+      method: "POST",
+      body: JSON.stringify({
+        channelKey: editKey || channelId,
+        newChannelKey: channelId,
+        channelData: channelData,
+      }),
+    });
+
+    showToast(result.message || "渠道配置保存成功！", "success");
+
+    // 重新加载渠道列表
+    await loadChannelsList();
+
+    // 隐藏表单
+    cancelChannelForm();
+  } catch (error) {
+    showToast("保存渠道配置失败: " + error.message, "error");
+  }
+}
+
+// 编辑渠道
+async function editChannel(channelKey) {
+  try {
+    const config = await apiRequest("/config");
+    const channel = config.channels[channelKey];
+
+    if (!channel) {
+      showToast("渠道不存在", "error");
+      return;
+    }
+
+    // 显示表单
+    const formCard = document.getElementById("channel-form-card");
+    const formTitle = document.getElementById("channel-form-title");
+    const submitBtnText = document.getElementById("channel-submit-btn-text");
+
+    formCard.style.display = "block";
+    formTitle.textContent = "✏️ 编辑消息渠道";
+    submitBtnText.textContent = "💾 保存修改";
+
+    // 填充表单数据
+    document.getElementById("edit-channel-key").value = channelKey;
+    document.getElementById("channel-id").value = channelKey;
+    document.getElementById("channel-id").disabled = true;
+    document.getElementById("channel-type").value = channel.type || "telegram";
+    document.getElementById("channel-token").value = channel.token || "";
+    document.getElementById("channel-chat-id").value = channel.chatId || "";
+    document.getElementById("channel-enabled").checked =
+      channel.enabled !== false;
+
+    formCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    showToast("加载渠道数据失败: " + error.message, "error");
+  }
+}
+
+// 删除渠道
+async function deleteChannel(channelKey) {
+  if (!confirm(`确定要删除渠道 "${channelKey}" 吗？此操作不可撤销。`)) {
+    return;
+  }
+
+  try {
+    showToast("正在删除渠道...", "info");
+
+    const result = await apiRequest(`/channels/delete`, {
+      method: "POST",
+      body: JSON.stringify({ channelKey }),
+    });
+
+    showToast(result.message || "渠道删除成功！", "success");
+
+    // 重新加载渠道列表
+    await loadChannelsList();
+  } catch (error) {
+    showToast("删除渠道失败: " + error.message, "error");
   }
 }
 
@@ -488,7 +909,10 @@ async function submitModelForm(event) {
       body: JSON.stringify(modelData),
     });
 
-    showToast(result.message || (isEditMode ? "模型修改成功！" : "模型添加成功！"), "success");
+    showToast(
+      result.message || (isEditMode ? "模型修改成功！" : "模型添加成功！"),
+      "success",
+    );
 
     // 重置表单并隐藏
     cancelModelForm();
@@ -497,7 +921,12 @@ async function submitModelForm(event) {
     await loadModelsList();
     await loadConfigSummary();
   } catch (error) {
-    showToast((document.getElementById("edit-model-key").value ? "保存失败: " : "添加失败: ") + error.message, "error");
+    showToast(
+      (document.getElementById("edit-model-key").value
+        ? "保存失败: "
+        : "添加失败: ") + error.message,
+      "error",
+    );
   }
 }
 
@@ -523,21 +952,6 @@ function resetModelForm() {
   if (inputImageEl) inputImageEl.checked = false;
   if (reasoningEl) reasoningEl.checked = false;
 }
-
-// 监听供应商选择，自动填充 Base URL
-document.addEventListener("DOMContentLoaded", () => {
-  const providerInput = document.getElementById("provider-name");
-  const baseUrlInput = document.getElementById("base-url");
-
-  if (providerInput && baseUrlInput) {
-    providerInput.addEventListener("input", () => {
-      const provider = providerInput.value.toLowerCase();
-      if (PROVIDER_BASE_URLS[provider]) {
-        baseUrlInput.value = PROVIDER_BASE_URLS[provider];
-      }
-    });
-  }
-});
 
 // ============================================================================
 // 配置编辑
