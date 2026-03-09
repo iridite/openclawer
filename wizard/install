@@ -1,27 +1,22 @@
 [
     {
-        "stepTitle": "欢迎安装",
+        "stepTitle": "安装说明",
         "items": [
             {
                 "type": "tips",
-                "helpText": "欢迎使用我们的应用！在开始使用前，请阅读并同意我们的服务条款。"
+                "helpText": "📦 本应用需要从 npm 仓库下载 OpenClaw 核心包（约 20-50MB）"
             },
             {
                 "type": "tips",
-                "helpText": "请阅读 <a target=\"_blank\" href=\"https://example.com/privacy\">隐私政策</a> 和 <a target=\"_blank\" href=\"https://example.com/terms\">服务条款</a>。"
-            }
-        ]
-    },
-    {
-        "stepTitle": "注意",
-        "items": [
-            {
-                "type": "tips",
-                "helpText": "安装基于 npm 软件包，故进入安装过程后可能会出现卡在 40% 进度的情况，这是正常现象。"
+                "helpText": "⏱️ 安装过程中进度条可能会在 40% 处停留 2-5 分钟，这是正常现象，请耐心等待"
             },
             {
                 "type": "tips",
-                "helpText": "还请耐心等待..."
+                "helpText": "🌐 安装速度取决于您的网络环境，首次安装可能需要 3-10 分钟"
+            },
+            {
+                "type": "tips",
+                "helpText": "✅ 安装完成后，应用会自动启动管理控制台（端口 18790）"
             }
         ]
     }
