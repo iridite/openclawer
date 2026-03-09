@@ -232,12 +232,18 @@ async function refreshDashboard() {
     updateStatusBadge(status.gateway);
 
     // 更新仪表板信息
-    document.getElementById("dash-gateway-status").textContent =
-      status.gateway === "running" ? "✅ 运行中" : "⭕ 已停止";
-    document.getElementById("dash-gateway-pid").textContent =
-      status.gatewayPid && status.gateway === "running"
-        ? status.gatewayPid
-        : "(未运行)";
+    // Gateway 状态：显示状态 + PID
+    const gatewayStatusText = status.gateway === "running" ? "✅ 运行中" : "⭕ 已停止";
+    const gatewayPidText = status.gatewayPid && status.gateway === "running"
+      ? ` (PID: ${status.gatewayPid})`
+      : "";
+    document.getElementById("dash-gateway-status").textContent = gatewayStatusText + gatewayPidText;
+
+    // Proxy 状态：显示状态 + PID
+    const proxyStatusText = status.proxy === "running" ? "✅ 运行中" : "⭕ 已停止";
+    const proxyPidText = status.proxyPid ? ` (PID: ${status.proxyPid})` : "";
+    document.getElementById("dash-proxy-status").textContent = proxyStatusText + proxyPidText;
+
     document.getElementById("dash-version").textContent =
       status.version || "unknown";
     document.getElementById("dash-config-status").textContent =

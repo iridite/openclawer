@@ -183,6 +183,8 @@ async function getStatus() {
   const status = {
     gateway: "unknown",
     gatewayPid: null,
+    proxy: "running",
+    proxyPid: process.pid,
     system: {
       cpuUsage: 0,
       memoryMB: 0,
