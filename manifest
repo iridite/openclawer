@@ -1,7 +1,7 @@
 appname               = oc-deploy
-version               = 0.1.0
+version               = 0.2.2
 display_name          = OC-Deploy
-desc                  = app-description
+desc                  = OpenClaw AI Gateway 管理控制台，提供模型管理、配置编辑、状态监控等功能
 arch                  = x86_64
 source                = thirdparty
 maintainer            = iridite@github
