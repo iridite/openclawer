@@ -103,15 +103,61 @@ function getInjectionScript(token) {
   var SETTINGS_KEY = 'openclaw.control.settings.v1';
   var wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
   var wsUrl = wsProto + '://' + location.host + '/dashboard';
-  try {
-    var existing = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-    existing.gatewayUrl = wsUrl;
-    existing.token = '${token}';
-    if (!existing.sessionKey) existing.sessionKey = 'main';
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(existing));
-    console.log('[OC-Deploy] Auto-configured:', { gatewayUrl: wsUrl, token: '${token}'.substring(0, 8) + '...' });
-  } catch(e) {
-    console.error('[OC-Deploy] Failed to configure:', e);
+  var targetToken = '${token}';
+
+  // 强制设置配置的函数
+  function forceSetConfig() {
+    try {
+      var existing = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+      var needsUpdate = false;
+
+      if (existing.gatewayUrl !== wsUrl) {
+        existing.gatewayUrl = wsUrl;
+        needsUpdate = true;
+      }
+      if (existing.token !== targetToken) {
+        existing.token = targetToken;
+        needsUpdate = true;
+      }
+      if (!existing.sessionKey) {
+        existing.sessionKey = 'main';
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(existing));
+        console.log('[OC-Deploy] Config enforced:', {
+          gatewayUrl: wsUrl,
+          token: targetToken.substring(0, 8) + '...'
+        });
+      }
+    } catch(e) {
+      console.error('[OC-Deploy] Failed to enforce config:', e);
+    }
+  }
+
+  // 立即执行一次
+  forceSetConfig();
+
+  // 每秒检查一次，确保配置不被覆盖
+  setInterval(forceSetConfig, 1000);
+
+  // 监听 localStorage 变化（其他标签页或代码修改时）
+  window.addEventListener('storage', function(e) {
+    if (e.key === SETTINGS_KEY) {
+      forceSetConfig();
+    }
+  });
+
+  // 监听 DOM 变化（SPA 路由跳转时）
+  if (typeof MutationObserver !== 'undefined') {
+    var observer = new MutationObserver(function() {
+      forceSetConfig();
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
   }
 })();
 </script>`;
