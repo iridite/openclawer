@@ -1299,7 +1299,7 @@ async function editChannel(channelId) {
     // 填充 Telegram 特定字段
     if (channelType === "telegram") {
       const dmPolicyEl = document.getElementById("telegram-dm-policy");
-      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "pairing";
+      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "open";
 
       const groupPolicyEl = document.getElementById("telegram-group-policy");
       if (groupPolicyEl)
@@ -1342,7 +1342,7 @@ async function editChannel(channelId) {
       //   verificationTokenEl.value = mainAccount.verificationToken || "";
 
       const dmPolicyEl = document.getElementById("feishu-dm-policy");
-      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "pairing";
+      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "open";
     }
 
     // 显示对应类型的配置
