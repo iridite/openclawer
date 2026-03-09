@@ -6,6 +6,8 @@ const API_BASE = "/api";
 // 全局状态
 let currentConfig = null;
 let currentStatus = null;
+let aceEditor = null; // Ace Editor 实例
+let editorMode = "ace"; // 编辑器模式：'ace' 或 'textarea'
 
 // 快速添加模型预设
 const QUICK_ADD_MODELS = {
@@ -747,8 +749,7 @@ async function loadChannelsList() {
     }
 
     let html = "";
-    for (const [key, channel] of Object.entries(channels)) {
-      const type = channel.type || "未知";
+    for (const [channelType, channel] of Object.entries(channels)) {
       const enabled = channel.enabled !== false;
       const statusClass = enabled ? "status-running" : "status-stopped";
       const statusText = enabled ? "已启用" : "已禁用";
@@ -756,15 +757,15 @@ async function loadChannelsList() {
       html += `
         <div class="channel-item ${enabled ? "" : "disabled"}">
           <div class="channel-info">
-            <div class="channel-name">${key}</div>
-            <div class="channel-type">${type}</div>
+            <div class="channel-name">${channelType}</div>
+            <div class="channel-type">${channelType}</div>
             <div class="channel-status ${statusClass}">${statusText}</div>
           </div>
           <div class="channel-actions">
-            <button class="btn btn-secondary btn-sm" onclick="editChannel('${key}')">
+            <button class="btn btn-secondary btn-sm" onclick="editChannel('${channelType}')">
               ✏️ 编辑
             </button>
-            <button class="btn btn-secondary btn-sm" onclick="deleteChannel('${key}')">
+            <button class="btn btn-secondary btn-sm" onclick="deleteChannel('${channelType}')">
               🗑️ 删除
             </button>
           </div>
@@ -805,9 +806,8 @@ function toggleChannelForm() {
 
   // 清空表单
   document.getElementById("edit-channel-key").value = "";
-  document.getElementById("channel-id").value = "";
-  document.getElementById("channel-id").disabled = false;
-  document.getElementById("channel-type").value = "telegram";
+  document.getElementById("channel-type").value = "";
+  document.getElementById("channel-type").disabled = false;
   document.getElementById("channel-token").value = "";
   const chatIdEl = document.getElementById("channel-chat-id");
   if (chatIdEl) chatIdEl.value = "";
@@ -847,15 +847,14 @@ async function submitChannelForm(event) {
   event.preventDefault();
 
   const editKey = document.getElementById("edit-channel-key").value;
-  const channelId = document.getElementById("channel-id").value.trim();
   const channelType = document.getElementById("channel-type").value;
   const token = document.getElementById("channel-token").value.trim();
   const chatIdEl = document.getElementById("channel-chat-id");
   const chatId = chatIdEl ? chatIdEl.value.trim() : "";
   const enabled = document.getElementById("channel-enabled").checked;
 
-  if (!channelId) {
-    showToast("请输入渠道 ID", "error");
+  if (!channelType) {
+    showToast("请选择渠道类型", "error");
     return;
   }
 
@@ -875,16 +874,15 @@ async function submitChannelForm(event) {
       config.channels = {};
     }
 
-    // 如果是编辑模式且渠道名称改变了，删除旧的
-    if (editKey && editKey !== channelId) {
+    // 如果是编辑模式且渠道类型改变了，删除旧的
+    if (editKey && editKey !== channelType) {
       delete config.channels[editKey];
     }
 
-    // 添加或更新渠道配置
-    config.channels[channelId] = {
-      type: channelType,
-      botToken: token,
+    // 添加或更新渠道配置（使用渠道类型作为 key）
+    config.channels[channelType] = {
       enabled: enabled,
+      botToken: token,
     };
 
     // Telegram 特定配置
@@ -897,20 +895,20 @@ async function submitChannelForm(event) {
       );
 
       if (dmPolicyEl && dmPolicyEl.value) {
-        config.channels[channelId].dmPolicy = dmPolicyEl.value;
+        config.channels[channelType].dmPolicy = dmPolicyEl.value;
       }
       if (groupPolicyEl && groupPolicyEl.value) {
-        config.channels[channelId].groupPolicy = groupPolicyEl.value;
+        config.channels[channelType].groupPolicy = groupPolicyEl.value;
       }
       if (allowFromEl && allowFromEl.value.trim()) {
         // 将逗号分隔的字符串转换为数组
-        config.channels[channelId].allowFrom = allowFromEl.value
+        config.channels[channelType].allowFrom = allowFromEl.value
           .split(",")
           .map((id) => id.trim())
           .filter((id) => id);
       }
       if (groupAllowFromEl && groupAllowFromEl.value.trim()) {
-        config.channels[channelId].groupAllowFrom = groupAllowFromEl.value
+        config.channels[channelType].groupAllowFrom = groupAllowFromEl.value
           .split(",")
           .map((id) => id.trim())
           .filter((id) => id);
@@ -918,7 +916,7 @@ async function submitChannelForm(event) {
     }
 
     if (chatId) {
-      config.channels[channelId].chatId = chatId;
+      config.channels[channelType].chatId = chatId;
     }
 
     // 保存整个配置
@@ -942,10 +940,10 @@ async function submitChannelForm(event) {
 }
 
 // 编辑渠道
-async function editChannel(channelKey) {
+async function editChannel(channelType) {
   try {
     const config = await apiRequest("/config");
-    const channel = config.channels[channelKey];
+    const channel = config.channels[channelType];
 
     if (!channel) {
       showToast("渠道不存在", "error");
@@ -962,10 +960,9 @@ async function editChannel(channelKey) {
     submitBtnText.textContent = "💾 保存修改";
 
     // 填充表单数据
-    document.getElementById("edit-channel-key").value = channelKey;
-    document.getElementById("channel-id").value = channelKey;
-    document.getElementById("channel-id").disabled = true;
-    document.getElementById("channel-type").value = channel.type || "telegram";
+    document.getElementById("edit-channel-key").value = channelType;
+    document.getElementById("channel-type").value = channelType;
+    document.getElementById("channel-type").disabled = true;
     document.getElementById("channel-token").value =
       channel.botToken || channel.token || "";
     const chatIdEl = document.getElementById("channel-chat-id");
@@ -974,7 +971,7 @@ async function editChannel(channelKey) {
       channel.enabled !== false;
 
     // 填充 Telegram 特定字段
-    if (channel.type === "telegram") {
+    if (channelType === "telegram") {
       const dmPolicyEl = document.getElementById("telegram-dm-policy");
       if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "pairing";
 
@@ -1016,8 +1013,8 @@ async function editChannel(channelKey) {
 }
 
 // 删除渠道
-async function deleteChannel(channelKey) {
-  if (!confirm(`确定要删除渠道 "${channelKey}" 吗？此操作不可撤销。`)) {
+async function deleteChannel(channelType) {
+  if (!confirm(`确定要删除渠道 "${channelType}" 吗？此操作不可撤销。`)) {
     return;
   }
 
@@ -1028,8 +1025,8 @@ async function deleteChannel(channelKey) {
     const config = await apiRequest("/config");
 
     // 删除指定渠道
-    if (config.channels && config.channels[channelKey]) {
-      delete config.channels[channelKey];
+    if (config.channels && config.channels[channelType]) {
+      delete config.channels[channelType];
     } else {
       showToast("渠道不存在", "error");
       return;
@@ -1160,13 +1157,49 @@ function resetModelForm() {
 // 配置编辑
 // ============================================================================
 
+// 切换编辑器模式
+function toggleEditorMode() {
+  const aceContainer = document.getElementById("config-editor-ace");
+  const textareaContainer = document.getElementById("config-editor-textarea");
+  const toggleBtn = document.getElementById("toggle-editor-btn");
+
+  if (editorMode === "ace") {
+    // 切换到 textarea
+    const content = aceEditor ? aceEditor.getValue() : "";
+    textareaContainer.value = content;
+    aceContainer.style.display = "none";
+    textareaContainer.style.display = "block";
+    editorMode = "textarea";
+    toggleBtn.textContent = "🔄 高级";
+    toggleBtn.title = "切换到高级编辑器";
+  } else {
+    // 切换到 ace
+    const content = textareaContainer.value;
+    if (aceEditor) {
+      aceEditor.setValue(content, -1);
+    }
+    aceContainer.style.display = "block";
+    textareaContainer.style.display = "none";
+    editorMode = "ace";
+    toggleBtn.textContent = "🔄 切换";
+    toggleBtn.title = "切换到简单编辑器";
+  }
+
+  validateConfigInput();
+}
+
 async function loadConfig() {
   try {
     const config = await apiRequest("/config");
     currentConfig = config;
+    const jsonStr = JSON.stringify(config, null, 2);
 
-    const editor = document.getElementById("config-editor");
-    editor.value = JSON.stringify(config, null, 2);
+    if (editorMode === "ace" && aceEditor) {
+      aceEditor.setValue(jsonStr, -1);
+    } else {
+      const textarea = document.getElementById("config-editor-textarea");
+      if (textarea) textarea.value = jsonStr;
+    }
 
     validateConfigInput();
   } catch (error) {
@@ -1175,11 +1208,18 @@ async function loadConfig() {
 }
 
 async function saveConfig() {
-  const editor = document.getElementById("config-editor");
-
   try {
+    // 获取编辑器内容
+    let content;
+    if (editorMode === "ace" && aceEditor) {
+      content = aceEditor.getValue();
+    } else {
+      const textarea = document.getElementById("config-editor-textarea");
+      content = textarea ? textarea.value : "";
+    }
+
     // 解析 JSON
-    const config = JSON.parse(editor.value);
+    const config = JSON.parse(content);
 
     // 验证配置
     const validation = await apiRequest("/config/validate", {
@@ -1210,11 +1250,17 @@ async function saveConfig() {
 }
 
 function validateConfigInput() {
-  const editor = document.getElementById("config-editor");
   const statusEl = document.getElementById("validation-status");
 
   try {
-    JSON.parse(editor.value);
+    let content;
+    if (editorMode === "ace" && aceEditor) {
+      content = aceEditor.getValue();
+    } else {
+      const textarea = document.getElementById("config-editor-textarea");
+      content = textarea ? textarea.value : "{}";
+    }
+    JSON.parse(content);
     statusEl.textContent = "✅ JSON 格式正确";
     statusEl.className = "validation-status valid";
   } catch (error) {
@@ -1222,14 +1268,6 @@ function validateConfigInput() {
     statusEl.className = "validation-status invalid";
   }
 }
-
-// 监听编辑器输入
-document.addEventListener("DOMContentLoaded", () => {
-  const editor = document.getElementById("config-editor");
-  if (editor) {
-    editor.addEventListener("input", validateConfigInput);
-  }
-});
 
 // ============================================================================
 // 版本管理
@@ -1340,6 +1378,54 @@ async function refreshLogs() {
 
 document.addEventListener("DOMContentLoaded", () => {
   console.log("OpenClaw Management Console 初始化...");
+
+  // 初始化 Ace Editor
+  const editorElement = document.getElementById("config-editor");
+  if (editorElement && typeof ace !== "undefined") {
+    aceEditor = ace.edit("config-editor");
+    aceEditor.setTheme("ace/theme/monokai");
+    aceEditor.session.setMode("ace/mode/json");
+    aceEditor.setOptions({
+      fontSize: "14px",
+      showPrintMargin: false,
+      enableBasicAutocompletion: true,
+      enableLiveAutocompletion: true,
+      tabSize: 2,
+      useSoftTabs: true,
+    });
+
+    // 监听编辑器变化，实时验证
+    aceEditor.session.on("change", () => {
+      validateConfigInput();
+    });
+
+    console.log("Ace Editor 初始化成功");
+  } else {
+    console.warn("Ace Editor 未加载，使用 textarea");
+    editorMode = "textarea";
+    const aceContainer = document.getElementById("config-editor-ace");
+    if (aceContainer) aceContainer.style.display = "none";
+    const textarea = document.getElementById("config-editor-textarea");
+    if (textarea) {
+      textarea.style.display = "block";
+      textarea.addEventListener("input", validateConfigInput);
+    }
+  }
+
+  // 添加 Ctrl+S / Cmd+S 快捷键保存配置
+  document.addEventListener("keydown", (e) => {
+    // 检查是否按下 Ctrl+S (Windows/Linux) 或 Cmd+S (Mac)
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault(); // 阻止浏览器默认保存行为
+
+      // 检查当前是否在配置编辑标签页
+      const configTab = document.getElementById("tab-config");
+      if (configTab && configTab.classList.contains("active")) {
+        saveConfig();
+        showToast("正在保存配置... (Ctrl+S)", "info");
+      }
+    }
+  });
 
   // 初始化标签页
   initTabs();

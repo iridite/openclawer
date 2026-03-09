@@ -5,6 +5,10 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>OpenClaw 管理控制台</title>
         <link rel="stylesheet" href="assets/management.css" />
+        <!-- Ace Editor - 使用国内 CDN -->
+        <script src="https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/ace.js"></script>
+        <script src="https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/mode-json.js"></script>
+        <script src="https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/theme-monokai.js"></script>
     </head>
     <body>
         <div class="container">
@@ -912,6 +916,15 @@
                                 <div class="card-actions">
                                     <button
                                         class="btn btn-secondary btn-sm"
+                                        onclick="toggleEditorMode()"
+                                        id="toggle-editor-btn"
+                                        title="切换编辑器模式"
+                                        style="font-size: 0.85em"
+                                    >
+                                        🔄 切换
+                                    </button>
+                                    <button
+                                        class="btn btn-secondary btn-sm"
                                         onclick="loadConfig()"
                                     >
                                         🔃 重新加载
@@ -925,9 +938,29 @@
                                 </div>
                             </div>
                             <div class="editor-container">
+                                <!-- Ace Editor 容器 -->
+                                <div
+                                    id="config-editor-ace"
+                                    style="
+                                        height: 500px;
+                                        width: 100%;
+                                        display: block;
+                                    "
+                                ></div>
+                                <!-- 原生 Textarea（备用） -->
                                 <textarea
-                                    id="config-editor"
+                                    id="config-editor-textarea"
                                     spellcheck="false"
+                                    style="
+                                        display: none;
+                                        height: 500px;
+                                        width: 100%;
+                                        font-family: monospace;
+                                        font-size: 14px;
+                                        padding: 10px;
+                                        border: 1px solid #ddd;
+                                        border-radius: 4px;
+                                    "
                                 ></textarea>
                             </div>
                             <div class="editor-footer">
