@@ -784,13 +784,34 @@ async function loadChannelsList() {
 function handleChannelTypeChange() {
   const channelType = document.getElementById("channel-type").value;
   const telegramConfig = document.getElementById("telegram-specific-config");
+  const feishuConfig = document.getElementById("feishu-specific-config");
+  const tokenField = document.getElementById("channel-token");
+  const tokenLabel = tokenField ? tokenField.parentElement.querySelector("label") : null;
 
-  if (telegramConfig) {
-    if (channelType === "telegram") {
-      telegramConfig.style.display = "block";
-    } else {
-      telegramConfig.style.display = "none";
+  // 隐藏所有特定配置
+  if (telegramConfig) telegramConfig.style.display = "none";
+  if (feishuConfig) feishuConfig.style.display = "none";
+
+  // 根据渠道类型调整 Token 字段
+  if (channelType === "feishu") {
+    // 飞书不需要 Bot Token 字段，隐藏它
+    if (tokenField) {
+      tokenField.parentElement.style.display = "none";
+      tokenField.removeAttribute("required");
     }
+  } else {
+    // 其他渠道需要 Bot Token
+    if (tokenField) {
+      tokenField.parentElement.style.display = "block";
+      tokenField.setAttribute("required", "required");
+    }
+  }
+
+  // 显示对应类型的配置
+  if (channelType === "telegram" && telegramConfig) {
+    telegramConfig.style.display = "block";
+  } else if (channelType === "feishu" && feishuConfig) {
+    feishuConfig.style.display = "block";
   }
 }
 
@@ -822,6 +843,18 @@ function toggleChannelForm() {
   if (allowFromEl) allowFromEl.value = "";
   const groupAllowFromEl = document.getElementById("telegram-group-allow-from");
   if (groupAllowFromEl) groupAllowFromEl.value = "";
+
+  // 清空飞书特定字段
+  const feishuAppIdEl = document.getElementById("feishu-app-id");
+  if (feishuAppIdEl) feishuAppIdEl.value = "";
+  const feishuAppSecretEl = document.getElementById("feishu-app-secret");
+  if (feishuAppSecretEl) feishuAppSecretEl.value = "";
+  const feishuBotNameEl = document.getElementById("feishu-bot-name");
+  if (feishuBotNameEl) feishuBotNameEl.value = "";
+  const feishuVerificationTokenEl = document.getElementById("feishu-verification-token");
+  if (feishuVerificationTokenEl) feishuVerificationTokenEl.value = "";
+  const feishuDmPolicyEl = document.getElementById("feishu-dm-policy");
+  if (feishuDmPolicyEl) feishuDmPolicyEl.value = "pairing";
 
   // 显示对应类型的配置
   handleChannelTypeChange();
@@ -858,9 +891,26 @@ async function submitChannelForm(event) {
     return;
   }
 
-  if (!token) {
+  // 飞书渠道不需要 token，其他渠道需要
+  if (channelType !== "feishu" && !token) {
     showToast("请输入 Token", "error");
     return;
+  }
+
+  // 飞书渠道需要验证必填字段
+  if (channelType === "feishu") {
+    const appIdEl = document.getElementById("feishu-app-id");
+    const appSecretEl = document.getElementById("feishu-app-secret");
+
+    if (!appIdEl || !appIdEl.value.trim()) {
+      showToast("请输入飞书 App ID", "error");
+      return;
+    }
+
+    if (!appSecretEl || !appSecretEl.value.trim()) {
+      showToast("请输入飞书 App Secret", "error");
+      return;
+    }
   }
 
   try {
@@ -882,8 +932,12 @@ async function submitChannelForm(event) {
     // 添加或更新渠道配置（使用渠道类型作为 key）
     config.channels[channelType] = {
       enabled: enabled,
-      botToken: token,
     };
+
+    // 非飞书渠道才需要 botToken
+    if (channelType !== "feishu") {
+      config.channels[channelType].botToken = token;
+    }
 
     // Telegram 特定配置
     if (channelType === "telegram") {
@@ -912,6 +966,41 @@ async function submitChannelForm(event) {
           .split(",")
           .map((id) => id.trim())
           .filter((id) => id);
+      }
+    }
+
+    // 飞书特定配置
+    if (channelType === "feishu") {
+      const appIdEl = document.getElementById("feishu-app-id");
+      const appSecretEl = document.getElementById("feishu-app-secret");
+      const botNameEl = document.getElementById("feishu-bot-name");
+      const verificationTokenEl = document.getElementById(
+        "feishu-verification-token",
+      );
+      const dmPolicyEl = document.getElementById("feishu-dm-policy");
+
+      // 飞书使用 accounts 结构
+      config.channels[channelType].accounts = {
+        main: {},
+      };
+
+      if (appIdEl && appIdEl.value.trim()) {
+        config.channels[channelType].accounts.main.appId = appIdEl.value.trim();
+      }
+      if (appSecretEl && appSecretEl.value.trim()) {
+        config.channels[channelType].accounts.main.appSecret =
+          appSecretEl.value.trim();
+      }
+      if (botNameEl && botNameEl.value.trim()) {
+        config.channels[channelType].accounts.main.botName =
+          botNameEl.value.trim();
+      }
+      if (verificationTokenEl && verificationTokenEl.value.trim()) {
+        config.channels[channelType].accounts.main.verificationToken =
+          verificationTokenEl.value.trim();
+      }
+      if (dmPolicyEl && dmPolicyEl.value) {
+        config.channels[channelType].dmPolicy = dmPolicyEl.value;
       }
     }
 
@@ -994,6 +1083,29 @@ async function editChannel(channelType) {
           ? channel.groupAllowFrom.join(", ")
           : channel.groupAllowFrom;
       }
+    }
+
+    // 填充飞书特定字段
+    if (channelType === "feishu" && channel.accounts && channel.accounts.main) {
+      const mainAccount = channel.accounts.main;
+
+      const appIdEl = document.getElementById("feishu-app-id");
+      if (appIdEl) appIdEl.value = mainAccount.appId || "";
+
+      const appSecretEl = document.getElementById("feishu-app-secret");
+      if (appSecretEl) appSecretEl.value = mainAccount.appSecret || "";
+
+      const botNameEl = document.getElementById("feishu-bot-name");
+      if (botNameEl) botNameEl.value = mainAccount.botName || "";
+
+      const verificationTokenEl = document.getElementById(
+        "feishu-verification-token",
+      );
+      if (verificationTokenEl)
+        verificationTokenEl.value = mainAccount.verificationToken || "";
+
+      const dmPolicyEl = document.getElementById("feishu-dm-policy");
+      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "pairing";
     }
 
     // 显示对应类型的配置

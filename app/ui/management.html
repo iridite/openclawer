@@ -760,6 +760,9 @@
                                                 <option value="wechat">
                                                     微信
                                                 </option>
+                                                <option value="feishu">
+                                                    飞书
+                                                </option>
                                             </select>
                                         </div>
 
@@ -872,6 +875,114 @@
                                                     name="groupAllowFrom"
                                                     placeholder="用户ID，用逗号分隔"
                                                 />
+                                            </div>
+                                        </div>
+
+                                        <!-- 飞书特定配置 -->
+                                        <div
+                                            id="feishu-specific-config"
+                                            style="display: none"
+                                        >
+                                            <div class="form-group">
+                                                <label>
+                                                    App ID
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="飞书应用的 App ID，格式如 cli_xxx"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="feishu-app-id"
+                                                    name="appId"
+                                                    placeholder="cli_xxx"
+                                                />
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>
+                                                    App Secret
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="飞书应用的 App Secret"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <input
+                                                    type="password"
+                                                    id="feishu-app-secret"
+                                                    name="appSecret"
+                                                    placeholder="输入 App Secret"
+                                                />
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>
+                                                    机器人名称
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="机器人的显示名称（可选）"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="feishu-bot-name"
+                                                    name="botName"
+                                                    placeholder="我的AI助手"
+                                                />
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>
+                                                    Verification Token
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="飞书应用的 Verification Token（可选，用于验证回调请求）"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <input
+                                                    type="password"
+                                                    id="feishu-verification-token"
+                                                    name="verificationToken"
+                                                    placeholder="输入 Verification Token"
+                                                />
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>
+                                                    私信策略
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="控制如何处理私信：pairing=配对模式（默认），allowlist=仅允许列表，open=开放，disabled=禁用"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <select
+                                                    id="feishu-dm-policy"
+                                                    name="dmPolicy"
+                                                >
+                                                    <option value="pairing">
+                                                        Pairing（配对模式）
+                                                    </option>
+                                                    <option value="allowlist">
+                                                        Allowlist（仅允许列表）
+                                                    </option>
+                                                    <option value="open">
+                                                        Open（开放）
+                                                    </option>
+                                                    <option value="disabled">
+                                                        Disabled（禁用）
+                                                    </option>
+                                                </select>
                                             </div>
                                         </div>
 
