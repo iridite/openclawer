@@ -249,10 +249,14 @@ async function refreshDashboard() {
         status.system.cpuUsage !== undefined
           ? `${status.system.cpuUsage.toFixed(1)}%`
           : "N/A";
-      document.getElementById("dash-memory-usage").textContent =
-        status.system.memoryUsage !== undefined
-          ? `${status.system.memoryUsage.toFixed(1)}%`
-          : "N/A";
+
+      // 显示内存使用：百分比 + MB 数值（小字）
+      const memoryEl = document.getElementById("dash-memory-usage");
+      if (status.system.memoryPercent !== undefined && status.system.memoryMB !== undefined) {
+        memoryEl.innerHTML = `${status.system.memoryPercent.toFixed(1)}% <span style="font-size: 0.8em; color: #888;">(${status.system.memoryMB.toFixed(1)} MB)</span>`;
+      } else {
+        memoryEl.textContent = "N/A";
+      }
     }
 
     // 加载配置摘要

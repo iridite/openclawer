@@ -185,7 +185,9 @@ async function getStatus() {
     gatewayPid: null,
     system: {
       cpuUsage: 0,
-      memoryUsage: 0,
+      memoryMB: 0,
+      memoryPercent: 0,
+      totalMemoryMB: 0,
     },
     version: "unknown",
     configExists: fs.existsSync(CONFIG_FILE),
@@ -232,9 +234,23 @@ async function getStatus() {
       // 写入 CPU 数据
       status.system.cpuUsage = parseFloat(stats[0]) || 0;
 
-      // 计算并写入内存数据 (转换为 MB)
-      const memoryBytes = parseInt(stats[1]) * 1024;
-      status.system.memoryUsage = memoryBytes ? memoryBytes / 1024 / 1024 : 0;
+      // 计算并写入内存数据 (stats[1] 是 RSS，单位 KB，转换为 MB)
+      const memoryKB = parseInt(stats[1]) || 0;
+      status.system.memoryMB = memoryKB / 1024;
+
+      // 获取系统总内存 (从 /proc/meminfo 读取 MemTotal)
+      try {
+        const meminfoOut = await execCommand(`grep MemTotal /proc/meminfo | awk '{print $2}'`);
+        const totalMemoryKB = parseInt(meminfoOut.trim()) || 0;
+        status.system.totalMemoryMB = totalMemoryKB / 1024;
+
+        // 计算内存使用百分比
+        if (status.system.totalMemoryMB > 0) {
+          status.system.memoryPercent = (status.system.memoryMB / status.system.totalMemoryMB) * 100;
+        }
+      } catch (err) {
+        // 如果获取总内存失败，保持默认值 0
+      }
 
       // 解析启动时间并计算 uptime (毫秒)
       const startTimeStr = stats.slice(2).join(" ");
