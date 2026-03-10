@@ -1906,8 +1906,20 @@ async function loadConsoleInfo() {
 
 async function openConsole() {
   try {
-    // 直接跳转到 /dashboard/ (通过 Management API 代理到 iframe-proxy)
-    window.location.href = "/dashboard/";
+    const info = await apiRequest("/console/url");
+
+    if (!info || !info.url) {
+      showToast("获取控制台地址失败，尝试直接打开...", "warning");
+      window.location.href = "/dashboard/";
+      return;
+    }
+
+    if (!info.token) {
+      showToast("未检测到网关令牌，打开控制台可能需要手动填写", "warning");
+    }
+
+    // 通过 Management API 代理打开，并尽量在 URL 上携带 token
+    window.location.href = info.url;
   } catch (error) {
     showToast("打开控制台失败: " + error.message, "error");
   }

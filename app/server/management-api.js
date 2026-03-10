@@ -864,20 +864,22 @@ async function updateVersion() {
   };
 }
 
-// API: 获取控制台 URL (动态识别 NAS IP)
+// API: 获取控制台 URL (走管理端代理，自动携带 token)
 async function getConsoleUrl(req) {
   const token = getTokenFromConfig();
 
-  // 核心逻辑：从请求头中提取用户当前访问的 NAS IP
-  // 假设用户浏览器访问的是 http://192.168.1.100:18790
-  // 那么 req.headers.host 就是 "192.168.1.100:18790"
-  // .split(':')[0] 切割后拿到的就是纯 IP "192.168.1.100"
-  const host = req.headers.host ? req.headers.host.split(":")[0] : "127.0.0.1";
+  // 优先使用当前访问的 host/协议，确保走管理端代理 (/dashboard)
+  const host = req.headers.host || "127.0.0.1:18790";
+  const proto =
+    req.headers["x-forwarded-proto"] ||
+    (req.socket && req.socket.encrypted ? "https" : "http");
 
-  return {
-    url: `http://${host}:${GATEWAY_PORT}`, // 自动拼接为 http://192.168.1.100:18789
-    token,
-  };
+  let url = `${proto}://${host}/dashboard/`;
+  if (token) {
+    url += `?token=${encodeURIComponent(token)}`;
+  }
+
+  return { url, token };
 }
 
 // API: 获取日志
