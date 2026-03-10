@@ -1097,7 +1097,10 @@ async function loadChannelsList() {
         infoItems.push(`私聊策略: ${channel.dmPolicy || "open"}`);
         const requireMention = channel.groups?.["*"]?.requireMention;
         if (requireMention !== undefined) {
-          infoItems.push(`群组 @ 提及: ${requireMention ? "需要" : "不需要"}`);
+          infoItems.push(`群组需被提及: ${requireMention ? "需要" : "不需要"}`);
+          if (requireMention) {
+            infoItems.push("说明: 即在群组中有人 @ 机器人时才会回应");
+          }
         }
       } else if (channelType === "discord") {
         // Discord 只有 token
