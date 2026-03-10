@@ -795,7 +795,9 @@ API 类型: openai-completions
                                             添加消息渠道
                                         </button>
                                     </div>
-                                    <div class="form-hint warning">
+                                    <div
+                                        class="form-hint warning form-hint-spaced"
+                                    >
                                         说明：每种渠道类型仅支持配置一条记录，系统会使用类型作为唯一标识。
                                         Telegram/飞书/QQ
                                         已按官方结构给出推荐默认值（如 dmPolicy
@@ -822,7 +824,9 @@ API 类型: openai-completions
                                     <div class="card-header">
                                         <h2>渠道配置引导</h2>
                                     </div>
-                                    <div class="form-hint warning">
+                                    <div
+                                        class="form-hint warning form-hint-spaced"
+                                    >
                                         本区集中说明各渠道的关键字段与最小示例，减少频繁跳转文档的成本。若需要更复杂的能力，请在下方配置编辑器中补充完整配置。
                                     </div>
                                     <div class="channel-guide-grid">
@@ -945,7 +949,9 @@ API 类型: openai-completions
                                             id="edit-channel-key"
                                             value=""
                                         />
-                                        <div class="form-hint warning">
+                                        <div
+                                            class="form-hint warning form-hint-spaced"
+                                        >
                                             重要：先选择渠道类型再填写字段。每种类型只保留一条配置，保存时会覆盖该类型现有配置。
                                         </div>
                                         <div
@@ -1749,7 +1755,7 @@ API 类型: openai-completions
                                 OpenClaw 原生控制面板（dashboard），用于管理 AI
                                 智能体、查看会话记录与渠道消息。
                             </p>
-                            <div class="form-hint warning">
+                            <div class="form-hint warning form-hint-spaced">
                                 为避免误操作：原生控制面板不处理 Gateway
                                 启停、版本更新或配置文件编辑；这些操作请回到
                                 OC-Deploy 完成。
