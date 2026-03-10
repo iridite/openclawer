@@ -710,23 +710,102 @@ async function deleteModel(modelKey) {
 async function validateConfig(config) {
   const errors = [];
 
-  // 验证 models
-  if (config.models) {
-    for (const [name, model] of Object.entries(config.models)) {
-      if (!model.provider) {
-        errors.push(`模型 ${name} 缺少 provider 字段`);
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return {
+      valid: false,
+      errors: ["配置根节点必须是 JSON 对象"],
+    };
+  }
+
+  // 验证 models（兼容新旧两种结构）
+  if (config.models !== undefined) {
+    if (
+      !config.models ||
+      typeof config.models !== "object" ||
+      Array.isArray(config.models)
+    ) {
+      errors.push("models 必须是对象");
+    } else if (config.models.providers !== undefined) {
+      // 新结构：models.providers.<provider>.models[]
+      const providers = config.models.providers;
+      if (
+        !providers ||
+        typeof providers !== "object" ||
+        Array.isArray(providers)
+      ) {
+        errors.push("models.providers 必须是对象");
+      } else {
+        for (const [providerName, provider] of Object.entries(providers)) {
+          if (
+            !provider ||
+            typeof provider !== "object" ||
+            Array.isArray(provider)
+          ) {
+            errors.push(`供应商 ${providerName} 配置格式错误`);
+            continue;
+          }
+
+          if (
+            provider.models !== undefined &&
+            !Array.isArray(provider.models)
+          ) {
+            errors.push(`供应商 ${providerName} 的 models 必须是数组`);
+            continue;
+          }
+
+          if (Array.isArray(provider.models)) {
+            provider.models.forEach((model, idx) => {
+              if (!model || typeof model !== "object" || Array.isArray(model)) {
+                errors.push(
+                  `供应商 ${providerName} 的第 ${idx + 1} 个模型格式错误`,
+                );
+                return;
+              }
+              if (!model.id && !model.name) {
+                errors.push(
+                  `供应商 ${providerName} 的第 ${idx + 1} 个模型缺少 id/name`,
+                );
+              }
+            });
+          }
+        }
       }
-      if (!model.apiKey) {
-        errors.push(`模型 ${name} 缺少 apiKey 字段`);
+    } else {
+      // 旧结构：models.<modelName>.provider/apiKey
+      for (const [name, model] of Object.entries(config.models)) {
+        if (name === "mode" || name === "providers") {
+          continue;
+        }
+        if (!model || typeof model !== "object" || Array.isArray(model)) {
+          continue;
+        }
+        if (!model.provider) {
+          errors.push(`模型 ${name} 缺少 provider 字段`);
+        }
+        if (!model.apiKey) {
+          errors.push(`模型 ${name} 缺少 apiKey 字段`);
+        }
       }
     }
   }
 
   // 验证 channels
-  if (config.channels) {
-    for (const [name, channel] of Object.entries(config.channels)) {
-      if (!channel.type) {
-        errors.push(`渠道 ${name} 缺少 type 字段`);
+  if (config.channels !== undefined) {
+    if (
+      !config.channels ||
+      typeof config.channels !== "object" ||
+      Array.isArray(config.channels)
+    ) {
+      errors.push("channels 必须是对象");
+    } else {
+      for (const [name, channel] of Object.entries(config.channels)) {
+        if (!channel || typeof channel !== "object" || Array.isArray(channel)) {
+          errors.push(`渠道 ${name} 配置格式错误`);
+          continue;
+        }
+        if (!channel.type) {
+          errors.push(`渠道 ${name} 缺少 type 字段`);
+        }
       }
     }
   }

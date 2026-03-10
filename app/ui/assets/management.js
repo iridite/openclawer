@@ -1706,9 +1706,19 @@ async function saveConfig() {
       body: JSON.stringify(config),
     });
 
+    let hasValidationWarning = false;
+    let validationWarningText = "";
     if (!validation.valid) {
-      showToast("配置验证失败: " + validation.errors.join(", "), "error");
-      return;
+      hasValidationWarning = true;
+      const warnings = Array.isArray(validation.errors)
+        ? validation.errors
+        : [];
+      validationWarningText = warnings.join(", ");
+      showToast(
+        "配置校验警告（仍将保存）: " +
+          (validationWarningText || "存在未知校验问题"),
+        "warning",
+      );
     }
 
     // 保存配置
@@ -1718,7 +1728,14 @@ async function saveConfig() {
     });
 
     currentConfig = config;
-    showToast("配置保存成功！请重启 Gateway 使配置生效。", "success");
+    if (hasValidationWarning) {
+      showToast(
+        "配置已保存，但存在校验警告。请检查配置后重启 Gateway。",
+        "warning",
+      );
+    } else {
+      showToast("配置保存成功！请重启 Gateway 使配置生效。", "success");
+    }
   } catch (error) {
     if (error instanceof SyntaxError) {
       showToast("JSON 格式错误: " + error.message, "error");
