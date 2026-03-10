@@ -1404,11 +1404,15 @@ async function submitChannelForm(event) {
         !Array.isArray(existingGroups)
           ? existingGroups
           : { "*": { requireMention: true } };
+      const allowFrom = Array.isArray(existing?.allowFrom)
+        ? existing.allowFrom
+        : ["*"];
 
       config.channels[channelId] = {
         enabled: enabled,
         botToken: token,
         dmPolicy: "open",
+        allowFrom: allowFrom,
         groups: groups,
       };
     } else if (channelType === "feishu") {
@@ -1430,7 +1434,6 @@ async function submitChannelForm(event) {
       };
     } else {
       config.channels[channelId] = {
-        type: channelType, // 保存渠道类型
         enabled: enabled,
       };
     }

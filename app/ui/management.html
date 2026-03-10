@@ -631,7 +631,7 @@
                                         >
                                             <div class="form-hint warning">
                                                 Telegram 渠道使用官方结构：dmPolicy 固定为 open，
-                                                群组默认 requireMention=true。以下字段仅展示，实际不参与保存。
+                                                allowFrom 默认 ["*"]，群组默认 requireMention=true。以下字段仅展示，实际不参与保存。
                                             </div>
                                             <div class="form-group">
                                                 <label>
@@ -1010,10 +1010,10 @@
       "enabled": true,
       "botToken": "123:abc",
       "dmPolicy": "open",
+      "allowFrom": ["*"],
       "groups": { "*": { "requireMention": true } }
     },
     "discord": {
-      "type": "discord",
       "token": "bot_token",
       "enabled": true
     }
