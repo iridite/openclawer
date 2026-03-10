@@ -1805,6 +1805,23 @@ async function saveConfig() {
   }
 }
 
+function copyConfig() {
+  let content = "";
+  if (editorMode === "ace" && aceEditor) {
+    content = aceEditor.getValue();
+  } else {
+    const textarea = document.getElementById("config-editor-textarea");
+    content = textarea ? textarea.value : "";
+  }
+
+  if (!content) {
+    showToast("没有可复制的配置内容", "warning");
+    return;
+  }
+
+  copyToClipboard(content, "配置内容");
+}
+
 function validateConfigInput() {
   const statusEl = document.getElementById("validation-status");
 
