@@ -347,9 +347,12 @@ function updateConfigSummary(config) {
       html +=
         '<div style="margin-top: 10px;"><strong>📡 已配置渠道：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
       for (const [name, channel] of Object.entries(config.channels)) {
-        const type = channel.type || "未知";
+        const type = inferChannelType(name, channel);
+        const label = getChannelDisplayLabel(type, name);
+        const identity = getChannelIdentityValue(type, channel);
+        const masked = identity ? maskApiKey(identity) : "未绑定";
         const enabled = channel.enabled !== false ? "✅" : "⭕";
-        html += `<li><code>${name}</code> (${type}) ${enabled}</li>`;
+        html += `<li><code>${label}</code> (${masked}) ${enabled}</li>`;
       }
       html += "</ul></div>";
     } else {
@@ -1019,6 +1022,45 @@ function inferChannelType(channelId, channel) {
   return "unknown";
 }
 
+function getChannelDisplayLabel(channelType, channelId) {
+  switch (channelType) {
+    case "telegram":
+      return "Telegram";
+    case "discord":
+      return "Discord";
+    case "feishu":
+      return "飞书";
+    default:
+      return channelId || "未知渠道";
+  }
+}
+
+function getChannelIdentityValue(channelType, channel) {
+  if (!channel) return "";
+  if (channelType === "telegram") {
+    return channel.botToken || channel.token || "";
+  }
+  if (channelType === "discord") {
+    return channel.token || "";
+  }
+  if (channelType === "feishu") {
+    return channel.accounts?.main?.appId || "";
+  }
+  return channel.botToken || channel.token || "";
+}
+
+function getChannelBadgeText(channelType, channel) {
+  const identityValue = getChannelIdentityValue(channelType, channel);
+  if (identityValue) {
+    const masked = maskApiKey(identityValue);
+    if (channelType === "feishu") {
+      return `App: ${masked}`;
+    }
+    return `Bot: ${masked}`;
+  }
+  return "未绑定凭据";
+}
+
 // 加载消息渠道列表
 async function loadChannelsList() {
   try {
@@ -1041,8 +1083,9 @@ async function loadChannelsList() {
       // 获取渠道类型
       const channelType = inferChannelType(channelId, channel);
 
-      // 使用渠道类型作为标题（每种类型仅一条）
-      const displayName = channelType !== "unknown" ? channelType : channelId;
+      // 使用渠道类型作为标题（更友好的显示）
+      const displayName = getChannelDisplayLabel(channelType, channelId);
+      const badgeText = getChannelBadgeText(channelType, channel);
 
       // 构建渠道信息摘要
       let infoItems = [];
@@ -1077,7 +1120,7 @@ async function loadChannelsList() {
           <div class="channel-card-header">
             <div>
               <h3 class="channel-card-title">${displayName}</h3>
-              <span class="channel-card-type">${channelType}</span>
+              <span class="channel-card-type">${badgeText}</span>
             </div>
             <span class="channel-status ${statusClass}">${statusText}</span>
           </div>
@@ -1134,6 +1177,15 @@ function handleChannelTypeChange() {
   if (telegramConfig) telegramConfig.style.display = "none";
   if (discordConfig) discordConfig.style.display = "none";
   if (feishuConfig) feishuConfig.style.display = "none";
+
+  // 未选择类型时，不展示任何设置项
+  if (!channelType) {
+    if (tokenField) {
+      tokenField.parentElement.style.display = "none";
+      tokenField.removeAttribute("required");
+    }
+    return;
+  }
 
   // 根据渠道类型调整 Token 字段
   if (channelType === "feishu") {
