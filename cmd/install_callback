@@ -336,6 +336,31 @@ generate_oc_token() {
     fi
 }
 
+snapshot_initial_config() {
+    local CONFIG_FILE="/root/.openclaw/openclaw.json"
+    local INITIAL_CONFIG_FILE="/root/.openclaw/openclaw.json.initial"
+
+    if [ ! -f "${CONFIG_FILE}" ]; then
+        log_msg "Skip initial snapshot: ${CONFIG_FILE} not found"
+        return 0
+    fi
+
+    if [ -f "${INITIAL_CONFIG_FILE}" ]; then
+        log_msg "Initial snapshot already exists: ${INITIAL_CONFIG_FILE}"
+        return 0
+    fi
+
+    cp "${CONFIG_FILE}" "${INITIAL_CONFIG_FILE}" >> "${LOG_FILE}" 2>&1
+    if [ $? -eq 0 ]; then
+        log_msg "Initial configuration snapshot created: ${INITIAL_CONFIG_FILE}"
+    else
+        log_msg "Failed to create initial configuration snapshot"
+        echo "Failed to create initial configuration snapshot" >> "${TRIM_TEMP_LOGFILE}"
+        tail -n 20 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
+        exit 1
+    fi
+}
+
 # entry point
 # 步骤 2: 安装 openclaw
 install_openclaw
@@ -347,5 +372,6 @@ log_msg "Starting OpenClaw configuration setup..."
 # 运行 openclaw setup
 setup_openclaw_config
 generate_oc_token
+snapshot_initial_config
 
 exit 0

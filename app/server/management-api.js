@@ -7,6 +7,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { spawn, exec } = require("child_process");
 
 console.log(`[Manager] PM2_HOME 已固化为: ${process.env.PM2_HOME}`);
@@ -18,6 +19,7 @@ const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
 const TRIM_PKGVAR = "/var/apps/oc-deploy/var";
 const TRIM_APPDEST = "/var/apps/oc-deploy/target";
 const CONFIG_FILE = "/root/.openclaw/openclaw.json"; // hard-coded
+const INITIAL_CONFIG_FILE = "/root/.openclaw/openclaw.json.initial";
 
 // oc
 const OC_HOME = "/root/.openclaw";
@@ -401,6 +403,109 @@ async function saveConfig(newConfig) {
   }
 
   return { success: true };
+}
+
+function buildFallbackResetConfig(existingConfig = {}) {
+  const packageJson = readJSON(OC_PKG_JSON_PATH);
+  const lastTouchedVersion = packageJson?.version || "unknown";
+  const preservedToken =
+    existingConfig?.gateway?.auth?.token ||
+    getTokenFromConfig() ||
+    crypto.randomBytes(24).toString("hex");
+
+  return {
+    meta: {
+      lastTouchedVersion,
+      lastTouchedAt: new Date().toISOString(),
+    },
+    agents: {
+      defaults: {
+        workspace: "/root/.openclaw/workspace",
+        compaction: {
+          mode: "safeguard",
+        },
+      },
+    },
+    commands: {
+      native: "auto",
+      nativeSkills: "auto",
+      restart: true,
+      ownerDisplay: "raw",
+    },
+    gateway: {
+      port: GATEWAY_PORT,
+      mode: "local",
+      bind: "lan",
+      controlUi: {
+        allowedOrigins: ["*"],
+        dangerouslyAllowHostHeaderOriginFallback: true,
+        allowInsecureAuth: true,
+        dangerouslyDisableDeviceAuth: true,
+      },
+      auth: {
+        mode: "token",
+        token: preservedToken,
+      },
+      trustedProxies: ["10.0.0.1", "127.0.0.1", "::1"],
+      reload: {
+        mode: "hybrid",
+        debounceMs: 300,
+      },
+    },
+  };
+}
+
+async function resetConfig() {
+  const timestamp = Date.now();
+  const backupFile = `${CONFIG_FILE}.backup.reset.${timestamp}`;
+  const hasExistingConfig = fs.existsSync(CONFIG_FILE);
+  const existingConfig = readJSON(CONFIG_FILE) || {};
+
+  // 恢复前，先备份当前配置
+  if (hasExistingConfig) {
+    fs.copyFileSync(CONFIG_FILE, backupFile);
+  }
+
+  let source = "initial-snapshot";
+  let configToRestore = null;
+
+  if (fs.existsSync(INITIAL_CONFIG_FILE)) {
+    configToRestore = readJSON(INITIAL_CONFIG_FILE);
+    if (!configToRestore || typeof configToRestore !== "object") {
+      throw new Error("初始配置快照损坏，无法恢复");
+    }
+  } else {
+    source = "fallback-default";
+    configToRestore = buildFallbackResetConfig(existingConfig);
+  }
+
+  const success = writeJSON(CONFIG_FILE, configToRestore);
+  if (!success) {
+    throw new Error("恢复配置失败：写入配置文件失败");
+  }
+
+  let restarted = false;
+  let restartError = "";
+
+  try {
+    const restartResult = await restartGateway();
+    restarted = !!restartResult?.success;
+  } catch (err) {
+    restartError =
+      err instanceof Error
+        ? err.message
+        : typeof err === "string"
+          ? err
+          : "未知错误";
+  }
+
+  return {
+    success: true,
+    source,
+    backupFile: hasExistingConfig ? backupFile : null,
+    restarted,
+    restartError: restartError || undefined,
+  };
 }
 
 // API: 快速添加模型
@@ -1057,6 +1162,7 @@ font-family:system-ui,sans-serif;background:#fff5f0;color:#666;}
         const body = await readBody(req);
         return saveConfig(JSON.parse(body));
       },
+      "POST /api/config/reset": resetConfig,
       "POST /api/config/validate": async () => {
         const body = await readBody(req);
         return validateConfig(JSON.parse(body));

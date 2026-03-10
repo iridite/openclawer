@@ -1956,6 +1956,41 @@ function copyConfig() {
   copyToClipboard(content, "配置内容");
 }
 
+async function resetConfigToInitial() {
+  const confirmed = confirm(
+    "确定要恢复原始配置吗？\n\n此操作将覆盖当前 openclaw.json，并自动重启 Gateway。\n系统会先自动备份当前配置。",
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    showToast("正在恢复原始配置并重启 Gateway...", "info");
+    const result = await apiRequest("/config/reset", { method: "POST" });
+
+    await Promise.all([
+      loadConfig(),
+      loadModelsList(),
+      loadChannelsList(),
+      refreshDashboard(),
+    ]);
+
+    if (result.restarted) {
+      const backupHint = result.backupFile ? ` 备份: ${result.backupFile}` : "";
+      showToast("恢复成功，Gateway 已自动重启。" + backupHint, "success");
+    } else {
+      showToast(
+        "配置已恢复，但 Gateway 自动重启失败: " +
+          (result.restartError || "未知错误，请手动重启"),
+        "warning",
+      );
+    }
+  } catch (error) {
+    showToast("恢复原始配置失败: " + error.message, "error");
+  }
+}
+
 function validateConfigInput() {
   const statusEl = document.getElementById("validation-status");
 
