@@ -89,6 +89,34 @@ body {
     align-items: center;
 }
 
+.header-links {
+    display: flex;
+    align-items: center;
+}
+
+.github-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.github-link:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(244, 81, 30, 0.08);
+}
+
+.github-link:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+}
+
 .status-badge {
     display: inline-flex;
     align-items: center;
