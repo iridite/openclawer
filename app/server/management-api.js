@@ -540,13 +540,19 @@ async function addModel(modelData) {
     const agentModelKey = `${providerName}/${modelId}`;
     config.agents.defaults.models[agentModelKey] = {};
 
-    // 如果是第一个模型，设置为 primary
-    if (
-      !config.agents.defaults.model ||
-      !config.agents.defaults.model.primary
-    ) {
-      config.agents.defaults.model = config.agents.defaults.model || {};
+    // 处理 primary：新增不抢占，编辑保持或更新
+    const existingPrimary = config.agents.defaults.model?.primary || "";
+    config.agents.defaults.model = config.agents.defaults.model || {};
+
+    if (!existingPrimary) {
+      // 没有 primary 时，首次设置为当前模型
       config.agents.defaults.model.primary = agentModelKey;
+    } else if (isEditMode && editModelKey && existingPrimary === editModelKey) {
+      // 编辑了 primary 所在模型，更新为新 key（例如更换 provider）
+      config.agents.defaults.model.primary = agentModelKey;
+    } else {
+      // 其他情况保持不变
+      config.agents.defaults.model.primary = existingPrimary;
     }
 
     // 保存配置

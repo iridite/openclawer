@@ -767,7 +767,7 @@ async function loadModelsList() {
           const primaryClass = isPrimary ? " model-card-primary" : "";
 
           html += `
-          <div class="model-card${primaryClass}">
+          <div class="model-card${primaryClass}" data-model-key="${modelKey}" title="点击设为当前模型">
           <div class="model-card-header">
             <h3 class="model-card-title">${modelKey}</h3>
           </div>
@@ -807,6 +807,17 @@ async function loadModelsList() {
 
     modelsListEl.innerHTML = html;
 
+    // 为卡片添加点击事件（设置当前模型）
+    modelsListEl.querySelectorAll(".model-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const modelKey = card.dataset.modelKey;
+        if (!modelKey) {
+          return;
+        }
+        setPrimaryModel(modelKey);
+      });
+    });
+
     // 为复制按钮添加事件监听器
     document.querySelectorAll(".copy-apikey-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -818,7 +829,8 @@ async function loadModelsList() {
 
     // 为编辑按钮添加事件监听器
     document.querySelectorAll(".edit-model-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         const providerName = btn.dataset.provider;
         const modelId = btn.dataset.model;
         editModel(providerName, modelId);
@@ -827,7 +839,8 @@ async function loadModelsList() {
 
     // 为删除按钮添加事件监听器
     document.querySelectorAll(".delete-model-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         const providerName = btn.dataset.provider;
         const modelId = btn.dataset.model;
         deleteModel(providerName, modelId);
@@ -836,6 +849,43 @@ async function loadModelsList() {
   } catch (error) {
     document.getElementById("models-list").innerHTML =
       '<p class="loading">加载失败: ' + error.message + "</p>";
+  }
+}
+
+// 设置当前主模型
+async function setPrimaryModel(modelKey) {
+  try {
+    if (!modelKey) {
+      return;
+    }
+
+    // 避免重复保存
+    if (currentConfig?.agents?.defaults?.model?.primary === modelKey) {
+      showToast("该模型已是当前模型", "info");
+      return;
+    }
+
+    showToast("正在设置当前模型...", "info");
+
+    const config = await apiRequest("/config");
+    config.agents = config.agents || {};
+    config.agents.defaults = config.agents.defaults || {};
+    config.agents.defaults.model = config.agents.defaults.model || {};
+    config.agents.defaults.model.primary = modelKey;
+
+    await apiRequest("/config", {
+      method: "POST",
+      body: JSON.stringify(config),
+    });
+
+    currentConfig = config;
+    showToast("当前模型已更新", "success");
+
+    await loadModelsList();
+    await loadConfigSummary();
+    await loadConfig();
+  } catch (error) {
+    showToast("设置当前模型失败: " + error.message, "error");
   }
 }
 
