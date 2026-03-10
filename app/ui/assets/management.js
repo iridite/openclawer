@@ -1000,7 +1000,7 @@ async function loadModelsList() {
           const apiKey = provider.apiKey || "";
           const hasKey = apiKey ? "已配置" : "未配置";
           const maskedKey = maskApiKey(apiKey);
-          const modelId = model.id || model.name;
+          const modelId = model.id || model.name || model.model;
           const modelKey = `${providerName}/${modelId}`;
 
           // 判断是否为 primary 模型
@@ -1146,7 +1146,7 @@ async function editModel(providerName, modelId) {
 
     const provider = config.models.providers[providerName];
     const model = provider.models?.find(
-      (m) => m.id === modelId || m.name === modelId,
+      (m) => m.id === modelId || m.name === modelId || m.model === modelId,
     );
 
     if (!model) {

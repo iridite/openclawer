@@ -747,7 +747,10 @@ async function addModel(modelData) {
         ].models?.findIndex((m) => {
           const mId = m.id || "";
           const mName = m.name || "";
-          return mId === oldModelId || mName === oldModelId;
+          const mModel = m.model || "";
+          return (
+            mId === oldModelId || mName === oldModelId || mModel === oldModelId
+          );
         });
         if (oldModelIndex >= 0) {
           config.models.providers[oldProvider].models.splice(oldModelIndex, 1);
@@ -790,7 +793,8 @@ async function addModel(modelData) {
     ].models.findIndex((m) => {
       const mId = m.id || "";
       const mName = m.name || "";
-      return mId === modelId || mName === modelId;
+      const mModel = m.model || "";
+      return mId === modelId || mName === modelId || mModel === modelId;
     });
 
     // 构建模型配置
@@ -921,7 +925,8 @@ async function deleteModel(modelKey) {
     const modelIndex = provider.models.findIndex((m) => {
       const mId = m.id || "";
       const mName = m.name || "";
-      return mId === modelId || mName === modelId;
+      const mModel = m.model || "";
+      return mId === modelId || mName === modelId || mModel === modelId;
     });
 
     console.log(`[deleteModel] 查找结果 - modelIndex: ${modelIndex}`);
