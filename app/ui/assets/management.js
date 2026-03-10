@@ -305,6 +305,7 @@ function initTooltips() {
 // ============================================================================
 
 function initTabs() {
+  const tabsNav = document.querySelector(".tabs");
   const tabBtns = document.querySelectorAll(".tab-btn");
   const tabContents = document.querySelectorAll(".tab-content");
   const tabSectionMap = {
@@ -315,16 +316,33 @@ function initTabs() {
     system: ["tab-version", "tab-console"],
   };
 
+  if (tabsNav) {
+    tabsNav.setAttribute("role", "tablist");
+    tabsNav.setAttribute("aria-label", "主导航标签");
+  }
+
+  tabContents.forEach((content) => {
+    content.setAttribute("role", "tabpanel");
+    content.setAttribute("hidden", "hidden");
+  });
+
   const switchTab = (tabName, activeBtn) => {
     currentTabName = tabName;
 
-    tabBtns.forEach((b) => b.classList.remove("active"));
+    tabBtns.forEach((b) => {
+      b.classList.remove("active");
+      b.setAttribute("aria-selected", "false");
+      b.setAttribute("tabindex", "-1");
+    });
     if (activeBtn) {
       activeBtn.classList.add("active");
+      activeBtn.setAttribute("aria-selected", "true");
+      activeBtn.setAttribute("tabindex", "0");
     }
 
     tabContents.forEach((content) => {
       content.classList.remove("active");
+      content.setAttribute("hidden", "hidden");
     });
 
     const targetSectionIds = tabSectionMap[tabName] || [];
@@ -332,16 +350,62 @@ function initTabs() {
       const section = document.getElementById(sectionId);
       if (section) {
         section.classList.add("active");
+        section.removeAttribute("hidden");
+        if (activeBtn?.id) {
+          section.setAttribute("aria-labelledby", activeBtn.id);
+        }
       }
     });
 
     loadTabData(tabName);
   };
 
-  tabBtns.forEach((btn) => {
+  tabBtns.forEach((btn, index) => {
+    const tabName = btn.dataset.tab || `tab-${index}`;
+    const controls = tabSectionMap[tabName]?.[0] || "tab-dashboard";
+
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("id", `main-tab-${tabName}`);
+    btn.setAttribute("aria-controls", controls);
+    btn.setAttribute("aria-selected", "false");
+    btn.setAttribute("tabindex", "-1");
+
     btn.addEventListener("click", () => {
-      const tabName = btn.dataset.tab;
-      switchTab(tabName, btn);
+      const clickedTabName = btn.dataset.tab;
+      switchTab(clickedTabName, btn);
+    });
+
+    btn.addEventListener("keydown", (e) => {
+      const key = e.key;
+      const isPrev = key === "ArrowLeft" || key === "ArrowUp";
+      const isNext = key === "ArrowRight" || key === "ArrowDown";
+
+      if (!isPrev && !isNext && key !== "Home" && key !== "End") {
+        return;
+      }
+
+      e.preventDefault();
+
+      const list = Array.from(tabBtns);
+      const currentIndex = list.indexOf(btn);
+      if (currentIndex < 0) return;
+
+      let nextIndex = currentIndex;
+      if (key === "Home") {
+        nextIndex = 0;
+      } else if (key === "End") {
+        nextIndex = list.length - 1;
+      } else if (isPrev) {
+        nextIndex = (currentIndex - 1 + list.length) % list.length;
+      } else if (isNext) {
+        nextIndex = (currentIndex + 1) % list.length;
+      }
+
+      const targetBtn = list[nextIndex];
+      if (!targetBtn) return;
+      const targetTabName = targetBtn.dataset.tab;
+      switchTab(targetTabName, targetBtn);
+      targetBtn.focus();
     });
   });
 
@@ -1452,8 +1516,6 @@ function toggleChannelForm() {
   document.getElementById("channel-type").value = "";
   document.getElementById("channel-type").disabled = false;
   document.getElementById("channel-token").value = "";
-  const chatIdEl = document.getElementById("channel-chat-id");
-  if (chatIdEl) chatIdEl.value = "";
   document.getElementById("channel-enabled").checked = true;
 
   // 清空 Telegram 特定字段
@@ -1509,8 +1571,6 @@ async function submitChannelForm(event) {
   const isEditMode = !!editKey;
   const channelType = document.getElementById("channel-type").value;
   const token = document.getElementById("channel-token").value.trim();
-  const chatIdEl = document.getElementById("channel-chat-id");
-  const chatId = chatIdEl ? chatIdEl.value.trim() : "";
   const enabled = document.getElementById("channel-enabled").checked;
 
   if (!channelType) {
@@ -1636,10 +1696,6 @@ async function submitChannelForm(event) {
 
     // 飞书特定配置已在上方处理（严格对齐官方结构）
 
-    if (chatId) {
-      config.channels[channelId].chatId = chatId;
-    }
-
     // 保存整个配置
     await apiRequest("/config", {
       method: "POST",
@@ -1693,8 +1749,6 @@ async function editChannel(channelId) {
     document.getElementById("channel-type").disabled = false; // 允许修改渠道类型
     document.getElementById("channel-token").value =
       channel.botToken || channel.token || "";
-    const chatIdEl = document.getElementById("channel-chat-id");
-    if (chatIdEl) chatIdEl.value = channel.chatId || "";
     document.getElementById("channel-enabled").checked =
       channel.enabled !== false;
 
@@ -2253,7 +2307,7 @@ async function updateVersion() {
 }
 
 // ============================================================================
-// 控制台
+// 原生控制面板
 // ============================================================================
 
 async function loadConsoleInfo() {
@@ -2267,7 +2321,7 @@ async function loadConsoleInfo() {
     // 加载日志
     refreshLogs();
   } catch (error) {
-    showToast("加载控制台信息失败: " + error.message, "error");
+    showToast("加载原生控制面板信息失败: " + error.message, "error");
   }
 }
 
@@ -2276,19 +2330,22 @@ async function openConsole() {
     const info = await apiRequest("/console/url");
 
     if (!info || !info.url) {
-      showToast("获取控制台地址失败，尝试直接打开...", "warning");
+      showToast("获取原生控制面板地址失败，尝试直接打开...", "warning");
       window.location.href = "/dashboard/";
       return;
     }
 
     if (!info.token) {
-      showToast("未检测到网关令牌，打开控制台可能需要手动填写", "warning");
+      showToast(
+        "未检测到网关令牌，打开原生控制面板可能需要手动填写",
+        "warning",
+      );
     }
 
     // 通过 Management API 代理打开，并尽量在 URL 上携带 token
     window.location.href = info.url;
   } catch (error) {
-    showToast("打开控制台失败: " + error.message, "error");
+    showToast("打开原生控制面板失败: " + error.message, "error");
   }
 }
 
@@ -2342,7 +2399,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 定时刷新状态（每 5 秒）
   setInterval(() => {
-    if (document.querySelector(".tab-content.active")?.id === "tab-dashboard") {
+    if (currentTabName === "overview") {
       refreshDashboard();
     }
   }, 5000);

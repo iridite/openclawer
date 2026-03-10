@@ -21,6 +21,7 @@
     --text-light: #999;
     --border: #e0e0e0;
     --shadow: rgba(0, 0, 0, 0.1);
+    --focus-ring: rgba(244, 81, 30, 0.35);
 }
 
 body {
@@ -164,6 +165,11 @@ body {
     color: white;
 }
 
+.tab-btn:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+}
+
 /* 标签页内容 */
 .content {
     min-height: 500px;
@@ -215,6 +221,8 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .card-header h2 {
@@ -224,6 +232,7 @@ body {
 .card-actions {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 /* 信息网格 */
@@ -262,6 +271,11 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 .btn-primary {
@@ -738,6 +752,13 @@ span[title] {
     box-shadow: 0 0 0 3px rgba(244, 81, 30, 0.1);
 }
 
+.form-group input:focus-visible,
+.form-group select:focus-visible,
+#config-editor-textarea:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+}
+
 .form-hint {
     margin-top: 6px;
     padding: 8px 12px;
@@ -852,6 +873,11 @@ span[title] {
     box-shadow: 0 4px 12px rgba(244, 81, 30, 0.15);
 }
 
+.quick-add-btn:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+}
+
 .quick-add-btn .provider-name {
     display: block;
     font-size: 1rem;
@@ -870,14 +896,6 @@ span[title] {
     .quick-add-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     }
-}
-
-/* 配置页面左右分栏布局 */
-.config-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    align-items: start;
 }
 
 .config-panel {
@@ -986,11 +1004,4 @@ span[title] {
     display: flex;
     flex-direction: column;
     gap: 16px;
-}
-
-/* 响应式：小屏幕改为单列 */
-@media (max-width: 1200px) {
-    .config-container {
-        grid-template-columns: 1fr;
-    }
 }
