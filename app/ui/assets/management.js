@@ -10,6 +10,7 @@ let aceEditor = null; // Ace Editor 实例
 let editorMode = "textarea"; // 编辑器模式：'ace' 或 'textarea'（默认 textarea）
 let aceEditorLoaded = false; // Ace Editor 是否已加载
 let aceEditorLoading = false; // Ace Editor 是否正在加载
+let activeTooltipTarget = null;
 
 // 快速添加模型预设
 const QUICK_ADD_MODELS = {
@@ -178,6 +179,124 @@ async function apiRequest(endpoint, options = {}) {
     console.error("API 请求失败:", error);
     throw error;
   }
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getOrCreateTooltipPopup() {
+  let popup = document.getElementById("tooltip-popup");
+  if (popup) {
+    return popup;
+  }
+
+  popup = document.createElement("div");
+  popup.id = "tooltip-popup";
+  popup.className = "tooltip-popup";
+  popup.setAttribute("role", "tooltip");
+  popup.dataset.placement = "top";
+  document.body.appendChild(popup);
+  return popup;
+}
+
+function positionTooltipPopup(target, popup) {
+  if (!target || !popup) return;
+
+  const margin = 8;
+  const gap = 10;
+  const rect = target.getBoundingClientRect();
+  const popupRect = popup.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // 以触发图标左侧作为锚点，避免以中点定位导致两侧溢出
+  let left = rect.left;
+  left = clamp(
+    left,
+    margin,
+    Math.max(margin, viewportWidth - popupRect.width - margin),
+  );
+
+  let top = rect.top - popupRect.height - gap;
+  let placement = "top";
+
+  if (top < margin) {
+    top = rect.bottom + gap;
+    placement = "bottom";
+  }
+
+  if (top + popupRect.height > viewportHeight - margin) {
+    top = Math.max(margin, viewportHeight - popupRect.height - margin);
+  }
+
+  const anchorX = clamp(
+    rect.left + rect.width / 2,
+    left + 12,
+    left + popupRect.width - 12,
+  );
+
+  popup.style.left = `${Math.round(left)}px`;
+  popup.style.top = `${Math.round(top)}px`;
+  popup.dataset.placement = placement;
+  popup.style.setProperty(
+    "--tooltip-arrow-left",
+    `${Math.round(anchorX - left)}px`,
+  );
+}
+
+function showTooltip(target) {
+  const text = target?.getAttribute("data-tooltip")?.trim();
+  if (!text) return;
+
+  const popup = getOrCreateTooltipPopup();
+  popup.textContent = text;
+  popup.style.left = "0px";
+  popup.style.top = "-9999px";
+  popup.classList.add("visible");
+  activeTooltipTarget = target;
+
+  requestAnimationFrame(() => {
+    positionTooltipPopup(target, popup);
+  });
+}
+
+function hideTooltip(target = null) {
+  if (target && activeTooltipTarget && target !== activeTooltipTarget) {
+    return;
+  }
+
+  const popup = document.getElementById("tooltip-popup");
+  if (popup) {
+    popup.classList.remove("visible");
+  }
+  activeTooltipTarget = null;
+}
+
+function refreshTooltipPosition() {
+  if (!activeTooltipTarget) return;
+  const popup = document.getElementById("tooltip-popup");
+  if (!popup || !popup.classList.contains("visible")) return;
+  positionTooltipPopup(activeTooltipTarget, popup);
+}
+
+function initTooltips() {
+  const icons = document.querySelectorAll(".tooltip-icon[data-tooltip]");
+
+  icons.forEach((icon) => {
+    icon.addEventListener("mouseenter", () => showTooltip(icon));
+    icon.addEventListener("mouseleave", () => hideTooltip(icon));
+    icon.addEventListener("focus", () => showTooltip(icon));
+    icon.addEventListener("blur", () => hideTooltip(icon));
+  });
+
+  window.addEventListener("resize", refreshTooltipPosition);
+  document.addEventListener("scroll", refreshTooltipPosition, true);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      hideTooltip();
+    }
+  });
 }
 
 // ============================================================================
@@ -2158,6 +2277,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 初始化标签页
   initTabs();
+  initTooltips();
 
   // 加载初始数据
   refreshDashboard();
