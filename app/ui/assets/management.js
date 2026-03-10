@@ -736,7 +736,7 @@ async function quickAddModel(modelId) {
 
   formCard.style.display = "block";
   formTitle.textContent = `⚡ 快速添加 ${modelId}`;
-  submitBtnText.textContent = "✅ 添加模型";
+  submitBtnText.textContent = "✅ 添加新模型";
 
   // 填充表单
   document.getElementById("edit-model-key").value = "";
@@ -792,7 +792,7 @@ function toggleModelForm() {
   if (formCard.style.display === "none") {
     formCard.style.display = "block";
     formTitle.textContent = "➕ 添加新模型";
-    submitBtnText.textContent = "✅ 添加模型";
+    submitBtnText.textContent = "✅ 添加新模型";
     resetModelForm();
     // 初始化 API 类型下拉框（默认 openai）
     updateApiTypeOptions("openai");
@@ -1391,7 +1391,7 @@ function toggleChannelForm() {
 
   formCard.style.display = "block";
   formTitle.textContent = "➕ 添加消息渠道";
-  submitBtnText.textContent = "💾 保存渠道";
+  submitBtnText.textContent = "✅ 添加消息渠道";
 
   // 清空表单
   document.getElementById("edit-channel-key").value = "";
@@ -1452,6 +1452,7 @@ async function submitChannelForm(event) {
   event.preventDefault();
 
   const editKey = document.getElementById("edit-channel-key").value;
+  const isEditMode = !!editKey;
   const channelType = document.getElementById("channel-type").value;
   const token = document.getElementById("channel-token").value.trim();
   const chatIdEl = document.getElementById("channel-chat-id");
@@ -1496,7 +1497,10 @@ async function submitChannelForm(event) {
   }
 
   try {
-    showToast("正在保存渠道配置...", "info");
+    showToast(
+      isEditMode ? "正在保存渠道修改..." : "正在添加消息渠道...",
+      "info",
+    );
 
     // 获取当前配置
     const config = await apiRequest("/config");
@@ -1588,7 +1592,7 @@ async function submitChannelForm(event) {
       body: JSON.stringify(config),
     });
 
-    showToast("渠道配置保存成功！", "success");
+    showToast(isEditMode ? "渠道修改成功！" : "消息渠道添加成功！", "success");
 
     // 重新加载渠道列表、配置摘要和配置编辑器
     await loadChannelsList();
@@ -1598,7 +1602,11 @@ async function submitChannelForm(event) {
     // 隐藏表单
     cancelChannelForm();
   } catch (error) {
-    showToast("保存渠道配置失败: " + error.message, "error");
+    showToast(
+      (isEditMode ? "保存渠道修改失败: " : "添加消息渠道失败: ") +
+        error.message,
+      "error",
+    );
   }
 }
 
@@ -1828,7 +1836,7 @@ async function submitModelForm(event) {
       },
     };
 
-    showToast(isEditMode ? "正在保存修改..." : "正在添加模型...", "info");
+    showToast(isEditMode ? "正在保存修改..." : "正在添加新模型...", "info");
 
     const result = await apiRequest("/models/add", {
       method: "POST",
@@ -1836,7 +1844,7 @@ async function submitModelForm(event) {
     });
 
     showToast(
-      result.message || (isEditMode ? "模型修改成功！" : "模型添加成功！"),
+      result.message || (isEditMode ? "模型修改成功！" : "新模型添加成功！"),
       "success",
     );
 
