@@ -1137,3 +1137,31 @@ span[title] {
     flex-direction: column;
     gap: 16px;
 }
+
+/* 渠道配置引导 */
+.channel-guide-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.channel-guide-item {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+}
+
+.channel-guide-item h3 {
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+    color: var(--text-dark);
+}
+
+.channel-guide-desc {
+    margin: 0 0 10px 0;
+    color: var(--text-gray);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}

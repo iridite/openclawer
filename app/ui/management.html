@@ -814,6 +814,112 @@ API 类型: openai-completions
                                     </div>
                                 </div>
 
+                                <div class="card" id="channel-guide-card">
+                                    <div class="card-header">
+                                        <h2>渠道配置引导</h2>
+                                    </div>
+                                    <div class="form-hint warning">
+                                        本区集中说明各渠道的关键字段与最小示例，减少频繁跳转文档的成本。若需要更复杂的能力，请在下方配置编辑器中补充完整配置。
+                                    </div>
+                                    <div class="channel-guide-grid">
+                                        <div class="channel-guide-item">
+                                            <h3>Telegram</h3>
+                                            <p class="channel-guide-desc">
+                                                关键字段：<code>botToken</code>
+                                                为必填；推荐
+                                                <code>dmPolicy</code> 使用
+                                                <code>open</code>，<code
+                                                    >allowFrom</code
+                                                >
+                                                使用
+                                                <code>["*"]</code>；群组模式用
+                                                <code
+                                                    >groups["*"].requireMention</code
+                                                >
+                                                控制是否需要 @ 提及。
+                                            </p>
+                                            <pre class="code-block">
+{
+  "telegram": {
+    "enabled": true,
+    "botToken": "123:abc",
+    "dmPolicy": "open",
+    "allowFrom": ["*"],
+    "groups": { "*": { "requireMention": true } }
+  }
+}</pre
+                                            >
+                                        </div>
+                                        <div class="channel-guide-item">
+                                            <h3>Discord</h3>
+                                            <p class="channel-guide-desc">
+                                                关键字段：<code>token</code>
+                                                为必填；最小配置即可上线，建议先验证连接再配置其他权限。
+                                            </p>
+                                            <pre class="code-block">
+{
+  "discord": {
+    "enabled": true,
+    "token": "bot_token"
+  }
+}</pre
+                                            >
+                                        </div>
+                                        <div class="channel-guide-item">
+                                            <h3>飞书</h3>
+                                            <p class="channel-guide-desc">
+                                                关键字段：<code
+                                                    >accounts.main.appId</code
+                                                >
+                                                与
+                                                <code>appSecret</code>
+                                                必填；建议
+                                                <code>dmPolicy</code> 先用
+                                                <code>open</code>
+                                                以降低接入成本。
+                                            </p>
+                                            <pre class="code-block">
+{
+  "feishu": {
+    "enabled": true,
+    "dmPolicy": "open",
+    "accounts": {
+      "main": {
+        "appId": "cli_xxx",
+        "appSecret": "xxx",
+        "botName": "MyBot"
+      }
+    }
+  }
+}</pre
+                                            >
+                                        </div>
+                                        <div class="channel-guide-item">
+                                            <h3>QQ</h3>
+                                            <p class="channel-guide-desc">
+                                                关键字段：<code>appId</code> 与
+                                                <code>clientSecret</code>
+                                                必填；<code>allowFrom</code>
+                                                建议为 <code>["*"]</code>。QQ
+                                                需要安装插件，未安装时保存会提示并引导安装。
+                                            </p>
+                                            <pre class="code-block">
+{
+  "qqbot": {
+    "enabled": true,
+    "allowFrom": ["*"],
+    "appId": "1903xxxx",
+    "clientSecret": "xxxx"
+  }
+}</pre
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="form-hint warning">
+                                        其他未在表单内置的渠道类型，可在配置编辑器中按官方文档补充字段与结构。
+                                    </div>
+                                </div>
+
                                 <!-- 快速添加渠道表单 -->
                                 <div
                                     class="card"
