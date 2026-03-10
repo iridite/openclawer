@@ -894,6 +894,10 @@ span[title] {
     color: #856404;
 }
 
+.form-hint-spaced {
+    margin-bottom: 12px;
+}
+
 .required {
     color: var(--error);
     margin-left: 2px;
