@@ -16,16 +16,24 @@ const PORT = parseInt(process.env.MANAGEMENT_PORT || "18790", 10); // 管理 API
 const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
 
 // 路径配置
-const TRIM_PKGVAR = "/var/apps/oc-deploy/var";
-const TRIM_APPDEST = "/var/apps/oc-deploy/target";
-const CONFIG_FILE = "/root/.openclaw/openclaw.json"; // hard-coded
-const INITIAL_CONFIG_FILE = "/root/.openclaw/openclaw.json.initial";
+const TRIM_PKGVAR = process.env.TRIM_PKGVAR || "/var/apps/oc-deploy/var";
+const TRIM_APPDEST = process.env.TRIM_APPDEST || "/var/apps/oc-deploy/target";
+const CONFIG_FILE =
+  process.env.CONFIG_FILE ||
+  process.env.OPENCLAW_CONFIG_PATH ||
+  "/root/.openclaw/openclaw.json";
+const INITIAL_CONFIG_FILE =
+  process.env.INITIAL_CONFIG_FILE ||
+  path.join(path.dirname(CONFIG_FILE), "openclaw.json.initial");
 
 // oc
-const OC_HOME = "/root/.openclaw";
-const OC_BIN_PATH = "/var/apps/oc-deploy/var/node_modules/.bin/openclaw";
+const OC_HOME = process.env.OC_HOME || path.dirname(CONFIG_FILE);
+const OC_BIN_PATH =
+  process.env.OC_BIN_PATH ||
+  path.join(TRIM_PKGVAR, "node_modules", ".bin", "openclaw");
 const OC_JS_PATH =
-  "/var/apps/oc-deploy/var/node_modules/openclaw/dist/index.js";
+  process.env.OC_JS_PATH ||
+  path.join(TRIM_PKGVAR, "node_modules", "openclaw", "dist", "index.js");
 const OC_PKG_JSON_PATH = path.join(
   TRIM_PKGVAR,
   "node_modules",
@@ -38,17 +46,19 @@ const DASHBOARD_PID_FILE = path.join(TRIM_PKGVAR, "app.pid"); // name's differen
 const GATEWAY_PID_FILE = path.join(TRIM_PKGVAR, "gateway.pid"); // name's different
 const LOG_FILE = path.join(TRIM_PKGVAR, "openclaw.log"); // TODO 暂时不能确定 openclaw 的log 在哪里
 
-const GATEWAY_PORT = 18789;
+const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || "18789", 10);
 
 // 使用 fnOS 系统 Node.js (nodejs_v22 依赖包)
-const NODE_BIN_DIR = "/var/apps/nodejs_v22/target/bin";
-const NODE_BIN = path.join(NODE_BIN_DIR, "node");
+const NODE_BIN = process.env.NODE_BIN || "/var/apps/nodejs_v22/target/bin/node";
+const NODE_BIN_DIR = path.dirname(NODE_BIN);
 const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");
 
 // env 变量设置，确保调用 openclaw 的命令行工具时能够正确找到 Node.js 和相关依赖
-process.env.CONFIG_FILE = "/root/.openclaw/openclaw.json"; // hard-coded
-process.env.NODE_BIN = "/var/apps/nodejs_v22/target/bin/node";
-process.env.OC_BIN_PATH = "/var/apps/oc-deploy/var/node_modules/.bin/openclaw";
+process.env.CONFIG_FILE = process.env.CONFIG_FILE || CONFIG_FILE;
+process.env.OPENCLAW_CONFIG_PATH =
+  process.env.OPENCLAW_CONFIG_PATH || CONFIG_FILE;
+process.env.NODE_BIN = process.env.NODE_BIN || NODE_BIN;
+process.env.OC_BIN_PATH = process.env.OC_BIN_PATH || OC_BIN_PATH;
 process.env.PATH = `${NODE_BIN_DIR}:${PKG_NODE_BIN_DIR}:${process.env.PATH}`;
 // 不确定有没有用
 
