@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>OpenClaw 管理控制台</title>
+        <title>OC-Deploy 管理面板</title>
         <link rel="stylesheet" href="assets/management.css" />
         <script src="assets/management.js" defer></script>
     </head>
@@ -12,8 +12,10 @@
             <!-- 头部 -->
             <header class="header">
                 <div class="header-info">
-                    <h1>OpenClaw 管理控制台</h1>
-                    <p class="subtitle">AI 智能体 Gateway 网关管理</p>
+                    <h1>OC-Deploy 管理面板</h1>
+                    <p class="subtitle">
+                        用于管理 OpenClaw Gateway（区别于原生 dashboard）
+                    </p>
                 </div>
                 <div class="header-status">
                     <div class="status-badge" id="gatewayStatus">
@@ -107,7 +109,7 @@
                                     class="btn btn-secondary"
                                     onclick="openConsole()"
                                 >
-                                    🎮 进入控制台
+                                    🎮 进入原生控制面板（dashboard）
                                 </button>
                                 <button
                                     class="btn btn-secondary"
@@ -1156,9 +1158,12 @@
                 <section class="tab-content" id="tab-console">
                     <div class="console-section">
                         <div class="card">
-                            <h2>OpenClaw 原生控制台</h2>
+                            <h2>OpenClaw 原生控制面板（dashboard）</h2>
                             <p>
-                                点击下方按钮可直接跳转到 OpenClaw 原生 Web 控制台，您可以在控制台中管理 AI 智能体、查看会话记录等。使用浏览器的后退按钮即可返回此管理界面。
+                                您当前所在的是 OC-Deploy 管理面板。点击下方按钮将跳转到
+                                OpenClaw 原生控制面板（dashboard），可在其中管理 AI
+                                智能体、查看会话记录等。使用浏览器后退即可返回
+                                OC-Deploy 管理面板。
                             </p>
 
                             <div class="action-buttons" style="margin-bottom: 15px;">
@@ -1166,7 +1171,7 @@
                                     class="btn btn-primary"
                                     onclick="openConsole()"
                                 >
-                                    🎮 打开控制台
+                                    🎮 进入原生控制面板（dashboard）
                                 </button>
                             </div>
 

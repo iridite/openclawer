@@ -1,7 +1,7 @@
 {
     ".url": {
         "oc-deploy.Application": {
-            "title": "OpenClaw 管理控制台",
+            "title": "OC-Deploy 管理面板",
             "icon": "images/icon_{0}.png",
             "type": "iframe",
             "port": "18790",
