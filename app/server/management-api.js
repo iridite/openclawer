@@ -330,13 +330,16 @@ async function getStatus() {
 
       // 获取系统总内存 (从 /proc/meminfo 读取 MemTotal)
       try {
-        const meminfoOut = await execCommand(`grep MemTotal /proc/meminfo | awk '{print $2}'`);
+        const meminfoOut = await execCommand(
+          `grep MemTotal /proc/meminfo | awk '{print $2}'`,
+        );
         const totalMemoryKB = parseInt(meminfoOut.trim()) || 0;
         status.system.totalMemoryMB = totalMemoryKB / 1024;
 
         // 计算内存使用百分比
         if (status.system.totalMemoryMB > 0) {
-          status.system.memoryPercent = (status.system.memoryMB / status.system.totalMemoryMB) * 100;
+          status.system.memoryPercent =
+            (status.system.memoryMB / status.system.totalMemoryMB) * 100;
         }
       } catch (err) {
         // 如果获取总内存失败，保持默认值 0
@@ -402,6 +405,10 @@ async function saveConfig(newConfig) {
 
 // API: 快速添加模型
 async function addModel(modelData) {
+  // 先固定操作模式，避免 catch 阶段再次读取不稳定变量
+  const isEditOperation =
+    modelData?.isEditMode === true || modelData?.isEditMode === "true";
+
   try {
     // 读取现有配置
     const config = readJSON(CONFIG_FILE);
@@ -417,8 +424,17 @@ async function addModel(modelData) {
     config.agents.defaults = config.agents.defaults || {};
     config.agents.defaults.models = config.agents.defaults.models || {};
 
-    const { providerName, modelId, baseUrl, apiKey, apiProtocol, apiType, advanced, isEditMode, editModelKey } =
-      modelData;
+    const {
+      providerName,
+      modelId,
+      baseUrl,
+      apiKey,
+      apiProtocol,
+      apiType,
+      advanced,
+      isEditMode,
+      editModelKey,
+    } = modelData;
 
     // 验证必需字段
     if (!modelId) {
@@ -428,13 +444,34 @@ async function addModel(modelData) {
       throw new Error("供应商名称不能为空");
     }
 
+    // 验证标识格式：只允许字母、数字、连字符和点号
+    const identifierPattern = /^[a-zA-Z0-9.-]+$/;
+    if (!identifierPattern.test(modelId)) {
+      throw new Error(
+        "模型 ID 只能包含字母、数字、连字符(-)和点号(.)，不能包含空格或其他特殊字符",
+      );
+    }
+
+    // 验证 providerName 格式：仅允许小写英文字符（a-z）
+    const providerPattern = /^[a-z]+$/;
+    if (!providerPattern.test(providerName)) {
+      throw new Error(
+        "供应商名称只能包含小写英文字符（a-z），不能包含大写字母、数字、中文、空格或特殊字符",
+      );
+    }
+
     // 如果是编辑模式，需要先删除旧模型
     if (isEditMode && editModelKey) {
-      const [oldProvider, oldModelId] = editModelKey.split("/");
+      const [oldProvider, ...oldModelIdParts] = editModelKey.split("/");
+      const oldModelId = oldModelIdParts.join("/"); // 处理模型 ID 中可能包含 / 的情况
       if (config.models.providers[oldProvider]) {
-        const oldModelIndex = config.models.providers[oldProvider].models?.findIndex(
-          (m) => m.id === oldModelId || m.name === oldModelId
-        );
+        const oldModelIndex = config.models.providers[
+          oldProvider
+        ].models?.findIndex((m) => {
+          const mId = m.id || "";
+          const mName = m.name || "";
+          return mId === oldModelId || mName === oldModelId;
+        });
         if (oldModelIndex >= 0) {
           config.models.providers[oldProvider].models.splice(oldModelIndex, 1);
         }
@@ -469,7 +506,11 @@ async function addModel(modelData) {
     // 检查模型是否已存在
     const existingModelIndex = config.models.providers[
       providerName
-    ].models.findIndex((m) => m.id === modelId || m.name === modelId);
+    ].models.findIndex((m) => {
+      const mId = m.id || "";
+      const mName = m.name || "";
+      return mId === modelId || mName === modelId;
+    });
 
     // 构建模型配置
     const modelConfig = {
@@ -520,22 +561,94 @@ async function addModel(modelData) {
       modelKey: agentModelKey,
     };
   } catch (err) {
-    throw new Error((isEditMode ? "修改模型失败: " : "添加模型失败: ") + err.message);
+    const errorMessage =
+      err instanceof Error
+        ? err.message
+        : typeof err === "string"
+          ? err
+          : JSON.stringify(err);
+
+    // 保留上下文，便于排查用户反馈的“偶发奇怪报错”
+    console.error("[addModel] failed", {
+      isEditOperation,
+      rawError: err,
+      errorMessage,
+    });
+
+    throw new Error(
+      `${isEditOperation ? "修改模型失败" : "添加模型失败"}: ${errorMessage || "未知错误"}`,
+    );
   }
 }
 
 // API: 删除模型
 async function deleteModel(modelKey) {
   try {
+    console.log(`[deleteModel] 接收到的 modelKey: "${modelKey}"`);
+
     // 读取配置
     const config = readJSON(CONFIG_FILE);
     if (!config || !config.models) {
       throw new Error("配置文件不存在或格式错误");
     }
 
-    // 检查模型是否存在
-    if (!config.models[modelKey]) {
-      throw new Error(`模型 "${modelKey}" 不存在`);
+    // 解析 modelKey (格式: providerName/modelId)
+    const [providerName, ...modelIdParts] = modelKey.split("/");
+    const modelId = modelIdParts.join("/"); // 处理模型 ID 中可能包含 / 的情况
+
+    console.log(
+      `[deleteModel] 解析后 - providerName: "${providerName}", modelId: "${modelId}"`,
+    );
+
+    if (!providerName || !modelId) {
+      throw new Error(
+        `模型标识格式错误，应为 providerName/modelId。收到: "${modelKey}"`,
+      );
+    }
+
+    // 检查供应商是否存在
+    if (!config.models.providers || !config.models.providers[providerName]) {
+      const availableProviders = Object.keys(
+        config.models.providers || {},
+      ).join(", ");
+      throw new Error(
+        `供应商 "${providerName}" 不存在。可用供应商: ${availableProviders || "无"}`,
+      );
+    }
+
+    const provider = config.models.providers[providerName];
+    if (!provider.models || !Array.isArray(provider.models)) {
+      throw new Error(`供应商 "${providerName}" 没有模型列表`);
+    }
+
+    console.log(
+      `[deleteModel] 供应商 "${providerName}" 下的模型:`,
+      JSON.stringify(
+        provider.models.map((m) => ({ id: m.id, name: m.name })),
+        null,
+        2,
+      ),
+    );
+
+    // 查找模型索引 - 同时检查 id 和 name 字段，并处理 undefined/null 情况
+    const modelIndex = provider.models.findIndex((m) => {
+      const mId = m.id || "";
+      const mName = m.name || "";
+      return mId === modelId || mName === modelId;
+    });
+
+    console.log(`[deleteModel] 查找结果 - modelIndex: ${modelIndex}`);
+
+    if (modelIndex === -1) {
+      // 提供更详细的错误信息
+      const modelDetails = provider.models
+        .map((m, idx) => {
+          return `[${idx}] id="${m.id || "undefined"}" name="${m.name || "undefined"}"`;
+        })
+        .join(", ");
+      throw new Error(
+        `模型 "${modelId}" 在供应商 "${providerName}" 中不存在。该供应商下的所有模型: ${modelDetails || "无模型"}`,
+      );
     }
 
     // 备份配置
@@ -543,7 +656,43 @@ async function deleteModel(modelKey) {
     writeJSON(backupFile, config);
 
     // 删除模型
-    delete config.models[modelKey];
+    provider.models.splice(modelIndex, 1);
+
+    // 如果供应商下没有模型了，删除整个供应商
+    if (provider.models.length === 0) {
+      delete config.models.providers[providerName];
+    }
+
+    // 从 agents.defaults.models 中删除（如果存在）
+    if (config.agents?.defaults?.models?.[modelKey]) {
+      delete config.agents.defaults.models[modelKey];
+    }
+
+    // 如果删除的是 primary 模型，自动回退到第一个可用模型（或清空 primary）
+    if (config.agents?.defaults?.model?.primary === modelKey) {
+      let fallbackPrimary = null;
+      const providers = config.models?.providers || {};
+
+      for (const [pName, pConfig] of Object.entries(providers)) {
+        const models = pConfig?.models;
+        if (!Array.isArray(models) || models.length === 0) {
+          continue;
+        }
+
+        const firstModel = models[0];
+        const firstModelId = firstModel?.id || firstModel?.name;
+        if (firstModelId) {
+          fallbackPrimary = `${pName}/${firstModelId}`;
+          break;
+        }
+      }
+
+      if (fallbackPrimary) {
+        config.agents.defaults.model.primary = fallbackPrimary;
+      } else {
+        delete config.agents.defaults.model.primary;
+      }
+    }
 
     // 保存配置
     const success = writeJSON(CONFIG_FILE, config);
@@ -786,7 +935,7 @@ function handleRequest(req, res) {
           res.writeHead(proxyRes.statusCode, headers);
           proxyRes.pipe(res, { end: true });
         }
-      }
+      },
     );
 
     proxyReq.on("error", (err) => {
@@ -923,7 +1072,9 @@ server.on("upgrade", (req, socket, head) => {
   proxyHeaders.origin = `http://127.0.0.1:${GATEWAY_PORT}`;
   proxyHeaders.referer = `http://127.0.0.1:${GATEWAY_PORT}/`;
 
-  console.log(`[WebSocket] Upgrading: ${pathname} -> Gateway:${GATEWAY_PORT}${proxyPath}`);
+  console.log(
+    `[WebSocket] Upgrading: ${pathname} -> Gateway:${GATEWAY_PORT}${proxyPath}`,
+  );
 
   // 向 Gateway 发起 WebSocket 升级请求
   const proxyReq = http.request({
@@ -976,7 +1127,9 @@ server.listen(PORT, BIND_ADDR, () => {
   console.log(
     `[management-api] Token source: openclaw.json (gateway.auth.token)`,
   );
-  console.log(`[management-api] WebSocket upgrade enabled for /dashboard -> Gateway:${GATEWAY_PORT}`);
+  console.log(
+    `[management-api] WebSocket upgrade enabled for /dashboard -> Gateway:${GATEWAY_PORT}`,
+  );
 });
 
 // 优雅退出

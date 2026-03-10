@@ -211,13 +211,13 @@
                                         <div class="form-row">
                                             <div class="form-group">
                                                 <label>
-                                                    模型名称
+                                                    模型 ID
                                                     <span class="required"
                                                         >*</span
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="模型的唯一名称，用于在对话中调用这个模型。例如：gpt-4、claude-3-opus、my-custom-model。建议使用简短易记的名称。"
+                                                        data-tooltip="模型的唯一名称，只能包含字母、数字、连字符(-)和点号(.)，不能有空格或其他特殊字符。例如：gpt-4、glm4.7、claude-3-opus。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -226,6 +226,8 @@
                                                     id="model-id"
                                                     name="modelId"
                                                     placeholder="例如: gpt-4, claude-3-opus"
+                                                    pattern="[a-zA-Z0-9.-]+"
+                                                    title="只能包含字母、数字、连字符(-)和点号(.)"
                                                     required
                                                 />
                                             </div>
@@ -238,7 +240,7 @@
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="AI 模型的提供商名称。常见的有：openai（ChatGPT）、anthropic（Claude）、google（Gemini）等。这个名称需要与实际使用的 API 提供商匹配。"
+                                                        data-tooltip="AI 模型的提供商名称只能包含小写英文字符（a-z）。常见的有：openai（ChatGPT）、anthropic（Claude）、google（Gemini）等。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -248,6 +250,8 @@
                                                     name="providerName"
                                                     list="provider-suggestions"
                                                     placeholder="选择或输入供应商"
+                                                    pattern="[a-z]+"
+                                                    title="只能包含小写英文字符（a-z）"
                                                     required
                                                 />
                                                 <datalist

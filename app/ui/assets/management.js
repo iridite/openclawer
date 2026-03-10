@@ -85,7 +85,9 @@ async function loadAceEditor() {
     // 加载 JSON 模式和主题
     await Promise.all([
       loadScript("https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/mode-json.js"),
-      loadScript("https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/theme-monokai.js")
+      loadScript(
+        "https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/theme-monokai.js",
+      ),
     ]);
 
     aceEditorLoaded = true;
@@ -237,7 +239,7 @@ async function refreshDashboard() {
     // 并行请求状态和配置数据，日志延迟到控制台标签页加载
     const [status, config] = await Promise.all([
       apiRequest("/status"),
-      apiRequest("/config")
+      apiRequest("/config"),
     ]);
 
     currentStatus = status;
@@ -247,16 +249,21 @@ async function refreshDashboard() {
 
     // 更新仪表板信息
     // Gateway 状态：显示状态 + PID
-    const gatewayStatusText = status.gateway === "running" ? "✅ 运行中" : "⭕ 已停止";
-    const gatewayPidText = status.gatewayPid && status.gateway === "running"
-      ? ` (PID: ${status.gatewayPid})`
-      : "";
-    document.getElementById("dash-gateway-status").textContent = gatewayStatusText + gatewayPidText;
+    const gatewayStatusText =
+      status.gateway === "running" ? "✅ 运行中" : "⭕ 已停止";
+    const gatewayPidText =
+      status.gatewayPid && status.gateway === "running"
+        ? ` (PID: ${status.gatewayPid})`
+        : "";
+    document.getElementById("dash-gateway-status").textContent =
+      gatewayStatusText + gatewayPidText;
 
     // Proxy 状态：显示状态 + PID
-    const proxyStatusText = status.proxy === "running" ? "✅ 运行中" : "⭕ 已停止";
+    const proxyStatusText =
+      status.proxy === "running" ? "✅ 运行中" : "⭕ 已停止";
     const proxyPidText = status.proxyPid ? ` (PID: ${status.proxyPid})` : "";
-    document.getElementById("dash-proxy-status").textContent = proxyStatusText + proxyPidText;
+    document.getElementById("dash-proxy-status").textContent =
+      proxyStatusText + proxyPidText;
 
     document.getElementById("dash-version").textContent =
       status.version || "unknown";
@@ -272,7 +279,10 @@ async function refreshDashboard() {
 
       // 显示内存使用：百分比 + MB 数值（小字）
       const memoryEl = document.getElementById("dash-memory-usage");
-      if (status.system.memoryPercent !== undefined && status.system.memoryMB !== undefined) {
+      if (
+        status.system.memoryPercent !== undefined &&
+        status.system.memoryMB !== undefined
+      ) {
         memoryEl.innerHTML = `${status.system.memoryPercent.toFixed(1)}% <span style="font-size: 0.8em; color: #888;">(${status.system.memoryMB.toFixed(1)} MB)</span>`;
       } else {
         memoryEl.textContent = "N/A";
@@ -472,17 +482,21 @@ const API_TYPES = {
     { value: "anthropic-messages", label: "Anthropic Messages", default: true },
   ],
   google: [
-    { value: "google-generative-ai", label: "Google Generative AI", default: true },
+    {
+      value: "google-generative-ai",
+      label: "Google Generative AI",
+      default: true,
+    },
   ],
-  github: [
-    { value: "github-copilot", label: "GitHub Copilot", default: true },
-  ],
+  github: [{ value: "github-copilot", label: "GitHub Copilot", default: true }],
   bedrock: [
-    { value: "bedrock-converse-stream", label: "Bedrock Converse Stream", default: true },
+    {
+      value: "bedrock-converse-stream",
+      label: "Bedrock Converse Stream",
+      default: true,
+    },
   ],
-  ollama: [
-    { value: "ollama", label: "Ollama", default: true },
-  ],
+  ollama: [{ value: "ollama", label: "Ollama", default: true }],
 };
 
 // 渲染快速添加按钮
@@ -520,6 +534,23 @@ function getProviderIcon(provider) {
     deepseek: "🔷",
   };
   return icons[provider] || "⭐";
+}
+
+// 从已保存的 API 类型推断协议，用于编辑模型时正确回填协议下拉框
+function inferProtocolFromApiType(apiValue) {
+  if (!apiValue) return "openai";
+  if (apiValue === "anthropic") return "anthropic";
+  if (apiValue === "openai") return "openai";
+  if (apiValue === "google-ai") return "google-ai";
+  if (apiValue === "github") return "github";
+  if (apiValue === "bedrock") return "bedrock";
+  if (apiValue.startsWith("anthropic-")) return "anthropic";
+  if (apiValue.startsWith("openai-")) return "openai";
+  if (apiValue.startsWith("google-")) return "google-ai";
+  if (apiValue.startsWith("github-")) return "github";
+  if (apiValue.startsWith("bedrock-")) return "bedrock";
+  if (apiValue === "ollama") return "ollama";
+  return "openai";
 }
 
 // 更新 API 类型下拉框选项
@@ -707,8 +738,7 @@ async function loadModelsList() {
       !config.models.providers ||
       Object.keys(config.models.providers).length === 0
     ) {
-      modelsListEl.innerHTML =
-        '<p>暂无模型，点击"添加新模型"开始配置</p>';
+      modelsListEl.innerHTML = '<p>暂无模型，点击"添加新模型"开始配置</p>';
       return;
     }
 
@@ -716,7 +746,7 @@ async function loadModelsList() {
     const sortedProviders = Object.keys(providers).sort();
 
     // 获取 primary 模型
-    const primaryModel = config.model?.primary || "";
+    const primaryModel = config.agents?.defaults?.model?.primary || "";
 
     let html = "";
     for (const providerName of sortedProviders) {
@@ -846,12 +876,27 @@ async function editModel(providerName, modelId) {
     document.getElementById("edit-model-key").value =
       `${providerName}/${modelId}`;
     document.getElementById("model-id").value = modelId;
-    document.getElementById("model-id").disabled = true; // 编辑时不允许修改模型名
+    document.getElementById("model-id").disabled = true; // 编辑时不允许修改模型 ID
     document.getElementById("provider-name").value = providerName;
     document.getElementById("base-url").value =
       provider.baseUrl || provider.baseURL || "";
     document.getElementById("api-key").value = provider.apiKey || "";
-    document.getElementById("api-protocol").value = provider.api || "openai";
+
+    // provider.api 保存的是 API 类型（如 openai-completions），需先推断协议再回填
+    const savedApiType = provider.api || "openai-completions";
+    const protocol = inferProtocolFromApiType(savedApiType);
+    document.getElementById("api-protocol").value = protocol;
+    updateApiTypeOptions(protocol);
+    const apiTypeSelect = document.getElementById("api-type");
+    apiTypeSelect.value = savedApiType;
+
+    // 兼容旧配置：如果旧值不在当前选项里，回退到当前协议默认值
+    if (
+      apiTypeSelect.value !== savedApiType &&
+      apiTypeSelect.options.length > 0
+    ) {
+      apiTypeSelect.selectedIndex = 0;
+    }
 
     // 填充高级配置（如果存在）
     if (model.contextWindow) {
@@ -914,7 +959,7 @@ async function loadChannelsList() {
     const channelsListEl = document.getElementById("channels-list");
 
     if (Object.keys(channels).length === 0) {
-      channelsListEl.innerHTML = '<p>暂无消息渠道配置</p>';
+      channelsListEl.innerHTML = "<p>暂无消息渠道配置</p>";
       return;
     }
 
@@ -938,10 +983,12 @@ async function loadChannelsList() {
         if (token) infoItems.push(`Token: ${token.substring(0, 10)}...`);
         if (channel.chatId) infoItems.push(`Chat ID: ${channel.chatId}`);
         if (channel.dmPolicy) infoItems.push(`私聊策略: ${channel.dmPolicy}`);
-        if (channel.groupPolicy) infoItems.push(`群组策略: ${channel.groupPolicy}`);
+        if (channel.groupPolicy)
+          infoItems.push(`群组策略: ${channel.groupPolicy}`);
       } else if (channelType === "discord") {
         // Discord 只有 token
-        if (channel.token) infoItems.push(`Token: ${channel.token.substring(0, 10)}...`);
+        if (channel.token)
+          infoItems.push(`Token: ${channel.token.substring(0, 10)}...`);
       } else if (channelType === "feishu") {
         // 飞书使用 accounts.main 结构
         const mainAccount = channel.accounts?.main || {};
@@ -964,7 +1011,7 @@ async function loadChannelsList() {
             <span class="channel-status ${statusClass}">${statusText}</span>
           </div>
           <div class="channel-card-info">
-            ${infoItems.map(item => `<div class="channel-card-info-item">${item}</div>`).join('')}
+            ${infoItems.map((item) => `<div class="channel-card-info-item">${item}</div>`).join("")}
           </div>
           <div class="channel-card-actions">
             <button class="btn btn-secondary btn-sm edit-channel-btn" data-channel="${channelId}">
@@ -1185,7 +1232,7 @@ async function submitChannelForm(event) {
 
     // 添加或更新渠道配置（使用渠道名称作为 key）
     config.channels[channelId] = {
-      type: channelType,  // 保存渠道类型
+      type: channelType, // 保存渠道类型
       enabled: enabled,
     };
 
@@ -1317,9 +1364,9 @@ async function editChannel(channelId) {
     // 填充表单数据
     document.getElementById("edit-channel-key").value = channelId;
     document.getElementById("channel-id").value = channelId;
-    document.getElementById("channel-id").disabled = true;  // 编辑时不允许修改渠道名称
+    document.getElementById("channel-id").disabled = true; // 编辑时不允许修改渠道名称
     document.getElementById("channel-type").value = channelType;
-    document.getElementById("channel-type").disabled = false;  // 允许修改渠道类型
+    document.getElementById("channel-type").disabled = false; // 允许修改渠道类型
     document.getElementById("channel-token").value =
       channel.botToken || channel.token || "";
     const chatIdEl = document.getElementById("channel-chat-id");
