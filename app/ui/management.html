@@ -195,6 +195,231 @@
                                     </div>
                                 </div>
 
+                                <!-- Base URL / API Key 说明 -->
+                                <div class="card" id="model-credential-guide">
+                                    <div class="card-header">
+                                        <h2>Base URL 与 API Key 说明</h2>
+                                    </div>
+                                    <div class="form-hint warning">
+                                        Base URL 是模型服务的 API 根地址，API
+                                        Key
+                                        是访问凭据。任意一项填写不正确都会导致请求失败。
+                                    </div>
+                                    <div style="margin-top: 12px">
+                                        <p style="margin: 0 0 8px 0">
+                                            概念与填写建议：
+                                        </p>
+                                        <ul
+                                            style="
+                                                margin: 0;
+                                                padding-left: 18px;
+                                            "
+                                        >
+                                            <li>
+                                                Base URL 通常是 API 根地址。对于
+                                                OpenAI 兼容服务，文档常要求以
+                                                <code>/v1</code>
+                                                结尾；部分厂商会要求带特定前缀路径。
+                                                请以各厂商文档为准。
+                                            </li>
+                                            <li>
+                                                有些厂商要求填写到“版本前缀路径”，有些只要求域名根路径。
+                                                只要与文档示例完全一致即可。
+                                            </li>
+                                            <li>
+                                                如果使用代理或网关，请填写代理暴露的
+                                                API 根地址，并确保其协议与 “API
+                                                协议/类型”一致。
+                                            </li>
+                                            <li>
+                                                OpenClaw 会根据“API
+                                                协议/类型”选择具体调用路径；
+                                                Base URL
+                                                只需提供到厂商要求的根路径。
+                                            </li>
+                                            <li>
+                                                如果文档要求填写完整路径（包含前缀或版本），请按文档填写，
+                                                不要自行省略或合并。
+                                            </li>
+                                            <li>
+                                                建议使用
+                                                <code>https://</code
+                                                >，并确认是否需要末尾斜杠（通常不需要）。
+                                            </li>
+                                            <li>
+                                                API Key
+                                                属于私密凭据，请勿公开分享，建议定期轮换。
+                                            </li>
+                                            <li>
+                                                部分厂商需要先在控制台开通模型、绑定地域或创建应用后才能生成可用
+                                                Key。
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div style="margin-top: 12px">
+                                        <p style="margin: 0 0 8px 0">
+                                            常见排错点：
+                                        </p>
+                                        <ul
+                                            style="
+                                                margin: 0;
+                                                padding-left: 18px;
+                                            "
+                                        >
+                                            <li>
+                                                Base URL 缺少
+                                                <code>https://</code>
+                                                或路径拼写错误
+                                            </li>
+                                            <li>
+                                                API Key 复制时夹带空格或换行
+                                            </li>
+                                            <li>
+                                                供应商需要绑定地域或额外权限，请在控制台确认已开通
+                                            </li>
+                                            <li>
+                                                部分供应商有 IP
+                                                白名单或安全策略限制，请检查控制台是否已放行
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div style="margin-top: 12px">
+                                        <p style="margin: 0 0 8px 0">
+                                            返回码快速定位（常见情况）：
+                                        </p>
+                                        <ul
+                                            style="
+                                                margin: 0;
+                                                padding-left: 18px;
+                                            "
+                                        >
+                                            <li>
+                                                <code>401/403</code>：API Key
+                                                无效、权限不足、模型未开通
+                                            </li>
+                                            <li>
+                                                <code>404</code>：Base URL
+                                                或路径不匹配
+                                            </li>
+                                            <li>
+                                                <code>429</code
+                                                >：配额不足或触发限流
+                                            </li>
+                                            <li>
+                                                <code>5xx</code
+                                                >：供应商服务异常或网络中间层问题
+                                            </li>
+                                            <li>
+                                                超时：网络不通、DNS/代理配置异常
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div style="margin-top: 12px">
+                                        <p style="margin: 0 0 8px 0">
+                                            路径调整建议（Base URL）：
+                                        </p>
+                                        <ul
+                                            style="
+                                                margin: 0;
+                                                padding-left: 18px;
+                                            "
+                                        >
+                                            <li>
+                                                如果调用报 404
+                                                或提示路径不匹配，请先对照供应商文档确认正确
+                                                Base
+                                                URL，再按文档要求增减末尾路径（例如是否需要
+                                                <code>/v1</code>）。
+                                            </li>
+                                        </ul>
+                                        <pre
+                                            style="
+                                                margin: 8px 0 0 0;
+                                                padding: 10px 12px;
+                                                background: #f7f7f7;
+                                                border-radius: 6px;
+                                                font-size: 12px;
+                                                line-height: 1.4;
+                                                overflow: auto;
+                                            "
+                                        >
+Base URL: https://api.openai.com/v1
+API 类型: openai-completions
+实际请求: https://api.openai.com/v1/chat/completions
+
+如果报 404，请回到供应商文档核对 Base URL：
+示例：部分服务要求 https://api.openai.com/v1
+部分服务要求 https://api.openai.com</pre
+                                        >
+                                    </div>
+                                    <div style="margin-top: 12px">
+                                        <p style="margin: 0 0 8px 0">
+                                            国内供应商文档入口：
+                                        </p>
+                                        <ul
+                                            style="
+                                                margin: 0;
+                                                padding-left: 18px;
+                                            "
+                                        >
+                                            <li>
+                                                阿里：
+                                                <a
+                                                    href="https://www.alibabacloud.com/help/zh/model-studio/get-api-key"
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    >https://www.alibabacloud.com/help/zh/model-studio/get-api-key</a
+                                                >
+                                            </li>
+                                            <li>
+                                                智谱 AI（BigModel）：
+                                                <a
+                                                    href="https://open.bigmodel.cn/dev/api/normal-model/glm-4"
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    >https://open.bigmodel.cn/dev/api/normal-model/glm-4</a
+                                                >
+                                            </li>
+                                            <li>
+                                                MiniMax：
+                                                <a
+                                                    href="https://platform.minimaxi.com/docs/coding-plan/quickstart"
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    >https://platform.minimaxi.com/docs/coding-plan/quickstart</a
+                                                >
+                                            </li>
+                                            <li>
+                                                火山引擎（Volcengine）：
+                                                <a
+                                                    href="https://www.volcengine.com/docs/82379/1928261?lang=zh"
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    >https://www.volcengine.com/docs/82379/1928261?lang=zh</a
+                                                >
+                                            </li>
+                                            <li>
+                                                Kimi：
+                                                <a
+                                                    href="https://platform.moonshot.cn/docs/api/chat"
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    >https://platform.moonshot.cn/docs/api/chat</a
+                                                >
+                                            </li>
+                                            <li>
+                                                深度求索（Deepseek）：
+                                                <a
+                                                    href="https://api-docs.deepseek.com/zh-cn/"
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    >https://api-docs.deepseek.com/zh-cn/</a
+                                                >
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+
                                 <!-- 快速添加模型表单 -->
                                 <div
                                     class="card"
