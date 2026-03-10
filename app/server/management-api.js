@@ -198,55 +198,83 @@ function isHtmlResponse(headers) {
   return ct.includes("text/html");
 }
 
-function getQqbotPluginPackageJsonPath() {
-  const candidates = [
+function getQqbotPluginProofFilePath() {
+  const baseDirs = [
     path.join(
       TRIM_PKGVAR,
       "node_modules",
       "@tencent-connect",
       "openclaw-qqbot",
-      "package.json",
     ),
-    path.join(
-      OC_HOME,
-      "plugins",
-      "@tencent-connect",
-      "openclaw-qqbot",
-      "package.json",
-    ),
-    path.join(
-      TRIM_PKGVAR,
-      "plugins",
-      "@tencent-connect",
-      "openclaw-qqbot",
-      "package.json",
-    ),
+    path.join(OC_HOME, "plugins", "@tencent-connect", "openclaw-qqbot"),
+    path.join(TRIM_PKGVAR, "plugins", "@tencent-connect", "openclaw-qqbot"),
+    path.join(OC_HOME, "extensions", "openclaw-qqbot"),
   ];
+  const proofFiles = ["package.json", "openclaw.plugin.json", "plugin.json"];
 
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
+  for (const baseDir of baseDirs) {
+    for (const proofFile of proofFiles) {
+      const candidate = path.join(baseDir, proofFile);
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
     }
   }
 
   return "";
 }
 
+function getQqbotPluginUnverifiedInfo() {
+  const extensionDir = path.join(OC_HOME, "extensions", "openclaw-qqbot");
+  if (!fs.existsSync(extensionDir)) {
+    return { exists: false, path: extensionDir };
+  }
+
+  const indexCandidates = [
+    path.join(extensionDir, "index.js"),
+    path.join(extensionDir, "index.ts"),
+    path.join(extensionDir, "dist", "index.js"),
+  ];
+
+  const hasIndex = indexCandidates.some((candidate) =>
+    fs.existsSync(candidate),
+  );
+
+  return { exists: true, path: extensionDir, hasIndex };
+}
+
 async function getQqbotPluginStatus() {
-  const packageJsonPath = getQqbotPluginPackageJsonPath();
-  if (!packageJsonPath) {
+  const proofFilePath = getQqbotPluginProofFilePath();
+  if (!proofFilePath) {
+    const unverified = getQqbotPluginUnverifiedInfo();
+    if (unverified.exists) {
+      return {
+        success: true,
+        installed: false,
+        verified: false,
+        state: "unverified",
+        version: "",
+        package: QQBOT_PLUGIN_PKG,
+        message: `检测到插件目录但缺少插件元数据，无法确认安装状态。若为手动插件，请在 openclaw.json 的 plugins.allow 中加入 openclaw-qqbot；否则请清理 ${unverified.path} 后重试`,
+      };
+    }
+
     return {
       success: true,
       installed: false,
+      verified: false,
+      state: "missing",
       version: "",
       package: QQBOT_PLUGIN_PKG,
     };
   }
 
-  const pkg = readJSON(packageJsonPath);
+  const pkg = readJSON(proofFilePath);
   return {
     success: true,
     installed: true,
+    verified: true,
+    state: "installed",
     version: pkg?.version || "unknown",
     package: QQBOT_PLUGIN_PKG,
   };
@@ -255,6 +283,19 @@ async function getQqbotPluginStatus() {
 async function installQqbotPlugin() {
   if (qqbotPluginInstalling) {
     throw new Error("QQ 插件安装中，请稍后重试");
+  }
+
+  const preStatus = await getQqbotPluginStatus();
+  if (preStatus.state === "installed") {
+    return {
+      success: true,
+      message: "QQ 插件已安装",
+      version: preStatus.version,
+      package: preStatus.package,
+    };
+  }
+  if (preStatus.state === "unverified") {
+    throw new Error(preStatus.message || "QQ 插件目录异常，请清理后重试");
   }
 
   qqbotPluginInstalling = true;
@@ -266,6 +307,9 @@ async function installQqbotPlugin() {
       env: {
         HOME: "/root",
         OPENCLAW_CONFIG_PATH: CONFIG_FILE,
+        NODE_BIN,
+        OC_BIN_PATH,
+        PATH: `${NODE_BIN_DIR}:${PKG_NODE_BIN_DIR}:${process.env.PATH}`,
       },
     });
 
@@ -281,7 +325,30 @@ async function installQqbotPlugin() {
       package: status.package,
     };
   } catch (err) {
-    const errorMessage = err?.stderr || err?.message || "QQ 插件安装失败";
+    const rawError = err?.stderr || err?.message || "QQ 插件安装失败";
+    const isAllowError = rawError.includes("plugins.allow is empty");
+    const status = await getQqbotPluginStatus();
+    if (status.installed && !isAllowError) {
+      return {
+        success: true,
+        message: "QQ 插件已安装",
+        version: status.version,
+        package: status.package,
+      };
+    }
+
+    let errorMessage = rawError;
+    if (isAllowError) {
+      errorMessage =
+        "QQ 插件安装被拒绝：请在 openclaw.json 的 plugins.allow 中加入 openclaw-qqbot";
+    } else if (
+      errorMessage.includes("plugin already exists") ||
+      errorMessage.includes("already exists")
+    ) {
+      if (status.state === "unverified") {
+        errorMessage = status.message || errorMessage;
+      }
+    }
     console.error("[qqbot-plugin] install failed:", errorMessage);
     throw new Error(errorMessage);
   } finally {

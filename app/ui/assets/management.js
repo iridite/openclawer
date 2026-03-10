@@ -1827,6 +1827,11 @@ function setQqbotPluginButtonState(state, version = "") {
       btn.textContent = "QQ 插件：未安装（点击安装）";
       btn.disabled = false;
       break;
+    case "unverified":
+      btn.classList.add("error");
+      btn.textContent = "QQ 插件：异常（缺少插件元数据）";
+      btn.disabled = false;
+      break;
     case "installing":
       btn.classList.add("installing");
       btn.textContent = "QQ 插件：安装中...";
@@ -1844,8 +1849,10 @@ function setQqbotPluginButtonState(state, version = "") {
 async function refreshQqbotPluginStatus() {
   try {
     const status = await fetchQqbotPluginStatus();
-    if (status && status.installed) {
+    if (status && status.state === "installed") {
       setQqbotPluginButtonState("installed", status.version || "");
+    } else if (status && status.state === "unverified") {
+      setQqbotPluginButtonState("unverified");
     } else {
       setQqbotPluginButtonState("missing");
     }
@@ -1857,8 +1864,13 @@ async function refreshQqbotPluginStatus() {
 async function ensureQqbotPluginInstalled() {
   try {
     const status = await fetchQqbotPluginStatus();
-    if (status && status.installed) {
+    if (status && status.state === "installed") {
       return true;
+    }
+    if (status && status.state === "unverified") {
+      setQqbotPluginButtonState("unverified");
+      showToast(status.message || "QQ 插件目录异常，请清理后重试", "error");
+      return false;
     }
   } catch (error) {
     setQqbotPluginButtonState("error");
