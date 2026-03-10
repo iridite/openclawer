@@ -27,17 +27,16 @@
 
             <!-- 标签页导航 -->
             <nav class="tabs">
-                <button class="tab-btn active" data-tab="dashboard">
-                    📊 仪表板
-                </button>
-                <button class="tab-btn" data-tab="config">🔧 配置管理</button>
-                <button class="tab-btn" data-tab="version">🔄 版本管理</button>
-                <button class="tab-btn" data-tab="console">🎮 控制台</button>
+                <button class="tab-btn active" data-tab="overview">概览</button>
+                <button class="tab-btn" data-tab="models">模型</button>
+                <button class="tab-btn" data-tab="channels">渠道</button>
+                <button class="tab-btn" data-tab="config">配置</button>
+                <button class="tab-btn" data-tab="system">系统</button>
             </nav>
 
             <!-- 标签页内容 -->
             <main class="content">
-                <!-- 仪表板 -->
+                <!-- 概览 -->
                 <section class="tab-content active" id="tab-dashboard">
                     <div class="dashboard">
                         <div class="card">
@@ -90,32 +89,32 @@
                                     onclick="startGateway()"
                                     id="start-gateway-btn"
                                 >
-                                    ▶️ 启动 Gateway
+                                    启动 Gateway
                                 </button>
                                 <button
                                     class="btn btn-secondary"
                                     onclick="stopGateway()"
                                     id="stop-gateway-btn"
                                 >
-                                    ⏹️ 停止 Gateway
+                                    停止 Gateway
                                 </button>
                                 <button
                                     class="btn btn-primary"
                                     onclick="restartGateway()"
                                 >
-                                    🔄 重启 Gateway
+                                    重启 Gateway
                                 </button>
                                 <button
                                     class="btn btn-secondary"
                                     onclick="openConsole()"
                                 >
-                                    🎮 进入原生控制面板（dashboard）
+                                    进入原生控制面板（dashboard）
                                 </button>
                                 <button
                                     class="btn btn-secondary"
                                     onclick="refreshStatus()"
                                 >
-                                    🔃 刷新状态
+                                    刷新状态
                                 </button>
                             </div>
                         </div>
@@ -135,7 +134,7 @@
                                         class="btn btn-secondary btn-sm"
                                         onclick="refreshLogs()"
                                     >
-                                        🔃 刷新日志
+                                        刷新日志
                                     </button>
                                 </div>
                                 <pre id="log-content" class="log-content">
@@ -146,22 +145,22 @@
                     </div>
                 </section>
 
-                <!-- 配置管理 -->
+                <!-- 配置工作区 -->
                 <section class="tab-content" id="tab-config">
                     <div class="config-manager">
                         <!-- 上半部分：左右分栏 -->
-                        <div class="config-split-view">
+                        <div class="config-split-view" id="config-split-view">
                             <!-- 左侧：模型管理 -->
-                            <div class="config-panel">
+                            <div class="config-panel" id="config-model-panel">
                                 <div class="card">
                                     <div class="card-header">
-                                        <h2>🤖 模型管理</h2>
+                                        <h2>模型管理</h2>
                                         <button
                                             class="btn btn-primary btn-sm"
                                             onclick="toggleModelForm()"
                                             id="toggle-form-btn"
                                         >
-                                            ➕ 添加新模型
+                                            添加新模型
                                         </button>
                                     </div>
                                     <p
@@ -183,7 +182,7 @@
                                 <!-- 快速添加模型 -->
                                 <div class="card" id="quick-add-section">
                                     <div class="card-header">
-                                        <h2>⚡ 快速添加模型</h2>
+                                        <h2>快速添加模型</h2>
                                     </div>
                                     <div class="quick-add-container">
                                         <div
@@ -202,12 +201,12 @@
                                     style="display: none"
                                 >
                                     <div class="card-header">
-                                        <h2 id="form-title">➕ 添加新模型</h2>
+                                        <h2 id="form-title">添加新模型</h2>
                                         <button
                                             class="btn btn-secondary btn-sm"
                                             onclick="cancelModelForm()"
                                         >
-                                            ✕ 取消
+                                            取消
                                         </button>
                                     </div>
                                     <form
@@ -307,7 +306,7 @@
                                                 required
                                             />
                                             <div class="form-hint warning">
-                                                ⚠️ 请务必确认 Base URL
+                                                请务必确认 Base URL
                                                 正确！错误的 URL
                                                 可能导致请求失败。
                                             </div>
@@ -396,7 +395,7 @@
                                                 onclick="toggleAdvanced()"
                                                 style="cursor: pointer"
                                             >
-                                                ⚙️ 高级配置
+                                                高级配置
                                                 <span id="advanced-toggle"
                                                     >▼</span
                                                 >
@@ -512,7 +511,7 @@
                                                 class="btn btn-primary"
                                             >
                                                 <span id="submit-btn-text"
-                                                    >✅ 添加新模型</span
+                                                    >添加新模型</span
                                                 >
                                             </button>
                                         </div>
@@ -521,16 +520,16 @@
                             </div>
 
                             <!-- 右侧：消息渠道管理 -->
-                            <div class="config-panel">
+                            <div class="config-panel" id="config-channel-panel">
                                 <div class="card">
                                     <div class="card-header">
-                                        <h2>📡 消息渠道</h2>
+                                        <h2>消息渠道</h2>
                                         <button
                                             class="btn btn-primary btn-sm"
                                             onclick="toggleChannelForm()"
                                             id="toggle-channel-btn"
                                         >
-                                            ➕ 添加消息渠道
+                                            添加消息渠道
                                         </button>
                                     </div>
                                     <div class="form-hint warning">
@@ -557,13 +556,13 @@
                                 >
                                     <div class="card-header">
                                         <h2 id="channel-form-title">
-                                            ➕ 添加消息渠道
+                                            添加消息渠道
                                         </h2>
                                         <button
                                             class="btn btn-secondary btn-sm"
                                             onclick="cancelChannelForm()"
                                         >
-                                            ✕ 取消
+                                            取消
                                         </button>
                                     </div>
                                     <form
@@ -881,7 +880,7 @@
                                             >
                                                 <span
                                                     id="channel-submit-btn-text"
-                                                    >✅ 添加消息渠道</span
+                                                    >添加消息渠道</span
                                                 >
                                             </button>
                                         </div>
@@ -890,7 +889,7 @@
                             </div>
                         </div>
 
-                        <div class="card">
+                        <div class="card" id="config-editor-card">
                             <div class="card-header">
                                 <h2>配置编辑器</h2>
                                 <div class="card-actions">
@@ -901,31 +900,31 @@
                                         title="切换到高级编辑器（语法高亮）"
                                         style="font-size: 0.85em"
                                     >
-                                        ✨ 切换到高级编辑器
+                                        切换到高级编辑器
                                     </button>
                                     <button
                                         class="btn btn-secondary btn-sm"
                                         onclick="loadConfig()"
                                     >
-                                        🔃 重新加载
+                                        重新加载
                                     </button>
                                     <button
                                         class="btn btn-secondary btn-sm"
                                         onclick="copyConfig()"
                                     >
-                                        📋 复制配置
+                                        复制配置
                                     </button>
                                     <button
                                         class="btn btn-secondary btn-sm"
                                         onclick="resetConfigToInitial()"
                                     >
-                                        ♻️ 恢复原始配置
+                                        恢复原始配置
                                     </button>
                                     <button
                                         class="btn btn-primary btn-sm"
                                         onclick="saveConfig()"
                                     >
-                                        💾 保存配置
+                                        保存配置
                                     </button>
                                 </div>
                             </div>
@@ -972,7 +971,6 @@
                                         gap: 10px;
                                     "
                                 >
-                                    <div style="font-size: 24px;">⏳</div>
                                     <div style="font-size: 14px; color: #666;">正在加载高级编辑器...</div>
                                 </div>
                             </div>
@@ -983,14 +981,13 @@
                                 ></div>
                                 <div class="editor-tips">
                                     <p>
-                                        💡 提示：修改配置后需要重启 Gateway
-                                        才能生效
+                                        提示：修改配置后需要重启 Gateway 才能生效
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="card">
+                        <div class="card" id="config-template-card">
                             <h2>配置模板</h2>
                             <div class="template-section">
                                 <h3>AI 模型配置示例</h3>
@@ -1033,36 +1030,7 @@
                     </div>
                 </section>
 
-                <!-- 模型管理 -->
-                <section class="tab-content" id="tab-models">
-                    <div class="models-manager">
-                        <div class="card">
-                            <h2>模型列表</h2>
-                            <div class="models-toolbar">
-                                <button
-                                    class="btn btn-primary"
-                                    id="refresh-models"
-                                >
-                                    🔄 刷新列表
-                                </button>
-                                <button class="btn btn-success" id="add-model">
-                                    ➕ 添加新模型
-                                </button>
-                                <button
-                                    class="btn btn-info"
-                                    id="quick-add-model"
-                                >
-                                    ⚡ 快速添加
-                                </button>
-                            </div>
-                            <div class="models-list" id="models-list">
-                                <div class="loading">加载中...</div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 版本管理 -->
+                <!-- 系统信息（版本） -->
                 <section class="tab-content" id="tab-version">
                     <div class="version-manager">
                         <div class="card">
@@ -1088,7 +1056,7 @@
                                     class="btn btn-secondary"
                                     onclick="checkUpdate()"
                                 >
-                                    🔍 检查更新
+                                    检查更新
                                 </button>
                                 <button
                                     class="btn btn-primary"
@@ -1096,7 +1064,7 @@
                                     id="update-btn"
                                     disabled
                                 >
-                                    ⬆️ 更新版本
+                                    更新版本
                                 </button>
                             </div>
                         </div>
@@ -1104,17 +1072,16 @@
                         <div class="card">
                             <h2>更新说明</h2>
                             <div class="alert alert-info">
-                                <h3>📦 OpenClaw 核心更新</h3>
+                                <h3>OpenClaw 核心更新</h3>
                                 <p>
                                     OpenClaw 核心通过 npm
                                     包管理器安装，支持在线更新：
                                 </p>
                                 <ol>
                                     <li>
-                                        点击上方"🔍
-                                        检查更新"按钮查看是否有新版本
+                                        点击上方“检查更新”按钮查看是否有新版本
                                     </li>
-                                    <li>如有新版本，点击"⬆️ 更新版本"按钮</li>
+                                    <li>如有新版本，点击"更新版本"按钮</li>
                                     <li>
                                         系统将自动执行
                                         <code>npm install openclaw@latest</code>
@@ -1124,7 +1091,7 @@
                                     </li>
                                 </ol>
 
-                                <h3>🎁 FPK 包更新</h3>
+                                <h3>FPK 包更新</h3>
                                 <p>
                                     如需更新整个 oc-deploy
                                     应用（包括管理界面、脚本等）：
@@ -1136,7 +1103,7 @@
                                     <li>应用会自动重启并应用新版本</li>
                                 </ol>
 
-                                <p><strong>⚠️ 注意事项：</strong></p>
+                                <p><strong>注意事项：</strong></p>
                                 <ul>
                                     <li>
                                         更新前建议备份配置文件（系统会自动备份）
@@ -1154,7 +1121,7 @@
                     </div>
                 </section>
 
-                <!-- 控制台 -->
+                <!-- 系统信息（原生控制面板与路径） -->
                 <section class="tab-content" id="tab-console">
                     <div class="console-section">
                         <div class="card">
@@ -1171,7 +1138,7 @@
                                     class="btn btn-primary"
                                     onclick="openConsole()"
                                 >
-                                    🎮 进入原生控制面板（dashboard）
+                                    进入原生控制面板（dashboard）
                                 </button>
                             </div>
 
@@ -1188,7 +1155,7 @@
                         </div>
 
                         <div class="card">
-                            <h2>📁 日志文件路径</h2>
+                            <h2>日志文件路径</h2>
                             <p>
                                 以下是系统各类日志文件的存储位置，您可以直接复制路径查看详细日志：
                             </p>
@@ -1197,7 +1164,7 @@
                                 <h3
                                     style="font-size: 16px; margin-bottom: 10px"
                                 >
-                                    🔧 应用日志
+                                    应用日志
                                 </h3>
                                 <ul
                                     style="
@@ -1249,7 +1216,7 @@
                                 <h3
                                     style="font-size: 16px; margin-bottom: 10px"
                                 >
-                                    ⚙️ 配置文件
+                                    配置文件
                                 </h3>
                                 <ul
                                     style="
@@ -1300,7 +1267,7 @@
                                 <h3
                                     style="font-size: 16px; margin-bottom: 10px"
                                 >
-                                    📦 进程信息
+                                    进程信息
                                 </h3>
                                 <ul
                                     style="
@@ -1358,7 +1325,7 @@
                                 "
                             >
                                 <p style="margin: 0">
-                                    <strong>💡 提示：</strong>
+                                    <strong>提示：</strong>
                                 </p>
                                 <ul
                                     style="
@@ -1389,7 +1356,7 @@
 
             <!-- 页脚 -->
             <footer class="footer">
-                <p>OpenClaw Management Console v1.0 | Powered by OpenClaw AI</p>
+                <p>OC-Deploy 管理面板 v1.0 | Powered by OpenClaw AI</p>
             </footer>
         </div>
 

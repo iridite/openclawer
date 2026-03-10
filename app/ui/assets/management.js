@@ -11,6 +11,7 @@ let editorMode = "textarea"; // 编辑器模式：'ace' 或 'textarea'（默认 
 let aceEditorLoaded = false; // Ace Editor 是否已加载
 let aceEditorLoading = false; // Ace Editor 是否正在加载
 let activeTooltipTarget = null;
+let currentTabName = "overview";
 
 // 快速添加模型预设
 const QUICK_ADD_MODELS = {
@@ -306,44 +307,112 @@ function initTooltips() {
 function initTabs() {
   const tabBtns = document.querySelectorAll(".tab-btn");
   const tabContents = document.querySelectorAll(".tab-content");
+  const tabSectionMap = {
+    overview: ["tab-dashboard"],
+    models: ["tab-config"],
+    channels: ["tab-config"],
+    config: ["tab-config"],
+    system: ["tab-version", "tab-console"],
+  };
+
+  const switchTab = (tabName, activeBtn) => {
+    currentTabName = tabName;
+
+    tabBtns.forEach((b) => b.classList.remove("active"));
+    if (activeBtn) {
+      activeBtn.classList.add("active");
+    }
+
+    tabContents.forEach((content) => {
+      content.classList.remove("active");
+    });
+
+    const targetSectionIds = tabSectionMap[tabName] || [];
+    targetSectionIds.forEach((sectionId) => {
+      const section = document.getElementById(sectionId);
+      if (section) {
+        section.classList.add("active");
+      }
+    });
+
+    loadTabData(tabName);
+  };
 
   tabBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       const tabName = btn.dataset.tab;
-
-      // 更新按钮状态
-      tabBtns.forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-
-      // 更新内容显示
-      tabContents.forEach((content) => {
-        content.classList.remove("active");
-        if (content.id === `tab-${tabName}`) {
-          content.classList.add("active");
-        }
-      });
-
-      // 加载对应标签页的数据
-      loadTabData(tabName);
+      switchTab(tabName, btn);
     });
   });
+
+  const initialActiveBtn = document.querySelector(".tab-btn.active");
+  const initialTabName = initialActiveBtn?.dataset.tab || "overview";
+  switchTab(initialTabName, initialActiveBtn);
+}
+
+function setConfigViewMode(mode) {
+  const splitView = document.getElementById("config-split-view");
+  const modelPanel = document.getElementById("config-model-panel");
+  const channelPanel = document.getElementById("config-channel-panel");
+  const editorCard = document.getElementById("config-editor-card");
+  const templateCard = document.getElementById("config-template-card");
+
+  if (
+    !splitView ||
+    !modelPanel ||
+    !channelPanel ||
+    !editorCard ||
+    !templateCard
+  ) {
+    return;
+  }
+
+  if (mode === "models") {
+    splitView.style.display = "block";
+    modelPanel.style.display = "flex";
+    channelPanel.style.display = "none";
+    editorCard.style.display = "none";
+    templateCard.style.display = "none";
+    return;
+  }
+
+  if (mode === "channels") {
+    splitView.style.display = "block";
+    modelPanel.style.display = "none";
+    channelPanel.style.display = "flex";
+    editorCard.style.display = "none";
+    templateCard.style.display = "none";
+    return;
+  }
+
+  // 默认配置视图
+  splitView.style.display = "none";
+  modelPanel.style.display = "flex";
+  channelPanel.style.display = "flex";
+  editorCard.style.display = "block";
+  templateCard.style.display = "block";
 }
 
 function loadTabData(tabName) {
   switch (tabName) {
-    case "dashboard":
+    case "overview":
       refreshDashboard();
       break;
-    case "config":
+    case "models":
+      setConfigViewMode("models");
       renderQuickAddButtons();
       loadModelsList();
+      break;
+    case "channels":
+      setConfigViewMode("channels");
       loadChannelsList();
+      break;
+    case "config":
+      setConfigViewMode("config");
       loadConfig();
       break;
-    case "version":
+    case "system":
       loadVersionInfo();
-      break;
-    case "console":
       loadConsoleInfo();
       break;
   }
@@ -369,7 +438,7 @@ async function refreshDashboard() {
     // 更新仪表板信息
     // Gateway 状态：显示状态 + PID
     const gatewayStatusText =
-      status.gateway === "running" ? "✅ 运行中" : "⭕ 已停止";
+      status.gateway === "running" ? "运行中" : "已停止";
     const gatewayPidText =
       status.gatewayPid && status.gateway === "running"
         ? ` (PID: ${status.gatewayPid})`
@@ -378,8 +447,7 @@ async function refreshDashboard() {
       gatewayStatusText + gatewayPidText;
 
     // Proxy 状态：显示状态 + PID
-    const proxyStatusText =
-      status.proxy === "running" ? "✅ 运行中" : "⭕ 已停止";
+    const proxyStatusText = status.proxy === "running" ? "运行中" : "已停止";
     const proxyPidText = status.proxyPid ? ` (PID: ${status.proxyPid})` : "";
     document.getElementById("dash-proxy-status").textContent =
       proxyStatusText + proxyPidText;
@@ -387,7 +455,7 @@ async function refreshDashboard() {
     document.getElementById("dash-version").textContent =
       status.version || "unknown";
     document.getElementById("dash-config-status").textContent =
-      status.configExists ? "✅ 已配置" : "⚠️ 未配置";
+      status.configExists ? "已配置" : "未配置";
 
     // 更新系统资源信息
     if (status.system) {
@@ -447,36 +515,34 @@ function updateConfigSummary(config) {
     // 显示模型详情
     if (modelCount > 0) {
       html +=
-        '<div style="margin-top: 15px;"><strong>📦 已配置模型：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
+        '<div style="margin-top: 15px;"><strong>已配置模型：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
       for (const [name, model] of Object.entries(models)) {
         const provider = name; // provider 名称就是 key
-        const hasKey = model.apiKey ? "✅" : "❌";
+        const hasKey = model.apiKey ? "已配置" : "未配置";
         const baseUrl = model.baseURL || model.baseUrl || "";
         const urlHint = baseUrl ? ` - ${baseUrl.split("/")[2] || baseUrl}` : "";
         html += `<li><code>${provider}</code>${urlHint} ${hasKey}</li>`;
       }
       html += "</ul></div>";
     } else {
-      html +=
-        '<div style="margin-top: 15px;"><em>⚠️ 尚未配置 AI 模型</em></div>';
+      html += '<div style="margin-top: 15px;"><em>尚未配置 AI 模型</em></div>';
     }
 
     // 显示渠道详情
     if (channelCount > 0) {
       html +=
-        '<div style="margin-top: 10px;"><strong>📡 已配置渠道：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
+        '<div style="margin-top: 10px;"><strong>已配置渠道：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
       for (const [name, channel] of Object.entries(config.channels)) {
         const type = inferChannelType(name, channel);
         const label = getChannelDisplayLabel(type, name);
         const identity = getChannelIdentityValue(type, channel);
         const masked = identity ? maskApiKey(identity) : "未绑定";
-        const enabled = channel.enabled !== false ? "✅" : "⭕";
+        const enabled = channel.enabled !== false ? "已启用" : "已禁用";
         html += `<li><code>${label}</code> (${masked}) ${enabled}</li>`;
       }
       html += "</ul></div>";
     } else {
-      html +=
-        '<div style="margin-top: 10px;"><em>⚠️ 尚未配置消息渠道</em></div>';
+      html += '<div style="margin-top: 10px;"><em>尚未配置消息渠道</em></div>';
     }
 
     summaryEl.innerHTML = html;
@@ -628,11 +694,10 @@ function renderQuickAddButtons() {
 
   let html = "";
   for (const [modelId, modelData] of Object.entries(QUICK_ADD_MODELS)) {
-    const providerIcon = getProviderIcon(modelData.providerName);
     html += `
       <button class="quick-add-btn" data-model-id="${modelId}">
-        <span class="quick-add-icon">${providerIcon}</span>
-        <span class="quick-add-name">${modelId}</span>
+        <span class="provider-name">${modelData.providerName}</span>
+        <span class="model-name">${modelId}</span>
       </button>
     `;
   }
@@ -645,17 +710,6 @@ function renderQuickAddButtons() {
       quickAddModel(modelId);
     });
   });
-}
-
-// 获取供应商图标
-function getProviderIcon(provider) {
-  const icons = {
-    anthropic: "🤖",
-    openai: "🟢",
-    google: "🔵",
-    deepseek: "🔷",
-  };
-  return icons[provider] || "⭐";
 }
 
 // 从已保存的 API 类型推断协议，用于编辑模型时正确回填协议下拉框
@@ -735,8 +789,8 @@ async function quickAddModel(modelId) {
   const submitBtnText = document.getElementById("submit-btn-text");
 
   formCard.style.display = "block";
-  formTitle.textContent = `⚡ 快速添加 ${modelId}`;
-  submitBtnText.textContent = "✅ 添加新模型";
+  formTitle.textContent = `快速添加 ${modelId}`;
+  submitBtnText.textContent = "添加新模型";
 
   // 填充表单
   document.getElementById("edit-model-key").value = "";
@@ -791,8 +845,8 @@ function toggleModelForm() {
 
   if (formCard.style.display === "none") {
     formCard.style.display = "block";
-    formTitle.textContent = "➕ 添加新模型";
-    submitBtnText.textContent = "✅ 添加新模型";
+    formTitle.textContent = "添加新模型";
+    submitBtnText.textContent = "添加新模型";
     resetModelForm();
     // 初始化 API 类型下拉框（默认 openai）
     updateApiTypeOptions("openai");
@@ -879,7 +933,7 @@ async function loadModelsList() {
         for (const model of provider.models) {
           const baseUrl = provider.baseUrl || provider.baseURL || "未配置";
           const apiKey = provider.apiKey || "";
-          const hasKey = apiKey ? "✅ 已配置" : "❌ 未配置";
+          const hasKey = apiKey ? "已配置" : "未配置";
           const maskedKey = maskApiKey(apiKey);
           const modelId = model.id || model.name;
           const modelKey = `${providerName}/${modelId}`;
@@ -902,7 +956,7 @@ async function loadModelsList() {
                     apiKey
                       ? `<code style="margin-left: 8px; font-size: 0.85em;">${maskedKey}</code>
                   <button class="btn btn-secondary btn-sm copy-apikey-btn" style="margin-left: 4px; padding: 2px 6px; font-size: 0.85em;" data-apikey="${apiKey.replace(/"/g, "&quot;")}" title="复制 API Key">
-                    📋
+                    复制
                   </button>`
                       : ""
                   }
@@ -915,10 +969,10 @@ async function loadModelsList() {
             </div>
             <div class="model-card-actions">
               <button class="btn btn-secondary btn-sm edit-model-btn" data-provider="${providerName}" data-model="${modelId}">
-                ✏️ 编辑
+                编辑
               </button>
               <button class="btn btn-secondary btn-sm delete-model-btn" data-provider="${providerName}" data-model="${modelId}">
-                🗑️ 删除
+                删除
               </button>
             </div>
           </div>
@@ -1041,8 +1095,8 @@ async function editModel(providerName, modelId) {
     const submitBtnText = document.getElementById("submit-btn-text");
 
     formCard.style.display = "block";
-    formTitle.textContent = "✏️ 编辑模型";
-    submitBtnText.textContent = "💾 保存修改";
+    formTitle.textContent = "编辑模型";
+    submitBtnText.textContent = "保存修改";
 
     // 填充表单数据
     document.getElementById("edit-model-key").value =
@@ -1251,10 +1305,10 @@ async function loadChannelsList() {
           </div>
           <div class="channel-card-actions">
             <button class="btn btn-secondary btn-sm edit-channel-btn" data-channel="${channelId}">
-              ✏️ 编辑
+              编辑
             </button>
             <button class="btn btn-danger btn-sm delete-channel-btn" data-channel="${channelId}">
-              🗑️ 删除
+              删除
             </button>
           </div>
         </div>
@@ -1390,8 +1444,8 @@ function toggleChannelForm() {
   const submitBtnText = document.getElementById("channel-submit-btn-text");
 
   formCard.style.display = "block";
-  formTitle.textContent = "➕ 添加消息渠道";
-  submitBtnText.textContent = "✅ 添加消息渠道";
+  formTitle.textContent = "添加消息渠道";
+  submitBtnText.textContent = "添加消息渠道";
 
   // 清空表单
   document.getElementById("edit-channel-key").value = "";
@@ -1630,8 +1684,8 @@ async function editChannel(channelId) {
     const submitBtnText = document.getElementById("channel-submit-btn-text");
 
     formCard.style.display = "block";
-    formTitle.textContent = "✏️ 编辑消息渠道";
-    submitBtnText.textContent = "💾 保存修改";
+    formTitle.textContent = "编辑消息渠道";
+    submitBtnText.textContent = "保存修改";
 
     // 填充表单数据
     document.getElementById("edit-channel-key").value = channelId;
@@ -1928,7 +1982,7 @@ async function toggleEditorMode() {
     aceContainer.style.display = "none";
     textareaContainer.style.display = "block";
     editorMode = "textarea";
-    toggleBtn.textContent = "✨ 切换到高级编辑器";
+    toggleBtn.textContent = "切换到高级编辑器";
     toggleBtn.title = "切换到高级编辑器（语法高亮）";
   } else {
     // 从 textarea 切换到 Ace
@@ -1952,7 +2006,7 @@ async function toggleEditorMode() {
             textareaContainer.style.display = "none";
             aceContainer.style.display = "block";
             editorMode = "ace";
-            toggleBtn.textContent = "📝 切换到简单编辑器";
+            toggleBtn.textContent = "切换到简单编辑器";
             toggleBtn.title = "切换到简单编辑器";
           } else {
             showToast("高级编辑器初始化失败，继续使用简单编辑器", "error");
@@ -1976,7 +2030,7 @@ async function toggleEditorMode() {
       textareaContainer.style.display = "none";
       aceContainer.style.display = "block";
       editorMode = "ace";
-      toggleBtn.textContent = "📝 切换到简单编辑器";
+      toggleBtn.textContent = "切换到简单编辑器";
       toggleBtn.title = "切换到简单编辑器";
     }
   }
@@ -2130,10 +2184,10 @@ function validateConfigInput() {
       content = textarea ? textarea.value : "{}";
     }
     JSON.parse(content);
-    statusEl.textContent = "✅ JSON 格式正确";
+    statusEl.textContent = "JSON 格式正确";
     statusEl.className = "validation-status valid";
   } catch (error) {
-    statusEl.textContent = "❌ JSON 格式错误: " + error.message;
+    statusEl.textContent = "JSON 格式错误: " + error.message;
     statusEl.className = "validation-status invalid";
   }
 }
@@ -2165,11 +2219,11 @@ async function checkUpdate() {
     document.getElementById("ver-latest").textContent = latest.version;
 
     if (latest.available) {
-      document.getElementById("ver-status").textContent = "🆕 有新版本可用";
+      document.getElementById("ver-status").textContent = "有新版本可用";
       document.getElementById("update-btn").disabled = false;
       showToast("发现新版本: " + latest.version, "success");
     } else {
-      document.getElementById("ver-status").textContent = "✅ 已是最新版本";
+      document.getElementById("ver-status").textContent = "已是最新版本";
       document.getElementById("update-btn").disabled = true;
       showToast("当前已是最新版本", "success");
     }
@@ -2268,9 +2322,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if ((e.ctrlKey || e.metaKey) && e.key === "s") {
       e.preventDefault(); // 阻止浏览器默认保存行为
 
-      // 检查当前是否在配置编辑标签页
-      const configTab = document.getElementById("tab-config");
-      if (configTab && configTab.classList.contains("active")) {
+      // 仅在“配置”标签页触发
+      if (currentTabName === "config") {
         saveConfig();
         showToast("正在保存配置... (Ctrl+S)", "info");
       }
@@ -2286,9 +2339,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // 初始化标签页
   initTabs();
   initTooltips();
-
-  // 加载初始数据
-  refreshDashboard();
 
   // 定时刷新状态（每 5 秒）
   setInterval(() => {
