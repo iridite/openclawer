@@ -1506,6 +1506,44 @@ async function submitModelForm(event) {
     const editModelKey = document.getElementById("edit-model-key").value;
     const isEditMode = !!editModelKey;
 
+    const modelIdInput = document.getElementById("model-id");
+    const providerInput = document.getElementById("provider-name");
+    const modelId = (formData.get("modelId") || "").trim();
+    const providerName = (formData.get("providerName") || "").trim();
+
+    // 与后端校验规则保持一致
+    const modelIdPattern = /^[a-zA-Z0-9.-]+$/;
+    const providerPattern = /^[a-z]+$/;
+
+    if (modelIdInput) {
+      modelIdInput.setCustomValidity("");
+    }
+    if (providerInput) {
+      providerInput.setCustomValidity("");
+    }
+
+    if (!modelIdPattern.test(modelId)) {
+      if (modelIdInput) {
+        modelIdInput.setCustomValidity(
+          "模型 ID 只能包含字母、数字、连字符(-)和点号(.)，不能包含空格或其他特殊字符",
+        );
+        modelIdInput.reportValidity();
+        modelIdInput.focus();
+      }
+      return;
+    }
+
+    if (!providerPattern.test(providerName)) {
+      if (providerInput) {
+        providerInput.setCustomValidity(
+          "供应商名称只能包含小写英文字符（a-z），不能包含大写字母、数字、中文、空格或特殊字符",
+        );
+        providerInput.reportValidity();
+        providerInput.focus();
+      }
+      return;
+    }
+
     // 构建输入类型数组（安全访问）
     const inputTypes = [];
     const inputTextEl = document.getElementById("input-type-text");
@@ -1521,8 +1559,8 @@ async function submitModelForm(event) {
 
     // 构建请求数据
     const modelData = {
-      modelId: formData.get("modelId"),
-      providerName: formData.get("providerName"),
+      modelId: modelId,
+      providerName: providerName,
       baseUrl: formData.get("baseUrl"),
       apiKey: formData.get("apiKey"),
       apiProtocol: formData.get("apiProtocol"),
@@ -1557,6 +1595,28 @@ async function submitModelForm(event) {
     await loadConfigSummary();
     await loadConfig();
   } catch (error) {
+    const errorMessage = error?.message || "";
+    const modelIdInput = document.getElementById("model-id");
+    const providerInput = document.getElementById("provider-name");
+
+    if (modelIdInput && errorMessage.includes("模型 ID")) {
+      modelIdInput.setCustomValidity(
+        errorMessage.replace(/^添加失败:\\s*|^保存失败:\\s*/g, ""),
+      );
+      modelIdInput.reportValidity();
+      modelIdInput.focus();
+      return;
+    }
+
+    if (providerInput && errorMessage.includes("供应商名称")) {
+      providerInput.setCustomValidity(
+        errorMessage.replace(/^添加失败:\\s*|^保存失败:\\s*/g, ""),
+      );
+      providerInput.reportValidity();
+      providerInput.focus();
+      return;
+    }
+
     showToast(
       (document.getElementById("edit-model-key").value
         ? "保存失败: "
@@ -1914,13 +1974,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // 监听供应商选择，自动填充 Base URL
   const providerInput = document.getElementById("provider-name");
   const baseUrlInput = document.getElementById("base-url");
+  const modelIdInput = document.getElementById("model-id");
 
   if (providerInput && baseUrlInput) {
     providerInput.addEventListener("input", () => {
+      providerInput.setCustomValidity("");
       const provider = providerInput.value.toLowerCase();
       if (PROVIDER_BASE_URLS[provider]) {
         baseUrlInput.value = PROVIDER_BASE_URLS[provider];
       }
+    });
+  }
+
+  if (modelIdInput) {
+    modelIdInput.addEventListener("input", () => {
+      modelIdInput.setCustomValidity("");
     });
   }
 
