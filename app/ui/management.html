@@ -531,6 +531,13 @@
                                             ➕ 添加渠道
                                         </button>
                                     </div>
+                                    <div class="form-hint warning">
+                                        说明：每种渠道类型仅支持配置一条记录，系统会使用类型作为唯一标识。
+                                        Telegram/飞书已按官方结构固定关键字段（如 dmPolicy / groups）。
+                                        此处提供的是最简化的可配置项，并不完整。可参考
+                                        <a href="https://docs.openclaw.ai/zh-CN/channels" target="_blank" rel="noreferrer">官方文档</a>
+                                        在下方配置编辑器中自行补充。
+                                    </div>
                                     <div
                                         id="channels-list"
                                         class="channels-grid"
@@ -569,30 +576,11 @@
 
                                         <div class="form-group">
                                             <label>
-                                                渠道名称
-                                                <span class="required">*</span>
-                                                <span
-                                                    class="tooltip-icon"
-                                                    data-tooltip="消息渠道的唯一名称，用于标识这个渠道。例如：my-telegram、work-discord。建议使用有意义的名称，方便后续管理和区分不同的机器人账号。"
-                                                    >ⓘ</span
-                                                >
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="channel-id"
-                                                name="channelId"
-                                                placeholder="例如: my-telegram, discord-bot"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>
                                                 渠道类型
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="选择要使用的消息平台。Telegram：电报机器人；Discord：Discord 机器人；Feishu：飞书机器人。不同平台需要不同的配置信息，请根据实际使用的平台选择。"
+                                                    data-tooltip="选择要使用的消息平台。每种类型仅支持配置一条记录，系统会自动使用类型作为唯一标识。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -640,6 +628,10 @@
                                             id="telegram-specific-config"
                                             style="display: none"
                                         >
+                                            <div class="form-hint warning">
+                                                Telegram 渠道使用官方结构：dmPolicy 固定为 open，
+                                                群组默认 requireMention=true。以下字段仅展示，实际不参与保存。
+                                            </div>
                                             <div class="form-group">
                                                 <label>
                                                     私信策略
@@ -1014,9 +1006,10 @@
 {
   "channels": {
     "telegram": {
-      "type": "telegram",
-      "token": "bot_token",
-      "enabled": true
+      "enabled": true,
+      "botToken": "123:abc",
+      "dmPolicy": "open",
+      "groups": { "*": { "requireMention": true } }
     },
     "discord": {
       "type": "discord",

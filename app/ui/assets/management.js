@@ -1000,6 +1000,25 @@ async function deleteModel(providerName, modelId) {
 
 // ==================== 消息渠道管理 ====================
 
+function inferChannelType(channelId, channel) {
+  if (channel && channel.type) {
+    return channel.type;
+  }
+  if (channel && channel.accounts && channel.accounts.main) {
+    return "feishu";
+  }
+  if (channel && channel.token) {
+    return "discord";
+  }
+  if (channel && (channel.botToken || channel.groups)) {
+    return "telegram";
+  }
+  if (channelId === "telegram") {
+    return "telegram";
+  }
+  return "unknown";
+}
+
 // 加载消息渠道列表
 async function loadChannelsList() {
   try {
@@ -1020,10 +1039,10 @@ async function loadChannelsList() {
       const statusText = enabled ? "已启用" : "已禁用";
 
       // 获取渠道类型
-      const channelType = channel.type || "unknown";
+      const channelType = inferChannelType(channelId, channel);
 
-      // 使用渠道名称作为标题
-      const displayName = channelId;
+      // 使用渠道类型作为标题（每种类型仅一条）
+      const displayName = channelType !== "unknown" ? channelType : channelId;
 
       // 构建渠道信息摘要
       let infoItems = [];
@@ -1032,9 +1051,11 @@ async function loadChannelsList() {
         const token = channel.botToken || channel.token;
         if (token) infoItems.push(`Token: ${token.substring(0, 10)}...`);
         if (channel.chatId) infoItems.push(`Chat ID: ${channel.chatId}`);
-        if (channel.dmPolicy) infoItems.push(`私聊策略: ${channel.dmPolicy}`);
-        if (channel.groupPolicy)
-          infoItems.push(`群组策略: ${channel.groupPolicy}`);
+        infoItems.push(`私聊策略: ${channel.dmPolicy || "open"}`);
+        const requireMention = channel.groups?.["*"]?.requireMention;
+        if (requireMention !== undefined) {
+          infoItems.push(`群组 @ 提及: ${requireMention ? "需要" : "不需要"}`);
+        }
       } else if (channelType === "discord") {
         // Discord 只有 token
         if (channel.token)
@@ -1138,10 +1159,53 @@ function handleChannelTypeChange() {
   // 显示对应类型的配置
   if (channelType === "telegram" && telegramConfig) {
     telegramConfig.style.display = "block";
+
+    const dmPolicyEl = document.getElementById("telegram-dm-policy");
+    const groupPolicyEl = document.getElementById("telegram-group-policy");
+    const allowFromEl = document.getElementById("telegram-allow-from");
+    const groupAllowFromEl = document.getElementById(
+      "telegram-group-allow-from",
+    );
+
+    if (dmPolicyEl) {
+      dmPolicyEl.value = "open";
+      dmPolicyEl.disabled = true;
+    }
+    if (groupPolicyEl) {
+      groupPolicyEl.disabled = true;
+    }
+    if (allowFromEl) {
+      allowFromEl.disabled = true;
+    }
+    if (groupAllowFromEl) {
+      groupAllowFromEl.disabled = true;
+    }
   } else if (channelType === "discord" && discordConfig) {
     discordConfig.style.display = "block";
   } else if (channelType === "feishu" && feishuConfig) {
     feishuConfig.style.display = "block";
+  }
+
+  if (channelType !== "telegram") {
+    const dmPolicyEl = document.getElementById("telegram-dm-policy");
+    const groupPolicyEl = document.getElementById("telegram-group-policy");
+    const allowFromEl = document.getElementById("telegram-allow-from");
+    const groupAllowFromEl = document.getElementById(
+      "telegram-group-allow-from",
+    );
+
+    if (dmPolicyEl) {
+      dmPolicyEl.disabled = false;
+    }
+    if (groupPolicyEl) {
+      groupPolicyEl.disabled = false;
+    }
+    if (allowFromEl) {
+      allowFromEl.disabled = false;
+    }
+    if (groupAllowFromEl) {
+      groupAllowFromEl.disabled = false;
+    }
   }
 }
 
@@ -1166,7 +1230,7 @@ function toggleChannelForm() {
 
   // 清空 Telegram 特定字段
   const dmPolicyEl = document.getElementById("telegram-dm-policy");
-  if (dmPolicyEl) dmPolicyEl.value = "pairing";
+  if (dmPolicyEl) dmPolicyEl.value = "open";
   const groupPolicyEl = document.getElementById("telegram-group-policy");
   if (groupPolicyEl) groupPolicyEl.value = "allowlist";
   const allowFromEl = document.getElementById("telegram-allow-from");
@@ -1206,7 +1270,6 @@ function cancelChannelForm() {
   document.getElementById("channel-form-card").style.display = "none";
   document.getElementById("add-channel-form").reset();
   document.getElementById("edit-channel-key").value = "";
-  document.getElementById("channel-id").disabled = false;
   document.getElementById("channel-type").disabled = false;
 }
 
@@ -1215,17 +1278,11 @@ async function submitChannelForm(event) {
   event.preventDefault();
 
   const editKey = document.getElementById("edit-channel-key").value;
-  const channelId = document.getElementById("channel-id").value.trim();
   const channelType = document.getElementById("channel-type").value;
   const token = document.getElementById("channel-token").value.trim();
   const chatIdEl = document.getElementById("channel-chat-id");
   const chatId = chatIdEl ? chatIdEl.value.trim() : "";
   const enabled = document.getElementById("channel-enabled").checked;
-
-  if (!channelId) {
-    showToast("请输入渠道名称", "error");
-    return;
-  }
 
   if (!channelType) {
     showToast("请选择渠道类型", "error");
@@ -1275,19 +1332,60 @@ async function submitChannelForm(event) {
       config.channels = {};
     }
 
-    // 如果是编辑模式且渠道名称改变了，删除旧的
+    const channelId = editKey || channelType;
+
+    // 如果是编辑模式且渠道类型改变了，删除旧的
     if (editKey && editKey !== channelId) {
       delete config.channels[editKey];
     }
 
     // 添加或更新渠道配置（使用渠道名称作为 key）
-    config.channels[channelId] = {
-      type: channelType, // 保存渠道类型
-      enabled: enabled,
-    };
+    if (channelType === "telegram") {
+      const existing = config.channels[channelId];
+      const existingGroups = existing?.groups;
+      const groups =
+        existingGroups &&
+        typeof existingGroups === "object" &&
+        !Array.isArray(existingGroups)
+          ? existingGroups
+          : { "*": { requireMention: true } };
+
+      config.channels[channelId] = {
+        enabled: enabled,
+        botToken: token,
+        dmPolicy: "open",
+        groups: groups,
+      };
+    } else if (channelType === "feishu") {
+      const dmPolicyEl = document.getElementById("feishu-dm-policy");
+      const appIdEl = document.getElementById("feishu-app-id");
+      const appSecretEl = document.getElementById("feishu-app-secret");
+      const botNameEl = document.getElementById("feishu-bot-name");
+
+      config.channels[channelId] = {
+        enabled: enabled,
+        dmPolicy: dmPolicyEl?.value || "pairing",
+        accounts: {
+          main: {
+            appId: appIdEl?.value.trim() || "",
+            appSecret: appSecretEl?.value.trim() || "",
+            botName: botNameEl?.value.trim() || "",
+          },
+        },
+      };
+    } else {
+      config.channels[channelId] = {
+        type: channelType, // 保存渠道类型
+        enabled: enabled,
+      };
+    }
 
     // 非飞书和非 Discord 渠道才需要通用 botToken
-    if (channelType !== "feishu" && channelType !== "discord") {
+    if (
+      channelType !== "feishu" &&
+      channelType !== "discord" &&
+      channelType !== "telegram"
+    ) {
       config.channels[channelId].botToken = token;
     }
 
@@ -1299,70 +1397,9 @@ async function submitChannelForm(event) {
       }
     }
 
-    // Telegram 特定配置
-    if (channelType === "telegram") {
-      const dmPolicyEl = document.getElementById("telegram-dm-policy");
-      const groupPolicyEl = document.getElementById("telegram-group-policy");
-      const allowFromEl = document.getElementById("telegram-allow-from");
-      const groupAllowFromEl = document.getElementById(
-        "telegram-group-allow-from",
-      );
+    // Telegram 特定配置已在上方处理（严格对齐官方结构）
 
-      if (dmPolicyEl && dmPolicyEl.value) {
-        config.channels[channelId].dmPolicy = dmPolicyEl.value;
-      }
-      if (groupPolicyEl && groupPolicyEl.value) {
-        config.channels[channelId].groupPolicy = groupPolicyEl.value;
-      }
-      if (allowFromEl && allowFromEl.value.trim()) {
-        // 将逗号分隔的字符串转换为数组
-        config.channels[channelId].allowFrom = allowFromEl.value
-          .split(",")
-          .map((id) => id.trim())
-          .filter((id) => id);
-      }
-      if (groupAllowFromEl && groupAllowFromEl.value.trim()) {
-        config.channels[channelId].groupAllowFrom = groupAllowFromEl.value
-          .split(",")
-          .map((id) => id.trim())
-          .filter((id) => id);
-      }
-    }
-
-    // 飞书特定配置
-    if (channelType === "feishu") {
-      const appIdEl = document.getElementById("feishu-app-id");
-      const appSecretEl = document.getElementById("feishu-app-secret");
-      const botNameEl = document.getElementById("feishu-bot-name");
-      // const verificationTokenEl = document.getElementById(
-      //   "feishu-verification-token",
-      // );
-      const dmPolicyEl = document.getElementById("feishu-dm-policy");
-
-      // 飞书使用 accounts 结构
-      config.channels[channelId].accounts = {
-        main: {},
-      };
-
-      if (appIdEl && appIdEl.value.trim()) {
-        config.channels[channelId].accounts.main.appId = appIdEl.value.trim();
-      }
-      if (appSecretEl && appSecretEl.value.trim()) {
-        config.channels[channelId].accounts.main.appSecret =
-          appSecretEl.value.trim();
-      }
-      if (botNameEl && botNameEl.value.trim()) {
-        config.channels[channelId].accounts.main.botName =
-          botNameEl.value.trim();
-      }
-      // if (verificationTokenEl && verificationTokenEl.value.trim()) {
-      //   config.channels[channelId].accounts.main.verificationToken =
-      //     verificationTokenEl.value.trim();
-      // }
-      if (dmPolicyEl && dmPolicyEl.value) {
-        config.channels[channelId].dmPolicy = dmPolicyEl.value;
-      }
-    }
+    // 飞书特定配置已在上方处理（严格对齐官方结构）
 
     if (chatId) {
       config.channels[channelId].chatId = chatId;
@@ -1400,7 +1437,7 @@ async function editChannel(channelId) {
     }
 
     // 获取渠道类型
-    const channelType = channel.type || "telegram";
+    const channelType = inferChannelType(channelId, channel);
 
     // 显示表单
     const formCard = document.getElementById("channel-form-card");
@@ -1413,8 +1450,6 @@ async function editChannel(channelId) {
 
     // 填充表单数据
     document.getElementById("edit-channel-key").value = channelId;
-    document.getElementById("channel-id").value = channelId;
-    document.getElementById("channel-id").disabled = true; // 编辑时不允许修改渠道名称
     document.getElementById("channel-type").value = channelType;
     document.getElementById("channel-type").disabled = false; // 允许修改渠道类型
     document.getElementById("channel-token").value =
@@ -1427,27 +1462,18 @@ async function editChannel(channelId) {
     // 填充 Telegram 特定字段
     if (channelType === "telegram") {
       const dmPolicyEl = document.getElementById("telegram-dm-policy");
-      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "open";
+      if (dmPolicyEl) dmPolicyEl.value = "open";
 
       const groupPolicyEl = document.getElementById("telegram-group-policy");
-      if (groupPolicyEl)
-        groupPolicyEl.value = channel.groupPolicy || "allowlist";
+      if (groupPolicyEl) groupPolicyEl.value = "allowlist";
 
       const allowFromEl = document.getElementById("telegram-allow-from");
-      if (allowFromEl && channel.allowFrom) {
-        allowFromEl.value = Array.isArray(channel.allowFrom)
-          ? channel.allowFrom.join(", ")
-          : channel.allowFrom;
-      }
+      if (allowFromEl) allowFromEl.value = "";
 
       const groupAllowFromEl = document.getElementById(
         "telegram-group-allow-from",
       );
-      if (groupAllowFromEl && channel.groupAllowFrom) {
-        groupAllowFromEl.value = Array.isArray(channel.groupAllowFrom)
-          ? channel.groupAllowFrom.join(", ")
-          : channel.groupAllowFrom;
-      }
+      if (groupAllowFromEl) groupAllowFromEl.value = "";
     }
 
     // 填充 Discord 特定字段
@@ -1476,7 +1502,7 @@ async function editChannel(channelId) {
       //   verificationTokenEl.value = mainAccount.verificationToken || "";
 
       const dmPolicyEl = document.getElementById("feishu-dm-policy");
-      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "open";
+      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "pairing";
     }
 
     // 显示对应类型的配置

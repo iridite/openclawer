@@ -810,7 +810,13 @@ async function validateConfig(config) {
           continue;
         }
         if (!channel.type) {
-          errors.push(`渠道 ${name} 缺少 type 字段`);
+          const hasTelegramShape = !!(channel.botToken || channel.groups);
+          const hasFeishuShape = !!(channel.accounts && channel.accounts.main);
+          const hasDiscordShape = !!channel.token;
+
+          if (!hasTelegramShape && !hasFeishuShape && !hasDiscordShape) {
+            errors.push(`渠道 ${name} 缺少 type 字段`);
+          }
         }
       }
     }
