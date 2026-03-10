@@ -11,6 +11,9 @@ cd oc-deploy
 bash test/setup-test-env.sh
 ```
 
+> 如果本地依赖较新或缺少构建工具，`setup-test-env.sh` 可能因为 OpenClaw 依赖安装失败（例如 sharp 需要编译）。
+> 推荐先运行下方的“轻量 smoke 测试”，它不依赖 OpenClaw 安装。
+
 这会：
 - 创建 `test/test-data/` 目录模拟 fnOS 的 `TRIM_PKGVAR`
 - 安装 OpenClaw 到 `test/test-data/node_modules/`
@@ -31,6 +34,21 @@ bash test/local-test.sh
 - `4` - 测试 API 连接
 - `5` - 查看日志
 - `6` - 停止所有服务
+
+## ✅ 轻量 smoke 测试（推荐）
+
+不依赖 OpenClaw 安装，启动 Management API 并检查关键 API：
+
+```bash
+bash test/smoke.sh
+```
+
+检查项包含：
+- `/api/status`
+- `/api/config` 读写与 `/api/config/validate`
+- `/api/models/add` / `/api/models/delete`
+- `/api/console/url`
+- `/api/logs`
 
 ### 3. 访问测试界面
 
