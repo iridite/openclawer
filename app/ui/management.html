@@ -534,7 +534,7 @@
                                     </div>
                                     <div class="form-hint warning">
                                         说明：每种渠道类型仅支持配置一条记录，系统会使用类型作为唯一标识。
-                                        Telegram/飞书已按官方结构固定关键字段（如 dmPolicy / groups）。
+                                        Telegram/飞书/QQ 已按官方结构固定关键字段（如 dmPolicy / groups / allowFrom）。
                                         未在表单中内置的渠道类型，可在下方配置编辑器中按官方文档补充配置。
                                         此处提供的是最简化的可配置项，并不完整。可参考
                                         <a href="https://docs.openclaw.ai/zh-CN/channels" target="_blank" rel="noreferrer">官方文档</a>
@@ -602,6 +602,9 @@
                                                 </option>
                                                 <option value="feishu">
                                                     飞书
+                                                </option>
+                                                <option value="qqbot">
+                                                    QQ
                                                 </option>
                                             </select>
                                         </div>
@@ -742,6 +745,54 @@
                                                     id="discord-token"
                                                     name="token"
                                                     placeholder="输入 Discord Bot Token"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <!-- QQ 特定配置 -->
+                                        <div
+                                            id="qqbot-specific-config"
+                                            style="display: none"
+                                        >
+                                            <div class="form-hint warning">
+                                                QQ 渠道使用官方结构：`allowFrom`
+                                                固定为 `["*"]`，表单仅维护
+                                                `appId` 和 `clientSecret`。
+                                            </div>
+                                            <div class="form-group">
+                                                <label>允许来源（固定）</label>
+                                                <input
+                                                    type="text"
+                                                    value='["*"]'
+                                                    readonly
+                                                />
+                                            </div>
+                                            <div class="form-group">
+                                                <label>
+                                                    App ID
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="qqbot-app-id"
+                                                    name="qqbotAppId"
+                                                    placeholder="输入 QQ Bot App ID"
+                                                />
+                                            </div>
+                                            <div class="form-group">
+                                                <label>
+                                                    Client Secret
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                </label>
+                                                <input
+                                                    type="password"
+                                                    id="qqbot-client-secret"
+                                                    name="qqbotClientSecret"
+                                                    placeholder="输入 QQ Bot Client Secret"
                                                 />
                                             </div>
                                         </div>
@@ -1088,6 +1139,12 @@
     "discord": {
       "token": "bot_token",
       "enabled": true
+    },
+    "qqbot": {
+      "enabled": true,
+      "allowFrom": ["*"],
+      "appId": "xxx",
+      "clientSecret": "xxx"
     }
   }
 }</pre

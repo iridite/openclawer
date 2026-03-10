@@ -1244,6 +1244,9 @@ function inferChannelType(channelId, channel) {
   if (channel && channel.type) {
     return channel.type;
   }
+  if (channel && ("appId" in channel || "clientSecret" in channel)) {
+    return "qqbot";
+  }
   if (channel && channel.accounts && channel.accounts.main) {
     return "feishu";
   }
@@ -1256,6 +1259,9 @@ function inferChannelType(channelId, channel) {
   if (channelId === "telegram") {
     return "telegram";
   }
+  if (channelId === "qqbot") {
+    return "qqbot";
+  }
   return "unknown";
 }
 
@@ -1267,6 +1273,8 @@ function getChannelDisplayLabel(channelType, channelId) {
       return "Discord";
     case "feishu":
       return "飞书";
+    case "qqbot":
+      return "QQ";
     default:
       return channelId || "未知渠道";
   }
@@ -1283,6 +1291,9 @@ function getChannelIdentityValue(channelType, channel) {
   if (channelType === "feishu") {
     return channel.accounts?.main?.appId || "";
   }
+  if (channelType === "qqbot") {
+    return channel.appId || "";
+  }
   return channel.botToken || channel.token || "";
 }
 
@@ -1290,7 +1301,7 @@ function getChannelBadgeText(channelType, channel) {
   const identityValue = getChannelIdentityValue(channelType, channel);
   if (identityValue) {
     const masked = maskApiKey(identityValue);
-    if (channelType === "feishu") {
+    if (channelType === "feishu" || channelType === "qqbot") {
       return `App: ${masked}`;
     }
     return `Bot: ${masked}`;
@@ -1348,6 +1359,12 @@ async function loadChannelsList() {
         const mainAccount = channel.accounts?.main || {};
         if (mainAccount.appId) infoItems.push(`App ID: ${mainAccount.appId}`);
         if (channel.dmPolicy) infoItems.push(`私聊策略: ${channel.dmPolicy}`);
+      } else if (channelType === "qqbot") {
+        if (channel.appId) infoItems.push(`App ID: ${channel.appId}`);
+        const allowFrom = Array.isArray(channel.allowFrom)
+          ? channel.allowFrom
+          : ["*"];
+        infoItems.push(`允许来源: ${allowFrom.join(", ")}`);
       } else {
         // 其他渠道类型
         const token = channel.botToken || channel.token;
@@ -1407,6 +1424,7 @@ function handleChannelTypeChange() {
   const channelType = document.getElementById("channel-type").value;
   const telegramConfig = document.getElementById("telegram-specific-config");
   const discordConfig = document.getElementById("discord-specific-config");
+  const qqbotConfig = document.getElementById("qqbot-specific-config");
   const feishuConfig = document.getElementById("feishu-specific-config");
   const tokenField = document.getElementById("channel-token");
   const tokenLabel = tokenField
@@ -1416,6 +1434,7 @@ function handleChannelTypeChange() {
   // 隐藏所有特定配置
   if (telegramConfig) telegramConfig.style.display = "none";
   if (discordConfig) discordConfig.style.display = "none";
+  if (qqbotConfig) qqbotConfig.style.display = "none";
   if (feishuConfig) feishuConfig.style.display = "none";
 
   // 未选择类型时，不展示任何设置项
@@ -1430,6 +1449,12 @@ function handleChannelTypeChange() {
   // 根据渠道类型调整 Token 字段
   if (channelType === "feishu") {
     // 飞书不需要 Bot Token 字段，隐藏它
+    if (tokenField) {
+      tokenField.parentElement.style.display = "none";
+      tokenField.removeAttribute("required");
+    }
+  } else if (channelType === "qqbot") {
+    // QQ 不需要通用 Bot Token 字段
     if (tokenField) {
       tokenField.parentElement.style.display = "none";
       tokenField.removeAttribute("required");
@@ -1474,6 +1499,8 @@ function handleChannelTypeChange() {
     }
   } else if (channelType === "discord" && discordConfig) {
     discordConfig.style.display = "block";
+  } else if (channelType === "qqbot" && qqbotConfig) {
+    qqbotConfig.style.display = "block";
   } else if (channelType === "feishu" && feishuConfig) {
     feishuConfig.style.display = "block";
   }
@@ -1542,6 +1569,12 @@ function toggleChannelForm() {
   const feishuDmPolicyEl = document.getElementById("feishu-dm-policy");
   if (feishuDmPolicyEl) feishuDmPolicyEl.value = "pairing";
 
+  // 清空 QQ 特定字段
+  const qqbotAppIdEl = document.getElementById("qqbot-app-id");
+  if (qqbotAppIdEl) qqbotAppIdEl.value = "";
+  const qqbotClientSecretEl = document.getElementById("qqbot-client-secret");
+  if (qqbotClientSecretEl) qqbotClientSecretEl.value = "";
+
   // 显示对应类型的配置
   handleChannelTypeChange();
 
@@ -1579,7 +1612,12 @@ async function submitChannelForm(event) {
   }
 
   // 飞书渠道不需要 token，Discord 使用专用字段，其他渠道需要通用 token
-  if (channelType !== "feishu" && channelType !== "discord" && !token) {
+  if (
+    channelType !== "feishu" &&
+    channelType !== "discord" &&
+    channelType !== "qqbot" &&
+    !token
+  ) {
     showToast("请输入 Token", "error");
     return;
   }
@@ -1606,6 +1644,22 @@ async function submitChannelForm(event) {
 
     if (!appSecretEl || !appSecretEl.value.trim()) {
       showToast("请输入飞书 App Secret", "error");
+      return;
+    }
+  }
+
+  // QQ 渠道需要验证必填字段
+  if (channelType === "qqbot") {
+    const qqbotAppIdEl = document.getElementById("qqbot-app-id");
+    const qqbotClientSecretEl = document.getElementById("qqbot-client-secret");
+
+    if (!qqbotAppIdEl || !qqbotAppIdEl.value.trim()) {
+      showToast("请输入 QQ App ID", "error");
+      return;
+    }
+
+    if (!qqbotClientSecretEl || !qqbotClientSecretEl.value.trim()) {
+      showToast("请输入 QQ Client Secret", "error");
       return;
     }
   }
@@ -1669,6 +1723,21 @@ async function submitChannelForm(event) {
           },
         },
       };
+    } else if (channelType === "qqbot") {
+      const existing = config.channels[channelId];
+      const qqbotAppIdEl = document.getElementById("qqbot-app-id");
+      const qqbotClientSecretEl = document.getElementById(
+        "qqbot-client-secret",
+      );
+      const allowFrom = Array.isArray(existing?.allowFrom)
+        ? existing.allowFrom
+        : ["*"];
+      config.channels[channelId] = {
+        enabled: enabled,
+        allowFrom: allowFrom,
+        appId: qqbotAppIdEl?.value.trim() || "",
+        clientSecret: qqbotClientSecretEl?.value.trim() || "",
+      };
     } else {
       config.channels[channelId] = {
         enabled: enabled,
@@ -1679,7 +1748,8 @@ async function submitChannelForm(event) {
     if (
       channelType !== "feishu" &&
       channelType !== "discord" &&
-      channelType !== "telegram"
+      channelType !== "telegram" &&
+      channelType !== "qqbot"
     ) {
       config.channels[channelId].botToken = token;
     }
@@ -1796,6 +1866,19 @@ async function editChannel(channelId) {
 
       const dmPolicyEl = document.getElementById("feishu-dm-policy");
       if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "pairing";
+    }
+
+    // 填充 QQ 特定字段
+    if (channelType === "qqbot") {
+      const qqbotAppIdEl = document.getElementById("qqbot-app-id");
+      if (qqbotAppIdEl) qqbotAppIdEl.value = channel.appId || "";
+
+      const qqbotClientSecretEl = document.getElementById(
+        "qqbot-client-secret",
+      );
+      if (qqbotClientSecretEl) {
+        qqbotClientSecretEl.value = channel.clientSecret || "";
+      }
     }
 
     // 显示对应类型的配置

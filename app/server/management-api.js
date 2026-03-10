@@ -928,8 +928,16 @@ async function validateConfig(config) {
           const hasTelegramShape = !!(channel.botToken || channel.groups);
           const hasFeishuShape = !!(channel.accounts && channel.accounts.main);
           const hasDiscordShape = !!channel.token;
+          const hasQqbotShape =
+            Object.prototype.hasOwnProperty.call(channel, "appId") ||
+            Object.prototype.hasOwnProperty.call(channel, "clientSecret");
 
-          if (!hasTelegramShape && !hasFeishuShape && !hasDiscordShape) {
+          if (
+            !hasTelegramShape &&
+            !hasFeishuShape &&
+            !hasDiscordShape &&
+            !hasQqbotShape
+          ) {
             errors.push(`渠道 ${name} 缺少 type 字段`);
           }
         }
