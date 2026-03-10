@@ -457,180 +457,199 @@ API 类型: openai-completions
                                             会随之变化）。
                                         </div>
 
-                                        <div class="form-row">
+                                        <div class="form-section recommended">
+                                            <h3>推荐配置</h3>
+                                            <div class="form-hint warning">
+                                                完成以下配置即可接入模型，其余参数可在“高级配置”中按需补充。
+                                            </div>
+                                            <div class="form-row">
+                                                <div class="form-group">
+                                                    <label>
+                                                        模型 ID
+                                                        <span class="required"
+                                                            >*</span
+                                                        >
+                                                        <span
+                                                            class="tooltip-icon"
+                                                            data-tooltip="模型 ID 是唯一标识，用于路由与主模型选择。仅允许字母、数字、连字符(-)、点号(.)；不允许空格。示例：gpt-4o、claude-3-7-sonnet。"
+                                                            >ⓘ</span
+                                                        >
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        id="model-id"
+                                                        name="modelId"
+                                                        placeholder="例如: gpt-4, claude-3-opus"
+                                                        pattern="[a-zA-Z0-9.-]+"
+                                                        required
+                                                    />
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>
+                                                        供应商
+                                                        <span class="required"
+                                                            >*</span
+                                                        >
+                                                        <span
+                                                            class="tooltip-icon"
+                                                            data-tooltip="供应商用于分组模型并组成模型键（provider/modelId）。仅允许小写英文 a-z。示例：openai、anthropic、zhipu。"
+                                                            >ⓘ</span
+                                                        >
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        id="provider-name"
+                                                        name="providerName"
+                                                        list="provider-suggestions"
+                                                        placeholder="选择或输入供应商"
+                                                        pattern="[a-z]+"
+                                                        required
+                                                    />
+                                                    <datalist
+                                                        id="provider-suggestions"
+                                                    >
+                                                        <option value="openai">
+                                                            OpenAI
+                                                        </option>
+                                                        <option
+                                                            value="anthropic"
+                                                        >
+                                                            Anthropic
+                                                        </option>
+                                                        <option value="bailian">
+                                                            阿里百炼
+                                                        </option>
+                                                        <option value="zhipu">
+                                                            智谱 AI
+                                                        </option>
+                                                        <option
+                                                            value="moonshot"
+                                                        >
+                                                            Moonshot
+                                                        </option>
+                                                    </datalist>
+                                                </div>
+                                            </div>
+
                                             <div class="form-group">
                                                 <label>
-                                                    模型 ID
+                                                    Base URL
                                                     <span class="required"
                                                         >*</span
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="模型 ID 是唯一标识，用于路由与主模型选择。仅允许字母、数字、连字符(-)、点号(.)；不允许空格。示例：gpt-4o、claude-3-7-sonnet。"
+                                                        data-tooltip="填写该供应商 API 根地址。OpenAI 常用 https://api.openai.com/v1，Anthropic 常用 https://api.anthropic.com。使用代理或网关时请填写其完整地址。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
                                                 <input
-                                                    type="text"
-                                                    id="model-id"
-                                                    name="modelId"
-                                                    placeholder="例如: gpt-4, claude-3-opus"
-                                                    pattern="[a-zA-Z0-9.-]+"
+                                                    type="url"
+                                                    id="base-url"
+                                                    name="baseUrl"
+                                                    placeholder="例如: https://api.openai.com/v1"
+                                                    required
+                                                />
+                                                <div class="form-hint warning">
+                                                    请务必确认 Base URL
+                                                    正确！错误的 URL
+                                                    可能导致请求失败。
+                                                </div>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>
+                                                    API Key
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="API Key 用于鉴权与计费。建议使用最小权限密钥并定期轮换；保存后界面会脱敏显示。"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <input
+                                                    type="password"
+                                                    id="api-key"
+                                                    name="apiKey"
+                                                    placeholder="输入 API Key"
                                                     required
                                                 />
                                             </div>
 
                                             <div class="form-group">
                                                 <label>
-                                                    供应商
+                                                    API 协议
                                                     <span class="required"
                                                         >*</span
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="供应商用于分组模型并组成模型键（provider/modelId）。仅允许小写英文 a-z。示例：openai、anthropic、zhipu。"
+                                                        data-tooltip="协议决定请求格式。大多数兼容服务选择 OpenAI；Claude 官方接口选择 Anthropic；其余按服务文档选择。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
-                                                <input
-                                                    type="text"
-                                                    id="provider-name"
-                                                    name="providerName"
-                                                    list="provider-suggestions"
-                                                    placeholder="选择或输入供应商"
-                                                    pattern="[a-z]+"
+                                                <select
+                                                    id="api-protocol"
+                                                    name="apiProtocol"
                                                     required
-                                                />
-                                                <datalist
-                                                    id="provider-suggestions"
+                                                    onchange="
+                                                        updateApiTypeOptions(
+                                                            this.value,
+                                                        )
+                                                    "
                                                 >
                                                     <option value="openai">
-                                                        OpenAI
+                                                        OpenAI 协议
                                                     </option>
                                                     <option value="anthropic">
-                                                        Anthropic
+                                                        Anthropic 协议
                                                     </option>
-                                                    <option value="bailian">
-                                                        阿里百炼
+                                                    <option value="google-ai">
+                                                        Google AI 协议
                                                     </option>
-                                                    <option value="zhipu">
-                                                        智谱 AI
+                                                    <option value="github">
+                                                        GitHub Copilot 协议
                                                     </option>
-                                                    <option value="moonshot">
-                                                        Moonshot
+                                                    <option value="bedrock">
+                                                        AWS Bedrock 协议
                                                     </option>
-                                                </datalist>
+                                                    <option value="ollama">
+                                                        Ollama 协议
+                                                    </option>
+                                                </select>
                                             </div>
-                                        </div>
 
-                                        <div class="form-group">
-                                            <label>
-                                                Base URL
-                                                <span class="required">*</span>
-                                                <span
-                                                    class="tooltip-icon"
-                                                    data-tooltip="填写该供应商 API 根地址。OpenAI 常用 https://api.openai.com/v1，Anthropic 常用 https://api.anthropic.com。使用代理或网关时请填写其完整地址。"
-                                                    >ⓘ</span
+                                            <div class="form-group">
+                                                <label>
+                                                    API 类型
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="API 类型决定具体端点实现。通常使用 Chat/Completions；仅在服务明确要求时改为其他类型。"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <select
+                                                    id="api-type"
+                                                    name="apiType"
+                                                    required
                                                 >
-                                            </label>
-                                            <input
-                                                type="url"
-                                                id="base-url"
-                                                name="baseUrl"
-                                                placeholder="例如: https://api.openai.com/v1"
-                                                required
-                                            />
-                                            <div class="form-hint warning">
-                                                请务必确认 Base URL 正确！错误的
-                                                URL 可能导致请求失败。
+                                                    <option
+                                                        value="openai-completions"
+                                                    >
+                                                        OpenAI Completions
+                                                    </option>
+                                                </select>
                                             </div>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>
-                                                API Key
-                                                <span class="required">*</span>
-                                                <span
-                                                    class="tooltip-icon"
-                                                    data-tooltip="API Key 用于鉴权与计费。建议使用最小权限密钥并定期轮换；保存后界面会脱敏显示。"
-                                                    >ⓘ</span
-                                                >
-                                            </label>
-                                            <input
-                                                type="password"
-                                                id="api-key"
-                                                name="apiKey"
-                                                placeholder="输入 API Key"
-                                                required
-                                            />
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>
-                                                API 协议
-                                                <span class="required">*</span>
-                                                <span
-                                                    class="tooltip-icon"
-                                                    data-tooltip="协议决定请求格式。大多数兼容服务选择 OpenAI；Claude 官方接口选择 Anthropic；其余按服务文档选择。"
-                                                    >ⓘ</span
-                                                >
-                                            </label>
-                                            <select
-                                                id="api-protocol"
-                                                name="apiProtocol"
-                                                required
-                                                onchange="
-                                                    updateApiTypeOptions(
-                                                        this.value,
-                                                    )
-                                                "
-                                            >
-                                                <option value="openai">
-                                                    OpenAI 协议
-                                                </option>
-                                                <option value="anthropic">
-                                                    Anthropic 协议
-                                                </option>
-                                                <option value="google-ai">
-                                                    Google AI 协议
-                                                </option>
-                                                <option value="github">
-                                                    GitHub Copilot 协议
-                                                </option>
-                                                <option value="bedrock">
-                                                    AWS Bedrock 协议
-                                                </option>
-                                                <option value="ollama">
-                                                    Ollama 协议
-                                                </option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>
-                                                API 类型
-                                                <span class="required">*</span>
-                                                <span
-                                                    class="tooltip-icon"
-                                                    data-tooltip="API 类型决定具体端点实现。通常使用 Chat/Completions；仅在服务明确要求时改为其他类型。"
-                                                    >ⓘ</span
-                                                >
-                                            </label>
-                                            <select
-                                                id="api-type"
-                                                name="apiType"
-                                                required
-                                            >
-                                                <option
-                                                    value="openai-completions"
-                                                >
-                                                    OpenAI Completions
-                                                </option>
-                                            </select>
                                         </div>
 
                                         <!-- 高级配置 -->
-                                        <div class="form-section">
+                                        <div class="form-section advanced">
                                             <h3
                                                 onclick="toggleAdvanced()"
                                                 style="cursor: pointer"
@@ -819,386 +838,460 @@ API 类型: openai-completions
                                         <div class="form-hint warning">
                                             重要：先选择渠道类型再填写字段。每种类型只保留一条配置，保存时会覆盖该类型现有配置。
                                         </div>
-
-                                        <div class="form-group">
-                                            <label>
-                                                渠道类型
-                                                <span class="required">*</span>
-                                                <span
-                                                    class="tooltip-icon"
-                                                    data-tooltip="选择消息平台类型。系统以类型作为唯一键（如 telegram、feishu、qqbot），同类型仅保留一条配置。"
-                                                    >ⓘ</span
+                                        <div
+                                            class="form-section recommended"
+                                            id="channel-recommended-section"
+                                        >
+                                            <h3>推荐配置</h3>
+                                            <div class="form-hint warning">
+                                                先完成基础配置即可联通渠道，更多限制与白名单设置可在“高级配置”中补充。
+                                            </div>
+                                            <div class="form-group">
+                                                <label>
+                                                    渠道类型
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="选择消息平台类型。系统以类型作为唯一键（如 telegram、feishu、qqbot），同类型仅保留一条配置。"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <select
+                                                    id="channel-type"
+                                                    name="channelType"
+                                                    required
                                                 >
-                                            </label>
-                                            <select
-                                                id="channel-type"
-                                                name="channelType"
-                                                required
+                                                    <option value="">
+                                                        请选择...
+                                                    </option>
+                                                    <option value="telegram">
+                                                        Telegram
+                                                    </option>
+                                                    <option value="discord">
+                                                        Discord
+                                                    </option>
+                                                    <option value="feishu">
+                                                        飞书
+                                                    </option>
+                                                    <option value="qqbot">
+                                                        QQ
+                                                    </option>
+                                                </select>
+                                            </div>
+
+                                            <div
+                                                id="channel-recommended-fields"
+                                                style="display: none"
                                             >
-                                                <option value="">
-                                                    请选择...
-                                                </option>
-                                                <option value="telegram">
-                                                    Telegram
-                                                </option>
-                                                <option value="discord">
-                                                    Discord
-                                                </option>
-                                                <option value="feishu">
-                                                    飞书
-                                                </option>
-                                                <option value="qqbot">
-                                                    QQ
-                                                </option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>
-                                                Bot Token
-                                                <span class="required">*</span>
-                                                <span
-                                                    class="tooltip-icon"
-                                                    data-tooltip="从 @BotFather 获取的 Telegram Bot Token。请粘贴完整值并避免前后空格。"
-                                                    >ⓘ</span
+                                                <div
+                                                    class="form-group"
+                                                    id="channel-token-group"
                                                 >
-                                            </label>
-                                            <input
-                                                type="password"
-                                                id="channel-token"
-                                                name="channelToken"
-                                                placeholder="输入 Bot Token"
-                                                required
-                                            />
+                                                    <label>
+                                                        Bot Token
+                                                        <span class="required"
+                                                            >*</span
+                                                        >
+                                                        <span
+                                                            class="tooltip-icon"
+                                                            data-tooltip="从 @BotFather 获取的 Telegram Bot Token。请粘贴完整值并避免前后空格。"
+                                                            >ⓘ</span
+                                                        >
+                                                    </label>
+                                                    <input
+                                                        type="password"
+                                                        id="channel-token"
+                                                        name="channelToken"
+                                                        placeholder="输入 Bot Token"
+                                                        required
+                                                    />
+                                                </div>
+
+                                                <!-- Telegram 特定配置 -->
+                                                <div
+                                                    id="telegram-specific-config"
+                                                    style="display: none"
+                                                >
+                                                    <div
+                                                        class="form-hint warning"
+                                                    >
+                                                        提示：首次使用建议选择
+                                                        open（开放）或更宽松的策略，
+                                                        降低调试成本；需要收紧权限时再逐步调整。
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>
+                                                            私信策略
+                                                            <span
+                                                                class="tooltip-icon"
+                                                                data-tooltip="控制谁可私聊机器人。建议先用 open 完成联调，再按需切换为 pairing 或 allowlist。"
+                                                                >ⓘ</span
+                                                            >
+                                                        </label>
+                                                        <select
+                                                            id="telegram-dm-policy"
+                                                            name="dmPolicy"
+                                                        >
+                                                            <option
+                                                                value="open"
+                                                                selected
+                                                            >
+                                                                Open（开放 -
+                                                                允许所有私信）
+                                                            </option>
+                                                            <option
+                                                                value="pairing"
+                                                            >
+                                                                Pairing（配对模式
+                                                                - 需要配对码）
+                                                            </option>
+                                                            <option
+                                                                value="allowlist"
+                                                            >
+                                                                Allowlist（仅允许列表）
+                                                            </option>
+                                                            <option
+                                                                value="disabled"
+                                                            >
+                                                                Disabled（禁用）
+                                                            </option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div class="form-group">
+                                                        <label>
+                                                            群组策略
+                                                            <span
+                                                                class="tooltip-icon"
+                                                                data-tooltip="控制群组可用范围。open=所有群组，allowlist=仅允许列表，disabled=禁用群组。"
+                                                                >ⓘ</span
+                                                            >
+                                                        </label>
+                                                        <select
+                                                            id="telegram-group-policy"
+                                                            name="groupPolicy"
+                                                        >
+                                                            <option
+                                                                value="allowlist"
+                                                            >
+                                                                Allowlist（仅允许列表）
+                                                            </option>
+                                                            <option
+                                                                value="open"
+                                                            >
+                                                                Open（开放）
+                                                            </option>
+                                                            <option
+                                                                value="disabled"
+                                                            >
+                                                                Disabled（禁用）
+                                                            </option>
+                                                        </select>
+                                                        <div
+                                                            class="form-hint warning"
+                                                        >
+                                                            仅当策略为
+                                                            <code
+                                                                >allowlist</code
+                                                            >
+                                                            时，高级配置中的“私信允许列表
+                                                            /
+                                                            群组发送者允许列表”才会生效。
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Discord 特定配置 -->
+                                                <div
+                                                    id="discord-specific-config"
+                                                    style="display: none"
+                                                >
+                                                    <div class="form-group">
+                                                        <label>
+                                                            Bot Token
+                                                            <span
+                                                                class="required"
+                                                                >*</span
+                                                            >
+                                                            <span
+                                                                class="tooltip-icon"
+                                                                data-tooltip="在 Discord Developer Portal 的 Bot 页面获取 Token。保存后建议立刻在仪表盘验证连接。"
+                                                                >ⓘ</span
+                                                            >
+                                                        </label>
+                                                        <input
+                                                            type="password"
+                                                            id="discord-token"
+                                                            name="token"
+                                                            placeholder="输入 Discord Bot Token"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <!-- QQ 特定配置 -->
+                                                <div
+                                                    id="qqbot-specific-config"
+                                                    style="display: none"
+                                                >
+                                                    <div
+                                                        class="form-hint warning"
+                                                    >
+                                                        提示：首次使用建议先安装插件，保存时也会自动尝试安装。
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label
+                                                            >QQ 插件状态</label
+                                                        >
+                                                        <button
+                                                            type="button"
+                                                            id="qqbot-plugin-btn"
+                                                            class="btn btn-secondary btn-sm plugin-status-btn"
+                                                            onclick="
+                                                                installQqbotPlugin()
+                                                            "
+                                                        >
+                                                            QQ 插件：检测中...
+                                                        </button>
+                                                        <div
+                                                            class="form-hint warning"
+                                                        >
+                                                            插件已安装后再保存，可避免保存失败。
+                                                        </div>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>
+                                                            App ID
+                                                            <span
+                                                                class="required"
+                                                                >*</span
+                                                            >
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            id="qqbot-app-id"
+                                                            name="qqbotAppId"
+                                                            placeholder="输入 QQ Bot App ID"
+                                                        />
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>
+                                                            Client Secret
+                                                            <span
+                                                                class="required"
+                                                                >*</span
+                                                            >
+                                                        </label>
+                                                        <input
+                                                            type="password"
+                                                            id="qqbot-client-secret"
+                                                            name="qqbotClientSecret"
+                                                            placeholder="输入 QQ Bot Client Secret"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <!-- 飞书特定配置 -->
+                                                <div
+                                                    id="feishu-specific-config"
+                                                    style="display: none"
+                                                >
+                                                    <div
+                                                        class="form-hint warning"
+                                                    >
+                                                        提示：首次使用建议私信策略选择
+                                                        open（开放）。
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>
+                                                            App ID
+                                                            <span
+                                                                class="required"
+                                                                >*</span
+                                                            >
+                                                            <span
+                                                                class="tooltip-icon"
+                                                                data-tooltip="飞书应用 App ID（通常以 cli_ 开头），可在开发者后台“凭证与基础信息”页面获取。"
+                                                                >ⓘ</span
+                                                            >
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            id="feishu-app-id"
+                                                            name="appId"
+                                                            placeholder="cli_xxx"
+                                                        />
+                                                    </div>
+
+                                                    <div class="form-group">
+                                                        <label>
+                                                            App Secret
+                                                            <span
+                                                                class="required"
+                                                                >*</span
+                                                            >
+                                                            <span
+                                                                class="tooltip-icon"
+                                                                data-tooltip="飞书应用 App Secret（敏感凭据），可在“凭证与基础信息”页面获取，建议定期轮换。"
+                                                                >ⓘ</span
+                                                            >
+                                                        </label>
+                                                        <input
+                                                            type="password"
+                                                            id="feishu-app-secret"
+                                                            name="appSecret"
+                                                            placeholder="输入 App Secret"
+                                                        />
+                                                    </div>
+
+                                                    <div class="form-group">
+                                                        <label>
+                                                            私信策略
+                                                            <span
+                                                                class="tooltip-icon"
+                                                                data-tooltip="控制谁可私聊飞书机器人。建议先用 open 验证可用性，再根据需要收紧。"
+                                                                >ⓘ</span
+                                                            >
+                                                        </label>
+                                                        <select
+                                                            id="feishu-dm-policy"
+                                                            name="dmPolicy"
+                                                        >
+                                                            <option
+                                                                value="open"
+                                                                selected
+                                                            >
+                                                                Open（开放 -
+                                                                允许所有私信）
+                                                            </option>
+                                                            <option
+                                                                value="pairing"
+                                                            >
+                                                                Pairing（配对模式
+                                                                - 需要配对码）
+                                                            </option>
+                                                            <option
+                                                                value="allowlist"
+                                                            >
+                                                                Allowlist（仅允许列表）
+                                                            </option>
+                                                            <option
+                                                                value="disabled"
+                                                            >
+                                                                Disabled（禁用）
+                                                            </option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label
+                                                        class="checkbox-label"
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            id="channel-enabled"
+                                                            name="channelEnabled"
+                                                            checked
+                                                        />
+                                                        <span>启用此渠道</span>
+                                                    </label>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <!-- Telegram 特定配置 -->
                                         <div
-                                            id="telegram-specific-config"
+                                            class="form-section advanced"
+                                            id="channel-advanced-section"
                                             style="display: none"
                                         >
+                                            <h3>高级配置</h3>
                                             <div class="form-hint warning">
-                                                提示：首次使用建议选择
-                                                open（开放）或更宽松的策略，
-                                                降低调试成本；需要收紧权限时再逐步调整。
+                                                仅在需要精细权限或显示细节时填写，不确定可先留空。
                                             </div>
-                                            <div class="form-group">
-                                                <label>
-                                                    私信策略
-                                                    <span
-                                                        class="tooltip-icon"
-                                                        data-tooltip="控制谁可私聊机器人。建议先用 open 完成联调，再按需切换为 pairing 或 allowlist。"
-                                                        >ⓘ</span
-                                                    >
-                                                </label>
-                                                <select
-                                                    id="telegram-dm-policy"
-                                                    name="dmPolicy"
-                                                >
-                                                    <option
-                                                        value="open"
-                                                        selected
-                                                    >
-                                                        Open（开放 -
-                                                        允许所有私信）
-                                                    </option>
-                                                    <option value="pairing">
-                                                        Pairing（配对模式 -
-                                                        需要配对码）
-                                                    </option>
-                                                    <option value="allowlist">
-                                                        Allowlist（仅允许列表）
-                                                    </option>
-                                                    <option value="disabled">
-                                                        Disabled（禁用）
-                                                    </option>
-                                                </select>
-                                            </div>
+                                            <div
+                                                id="telegram-advanced-config"
+                                                style="display: none"
+                                            >
+                                                <div class="form-group">
+                                                    <label>
+                                                        私信允许列表
+                                                        <span
+                                                            class="tooltip-icon"
+                                                            data-tooltip="私信白名单用户 ID，多个值用英文逗号分隔；仅在私信策略为 allowlist 时生效。"
+                                                            >ⓘ</span
+                                                        >
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        id="telegram-allow-from"
+                                                        name="allowFrom"
+                                                        placeholder="用户ID，用逗号分隔"
+                                                    />
+                                                </div>
 
-                                            <div class="form-group">
-                                                <label>
-                                                    群组策略
-                                                    <span
-                                                        class="tooltip-icon"
-                                                        data-tooltip="控制群组可用范围。open=所有群组，allowlist=仅允许列表，disabled=禁用群组。"
-                                                        >ⓘ</span
-                                                    >
-                                                </label>
-                                                <select
-                                                    id="telegram-group-policy"
-                                                    name="groupPolicy"
-                                                >
-                                                    <option value="allowlist">
-                                                        Allowlist（仅允许列表）
-                                                    </option>
-                                                    <option value="open">
-                                                        Open（开放）
-                                                    </option>
-                                                    <option value="disabled">
-                                                        Disabled（禁用）
-                                                    </option>
-                                                </select>
-                                                <div class="form-hint warning">
-                                                    仅当策略为
-                                                    <code>allowlist</code>
-                                                    时，下方“私信允许列表 /
-                                                    群组发送者允许列表”才会生效。
+                                                <div class="form-group">
+                                                    <label>
+                                                        群组发送者允许列表
+                                                        <span
+                                                            class="tooltip-icon"
+                                                            data-tooltip="群组白名单用户 ID，多个值用英文逗号分隔；仅在群组策略为 allowlist 时生效。"
+                                                            >ⓘ</span
+                                                        >
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        id="telegram-group-allow-from"
+                                                        name="groupAllowFrom"
+                                                        placeholder="用户ID，用逗号分隔"
+                                                    />
                                                 </div>
                                             </div>
 
-                                            <div class="form-group">
-                                                <label>
-                                                    私信允许列表
-                                                    <span
-                                                        class="tooltip-icon"
-                                                        data-tooltip="私信白名单用户 ID，多个值用英文逗号分隔；仅在私信策略为 allowlist 时生效。"
-                                                        >ⓘ</span
-                                                    >
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="telegram-allow-from"
-                                                    name="allowFrom"
-                                                    placeholder="用户ID，用逗号分隔"
-                                                />
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label>
-                                                    群组发送者允许列表
-                                                    <span
-                                                        class="tooltip-icon"
-                                                        data-tooltip="群组白名单用户 ID，多个值用英文逗号分隔；仅在群组策略为 allowlist 时生效。"
-                                                        >ⓘ</span
-                                                    >
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="telegram-group-allow-from"
-                                                    name="groupAllowFrom"
-                                                    placeholder="用户ID，用逗号分隔"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <!-- Discord 特定配置 -->
-                                        <div
-                                            id="discord-specific-config"
-                                            style="display: none"
-                                        >
-                                            <div class="form-group">
-                                                <label>
-                                                    Bot Token
-                                                    <span class="required"
-                                                        >*</span
-                                                    >
-                                                    <span
-                                                        class="tooltip-icon"
-                                                        data-tooltip="在 Discord Developer Portal 的 Bot 页面获取 Token。保存后建议立刻在仪表盘验证连接。"
-                                                        >ⓘ</span
-                                                    >
-                                                </label>
-                                                <input
-                                                    type="password"
-                                                    id="discord-token"
-                                                    name="token"
-                                                    placeholder="输入 Discord Bot Token"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <!-- QQ 特定配置 -->
-                                        <div
-                                            id="qqbot-specific-config"
-                                            style="display: none"
-                                        >
-                                            <div class="form-hint warning">
-                                                提示：首次使用建议保持 allowFrom
-                                                为 <code>*</code>（开放），
-                                                需要收紧权限时再改为具体账号。
-                                            </div>
-                                            <div class="form-group">
-                                                <label>QQ 插件状态</label>
-                                                <button
-                                                    type="button"
-                                                    id="qqbot-plugin-btn"
-                                                    class="btn btn-secondary btn-sm plugin-status-btn"
-                                                    onclick="
-                                                        installQqbotPlugin()
-                                                    "
-                                                >
-                                                    QQ 插件：检测中...
-                                                </button>
-                                                <div class="form-hint warning">
-                                                    提示：首次使用建议先安装插件，保存时也会自动尝试安装。
+                                            <div
+                                                id="qqbot-advanced-config"
+                                                style="display: none"
+                                            >
+                                                <div class="form-group">
+                                                    <label>
+                                                        允许来源
+                                                        <span
+                                                            class="tooltip-icon"
+                                                            data-tooltip="允许访问的 QQ 账号或群组，多个值用英文逗号分隔；留空默认 *（开放）。"
+                                                            >ⓘ</span
+                                                        >
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        id="qqbot-allow-from"
+                                                        name="qqbotAllowFrom"
+                                                        placeholder="默认 *，多个以英文逗号分隔"
+                                                    />
                                                 </div>
                                             </div>
-                                            <div class="form-group">
-                                                <label>允许来源</label>
-                                                <input
-                                                    type="text"
-                                                    id="qqbot-allow-from"
-                                                    name="qqbotAllowFrom"
-                                                    placeholder="默认 *，多个以英文逗号分隔"
-                                                />
-                                            </div>
-                                            <div class="form-group">
-                                                <label>
-                                                    App ID
-                                                    <span class="required"
-                                                        >*</span
-                                                    >
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="qqbot-app-id"
-                                                    name="qqbotAppId"
-                                                    placeholder="输入 QQ Bot App ID"
-                                                />
-                                            </div>
-                                            <div class="form-group">
-                                                <label>
-                                                    Client Secret
-                                                    <span class="required"
-                                                        >*</span
-                                                    >
-                                                </label>
-                                                <input
-                                                    type="password"
-                                                    id="qqbot-client-secret"
-                                                    name="qqbotClientSecret"
-                                                    placeholder="输入 QQ Bot Client Secret"
-                                                />
-                                            </div>
-                                        </div>
 
-                                        <!-- 飞书特定配置 -->
-                                        <div
-                                            id="feishu-specific-config"
-                                            style="display: none"
-                                        >
-                                            <div class="form-hint warning">
-                                                提示：首次使用建议私信策略选择
-                                                open（开放）。
+                                            <div
+                                                id="feishu-advanced-config"
+                                                style="display: none"
+                                            >
+                                                <div class="form-group">
+                                                    <label>
+                                                        机器人名称
+                                                        <span
+                                                            class="tooltip-icon"
+                                                            data-tooltip="机器人在飞书中的显示名称。可选，留空时使用飞书应用默认名称。"
+                                                            >ⓘ</span
+                                                        >
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        id="feishu-bot-name"
+                                                        name="botName"
+                                                        placeholder="我的AI助手"
+                                                    />
+                                                </div>
                                             </div>
-                                            <div class="form-group">
-                                                <label>
-                                                    App ID
-                                                    <span class="required"
-                                                        >*</span
-                                                    >
-                                                    <span
-                                                        class="tooltip-icon"
-                                                        data-tooltip="飞书应用 App ID（通常以 cli_ 开头），可在开发者后台“凭证与基础信息”页面获取。"
-                                                        >ⓘ</span
-                                                    >
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="feishu-app-id"
-                                                    name="appId"
-                                                    placeholder="cli_xxx"
-                                                />
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label>
-                                                    App Secret
-                                                    <span class="required"
-                                                        >*</span
-                                                    >
-                                                    <span
-                                                        class="tooltip-icon"
-                                                        data-tooltip="飞书应用 App Secret（敏感凭据），可在“凭证与基础信息”页面获取，建议定期轮换。"
-                                                        >ⓘ</span
-                                                    >
-                                                </label>
-                                                <input
-                                                    type="password"
-                                                    id="feishu-app-secret"
-                                                    name="appSecret"
-                                                    placeholder="输入 App Secret"
-                                                />
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label>
-                                                    机器人名称
-                                                    <span
-                                                        class="tooltip-icon"
-                                                        data-tooltip="机器人在飞书中的显示名称。可选，留空时使用飞书应用默认名称。"
-                                                        >ⓘ</span
-                                                    >
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="feishu-bot-name"
-                                                    name="botName"
-                                                    placeholder="我的AI助手"
-                                                />
-                                            </div>
-
-                                            <!-- <div class="form-group">
-                                                <label>
-                                                    Verification Token
-                                                    <span
-                                                        class="tooltip-icon"
-                                                        data-tooltip="用于校验飞书事件回调来源，可在开发者后台“事件订阅”页面获取。"
-                                                        >ⓘ</span
-                                                    >
-                                                </label>
-                                                <input
-                                                    type="password"
-                                                    id="feishu-verification-token"
-                                                    name="verificationToken"
-                                                    placeholder="输入 Verification Token"
-                                                />
-                                            </div> -->
-
-                                            <div class="form-group">
-                                                <label>
-                                                    私信策略
-                                                    <span
-                                                        class="tooltip-icon"
-                                                        data-tooltip="控制谁可私聊飞书机器人。建议先用 open 验证可用性，再根据需要收紧。"
-                                                        >ⓘ</span
-                                                    >
-                                                </label>
-                                                <select
-                                                    id="feishu-dm-policy"
-                                                    name="dmPolicy"
-                                                >
-                                                    <option
-                                                        value="open"
-                                                        selected
-                                                    >
-                                                        Open（开放 -
-                                                        允许所有私信）
-                                                    </option>
-                                                    <option value="pairing">
-                                                        Pairing（配对模式 -
-                                                        需要配对码）
-                                                    </option>
-                                                    <option value="allowlist">
-                                                        Allowlist（仅允许列表）
-                                                    </option>
-                                                    <option value="disabled">
-                                                        Disabled（禁用）
-                                                    </option>
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label class="checkbox-label">
-                                                <input
-                                                    type="checkbox"
-                                                    id="channel-enabled"
-                                                    name="channelEnabled"
-                                                    checked
-                                                />
-                                                <span>启用此渠道</span>
-                                            </label>
                                         </div>
 
                                         <div class="form-actions">

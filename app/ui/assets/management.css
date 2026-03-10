@@ -906,6 +906,16 @@ span[title] {
     border-radius: 8px;
 }
 
+.form-section.recommended {
+    background: #fff5ee;
+    border: 1px solid rgba(244, 81, 30, 0.2);
+}
+
+.form-section.advanced {
+    background: #f4f5f7;
+    border: 1px dashed rgba(0, 0, 0, 0.12);
+}
+
 .form-section h3 {
     margin: 0 0 16px 0;
     font-size: 1rem;

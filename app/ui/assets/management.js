@@ -1495,6 +1495,13 @@ function handleChannelTypeChange() {
   const discordConfig = document.getElementById("discord-specific-config");
   const qqbotConfig = document.getElementById("qqbot-specific-config");
   const feishuConfig = document.getElementById("feishu-specific-config");
+  const telegramAdvanced = document.getElementById("telegram-advanced-config");
+  const qqbotAdvanced = document.getElementById("qqbot-advanced-config");
+  const feishuAdvanced = document.getElementById("feishu-advanced-config");
+  const recommendedFields = document.getElementById(
+    "channel-recommended-fields",
+  );
+  const advancedSection = document.getElementById("channel-advanced-section");
   const editKey = document.getElementById("edit-channel-key")?.value || "";
   const isEditMode = !!editKey;
   const tokenField = document.getElementById("channel-token");
@@ -1507,14 +1514,26 @@ function handleChannelTypeChange() {
   if (discordConfig) discordConfig.style.display = "none";
   if (qqbotConfig) qqbotConfig.style.display = "none";
   if (feishuConfig) feishuConfig.style.display = "none";
+  if (telegramAdvanced) telegramAdvanced.style.display = "none";
+  if (qqbotAdvanced) qqbotAdvanced.style.display = "none";
+  if (feishuAdvanced) feishuAdvanced.style.display = "none";
 
   // 未选择类型时，不展示任何设置项
   if (!channelType) {
+    if (recommendedFields) {
+      recommendedFields.style.display = "none";
+    }
+    if (advancedSection) {
+      advancedSection.style.display = "none";
+    }
     if (tokenField) {
       tokenField.parentElement.style.display = "none";
       tokenField.removeAttribute("required");
     }
     return;
+  }
+  if (recommendedFields) {
+    recommendedFields.style.display = "block";
   }
 
   // 根据渠道类型调整 Token 字段
@@ -1547,6 +1566,9 @@ function handleChannelTypeChange() {
   // 显示对应类型的配置
   if (channelType === "telegram" && telegramConfig) {
     telegramConfig.style.display = "block";
+    if (telegramAdvanced) {
+      telegramAdvanced.style.display = "block";
+    }
 
     const dmPolicyEl = document.getElementById("telegram-dm-policy");
     const groupPolicyEl = document.getElementById("telegram-group-policy");
@@ -1565,6 +1587,9 @@ function handleChannelTypeChange() {
     discordConfig.style.display = "block";
   } else if (channelType === "qqbot" && qqbotConfig) {
     qqbotConfig.style.display = "block";
+    if (qqbotAdvanced) {
+      qqbotAdvanced.style.display = "block";
+    }
     refreshQqbotPluginStatus();
     if (!isEditMode) {
       const qqbotAllowFromEl = document.getElementById("qqbot-allow-from");
@@ -1574,6 +1599,17 @@ function handleChannelTypeChange() {
     }
   } else if (channelType === "feishu" && feishuConfig) {
     feishuConfig.style.display = "block";
+    if (feishuAdvanced) {
+      feishuAdvanced.style.display = "block";
+    }
+  }
+
+  if (advancedSection) {
+    const hasAdvanced =
+      channelType === "telegram" ||
+      channelType === "qqbot" ||
+      channelType === "feishu";
+    advancedSection.style.display = hasAdvanced ? "block" : "none";
   }
 }
 
