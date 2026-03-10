@@ -756,6 +756,10 @@ async function addModel(modelData) {
         if (config.agents.defaults.models[editModelKey]) {
           delete config.agents.defaults.models[editModelKey];
         }
+        const oldModels = config.models.providers[oldProvider].models;
+        if (!Array.isArray(oldModels) || oldModels.length === 0) {
+          delete config.models.providers[oldProvider];
+        }
       }
     }
 
