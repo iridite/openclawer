@@ -968,16 +968,16 @@ span[title] {
 
 .quick-add-btn .provider-name {
     display: block;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--primary);
-    margin-bottom: 4px;
+    font-size: 0.85rem;
+    color: var(--text-gray);
 }
 
 .quick-add-btn .model-name {
     display: block;
-    font-size: 0.85rem;
-    color: var(--text-gray);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 4px;
 }
 
 @media (max-width: 768px) {

@@ -761,8 +761,8 @@ function renderQuickAddButtons() {
   for (const [modelId, modelData] of Object.entries(QUICK_ADD_MODELS)) {
     html += `
       <button class="quick-add-btn" data-model-id="${modelId}">
-        <span class="provider-name">${modelData.providerName}</span>
         <span class="model-name">${modelId}</span>
+        <span class="provider-name">${modelData.providerName}</span>
       </button>
     `;
   }
