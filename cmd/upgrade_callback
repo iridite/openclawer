@@ -2,4 +2,25 @@
 
 ### This script is called after the user upgrades the application.
 
+set -euo pipefail
+
+SRC_DIR="/root/.openclaw"
+BACKUP_ROOT="/root/oc-deploy"
+MARKER_FILE="${BACKUP_ROOT}/.upgrade_backup_path"
+
+if [ -f "${MARKER_FILE}" ]; then
+    BACKUP_DIR="$(cat "${MARKER_FILE}")"
+else
+    BACKUP_DIR="$(ls -1dt "${BACKUP_ROOT}"/*-backup 2>/dev/null | head -n 1 || true)"
+fi
+
+if [ -z "${BACKUP_DIR}" ] || [ ! -d "${BACKUP_DIR}/.openclaw" ]; then
+    echo "[upgrade_callback] Backup not found, skip restore."
+    exit 0
+fi
+
+mkdir -p "${SRC_DIR}"
+cp -a "${BACKUP_DIR}/.openclaw/." "${SRC_DIR}/"
+
+echo "[upgrade_callback] Restored from ${BACKUP_DIR}"
 exit 0
