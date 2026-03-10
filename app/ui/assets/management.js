@@ -1877,8 +1877,17 @@ async function submitModelForm(event) {
 
     const modelIdInput = document.getElementById("model-id");
     const providerInput = document.getElementById("provider-name");
-    const modelId = (formData.get("modelId") || "").trim();
-    const providerName = (formData.get("providerName") || "").trim();
+    // 优先从输入框取值，避免字段在只读/禁用状态下被 FormData 跳过
+    const modelId = (
+      modelIdInput?.value ||
+      formData.get("modelId") ||
+      ""
+    ).trim();
+    const providerName = (
+      providerInput?.value ||
+      formData.get("providerName") ||
+      ""
+    ).trim();
 
     // 与后端校验规则保持一致
     const modelIdPattern = /^[a-zA-Z0-9.-]+$/;
