@@ -910,6 +910,19 @@
                                     </button>
                                     <button
                                         class="btn btn-secondary btn-sm"
+                                        onclick="toggleConfigImportPanel()"
+                                        id="toggle-config-import-btn"
+                                    >
+                                        导入配置
+                                    </button>
+                                    <button
+                                        class="btn btn-secondary btn-sm"
+                                        onclick="exportConfig()"
+                                    >
+                                        导出配置
+                                    </button>
+                                    <button
+                                        class="btn btn-secondary btn-sm"
                                         onclick="copyConfig()"
                                     >
                                         复制配置
@@ -925,6 +938,60 @@
                                         onclick="saveConfig()"
                                     >
                                         保存配置
+                                    </button>
+                                </div>
+                            </div>
+                            <div
+                                id="config-import-panel"
+                                class="config-import-panel"
+                                style="display: none"
+                            >
+                                <div class="import-panel-header">
+                                    <h3>导入 openclaw.json</h3>
+                                    <p>
+                                        支持直接粘贴 JSON，或上传 `.json` 文件。
+                                        仅在 JSON 语法合法时才会应用，并自动重启 Gateway。
+                                    </p>
+                                </div>
+                                <div class="import-panel-field">
+                                    <label for="config-import-file"
+                                        >上传配置文件</label
+                                    >
+                                    <input
+                                        type="file"
+                                        id="config-import-file"
+                                        accept=".json,application/json,text/json"
+                                        onchange="handleConfigImportFile(event)"
+                                    />
+                                </div>
+                                <div class="import-panel-field">
+                                    <label for="config-import-textarea"
+                                        >或粘贴配置内容</label
+                                    >
+                                    <textarea
+                                        id="config-import-textarea"
+                                        spellcheck="false"
+                                        placeholder='在此粘贴完整 JSON，例如：{"gateway":{"auth":{"token":"..."}}}'
+                                    ></textarea>
+                                </div>
+                                <div class="card-actions">
+                                    <button
+                                        class="btn btn-secondary btn-sm"
+                                        onclick="clearConfigImportInput()"
+                                    >
+                                        清空
+                                    </button>
+                                    <button
+                                        class="btn btn-secondary btn-sm"
+                                        onclick="closeConfigImportPanel()"
+                                    >
+                                        取消
+                                    </button>
+                                    <button
+                                        class="btn btn-primary btn-sm"
+                                        onclick="applyImportedConfig()"
+                                    >
+                                        应用并重启
                                     </button>
                                 </div>
                             </div>

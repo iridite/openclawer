@@ -378,6 +378,60 @@ body {
     align-items: center;
 }
 
+.config-import-panel {
+    margin-bottom: 12px;
+    padding: 14px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    background: #fafafa;
+}
+
+.import-panel-header h3 {
+    margin: 0 0 6px 0;
+    font-size: 1rem;
+}
+
+.import-panel-header p {
+    margin: 0 0 12px 0;
+    font-size: 0.85rem;
+    color: var(--text-gray);
+}
+
+.import-panel-field {
+    margin-bottom: 10px;
+}
+
+.import-panel-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+#config-import-file {
+    width: 100%;
+    font-size: 0.85rem;
+}
+
+#config-import-textarea {
+    width: 100%;
+    min-height: 180px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: "Monaco", "Menlo", "Consolas", monospace;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    resize: vertical;
+    background: #fff;
+}
+
+#config-import-textarea:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+}
+
 .validation-status {
     font-size: 0.9rem;
 }
@@ -553,6 +607,11 @@ body {
     }
 
     .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .card-actions .btn {
         width: 100%;
         justify-content: center;
     }

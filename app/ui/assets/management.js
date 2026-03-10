@@ -2183,6 +2183,212 @@ async function saveConfig() {
   }
 }
 
+function toggleConfigImportPanel(forceVisible) {
+  const panel = document.getElementById("config-import-panel");
+  const toggleBtn = document.getElementById("toggle-config-import-btn");
+  const textarea = document.getElementById("config-import-textarea");
+  if (!panel || !toggleBtn) {
+    return;
+  }
+
+  const isVisible =
+    panel.style.display !== "none" &&
+    getComputedStyle(panel).display !== "none";
+  const shouldShow =
+    typeof forceVisible === "boolean" ? forceVisible : !isVisible;
+
+  panel.style.display = shouldShow ? "block" : "none";
+  toggleBtn.textContent = shouldShow ? "收起导入" : "导入配置";
+
+  if (shouldShow && textarea) {
+    textarea.focus();
+  }
+}
+
+function closeConfigImportPanel() {
+  toggleConfigImportPanel(false);
+}
+
+function clearConfigImportInput() {
+  const textarea = document.getElementById("config-import-textarea");
+  const fileInput = document.getElementById("config-import-file");
+  if (textarea) {
+    textarea.value = "";
+  }
+  if (fileInput) {
+    fileInput.value = "";
+  }
+}
+
+function getJsonLineAndColumnByPosition(content, position) {
+  const safePos = Math.max(0, Math.min(position, content.length));
+  const head = content.slice(0, safePos);
+  const lines = head.split(/\r\n|\r|\n/);
+  const line = lines.length;
+  const column = (lines[lines.length - 1] || "").length + 1;
+  return { line, column };
+}
+
+function formatJsonSyntaxError(error, rawContent) {
+  const message = error?.message || "JSON 语法错误";
+
+  const posMatch = message.match(/position\s+(\d+)/i);
+  if (posMatch) {
+    const position = parseInt(posMatch[1], 10);
+    if (Number.isFinite(position)) {
+      const { line, column } = getJsonLineAndColumnByPosition(
+        rawContent,
+        position,
+      );
+      return `JSON 不合法：第 ${line} 行，第 ${column} 列（position ${position}）`;
+    }
+  }
+
+  const lineColumnMatch = message.match(/line\s+(\d+)\s+column\s+(\d+)/i);
+  if (lineColumnMatch) {
+    return `JSON 不合法：第 ${lineColumnMatch[1]} 行，第 ${lineColumnMatch[2]} 列`;
+  }
+
+  return `JSON 不合法：${message}`;
+}
+
+function parseJsonSafely(rawContent) {
+  try {
+    return {
+      valid: true,
+      data: JSON.parse(rawContent),
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      error: formatJsonSyntaxError(error, rawContent),
+    };
+  }
+}
+
+async function handleConfigImportFile(event) {
+  const file = event?.target?.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  try {
+    const content = await file.text();
+    const textarea = document.getElementById("config-import-textarea");
+    if (textarea) {
+      textarea.value = content;
+    }
+
+    const parsed = parseJsonSafely(content);
+    if (!parsed.valid) {
+      showToast(parsed.error + "，请修正后再应用。", "warning");
+      return;
+    }
+
+    showToast(`已读取配置文件：${file.name}`, "success");
+  } catch (error) {
+    showToast("读取配置文件失败: " + error.message, "error");
+  }
+}
+
+async function applyImportedConfig() {
+  const textarea = document.getElementById("config-import-textarea");
+  const rawContent = textarea ? textarea.value.trim() : "";
+
+  if (!rawContent) {
+    showToast("请先粘贴 JSON 或上传配置文件", "warning");
+    return;
+  }
+
+  const parsed = parseJsonSafely(rawContent);
+  if (!parsed.valid) {
+    showToast(parsed.error + "，已丢弃本次导入。", "error");
+    return;
+  }
+
+  try {
+    showToast("正在导入配置并重启 Gateway...", "info");
+
+    const validation = await apiRequest("/config/validate", {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+    if (!validation.valid) {
+      const warnings = Array.isArray(validation.errors)
+        ? validation.errors.join(", ")
+        : "存在未知校验问题";
+      showToast("配置校验警告（仍将导入）: " + warnings, "warning");
+    }
+
+    await apiRequest("/config", {
+      method: "POST",
+      body: JSON.stringify(parsed.data),
+    });
+
+    let restartSucceeded = true;
+    let restartError = "";
+    try {
+      await apiRequest("/gateway/restart", { method: "POST" });
+    } catch (error) {
+      restartSucceeded = false;
+      restartError = error?.message || "未知错误";
+    }
+
+    currentConfig = parsed.data;
+    await Promise.all([
+      loadConfig(),
+      loadModelsList(),
+      loadChannelsList(),
+      refreshDashboard(),
+    ]);
+
+    clearConfigImportInput();
+    closeConfigImportPanel();
+
+    if (restartSucceeded) {
+      showToast("配置导入成功，Gateway 已自动重启。", "success");
+    } else {
+      showToast(
+        "配置已导入，但 Gateway 自动重启失败: " + restartError,
+        "warning",
+      );
+    }
+  } catch (error) {
+    showToast("导入配置失败: " + error.message, "error");
+  }
+}
+
+function buildConfigExportFileName() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return `openclaw-${stamp}.json`;
+}
+
+async function exportConfig() {
+  try {
+    const config = await apiRequest("/config");
+    const content = JSON.stringify(config, null, 2);
+    const fileName = buildConfigExportFileName();
+    const blob = new Blob([content], {
+      type: "application/json;charset=utf-8",
+    });
+    const downloadUrl = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+
+    showToast(`配置已导出：${fileName}`, "success");
+  } catch (error) {
+    showToast("导出配置失败: " + error.message, "error");
+  }
+}
+
 function copyConfig() {
   let content = "";
   if (editorMode === "ace" && aceEditor) {
