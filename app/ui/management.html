@@ -534,7 +534,7 @@
                                     </div>
                                     <div class="form-hint warning">
                                         说明：每种渠道类型仅支持配置一条记录，系统会使用类型作为唯一标识。
-                                        Telegram/飞书/QQ 已按官方结构固定关键字段（如 dmPolicy / groups / allowFrom）。
+                                        Telegram/飞书/QQ 已按官方结构给出推荐默认值（如 dmPolicy / groups / allowFrom）。
                                         未在表单中内置的渠道类型，可在下方配置编辑器中按官方文档补充配置。
                                         此处提供的是最简化的可配置项，并不完整。可参考
                                         <a href="https://docs.openclaw.ai/zh-CN/channels" target="_blank" rel="noreferrer">官方文档</a>
@@ -634,8 +634,8 @@
                                             style="display: none"
                                         >
                                             <div class="form-hint warning">
-                                                Telegram 渠道使用官方结构：dmPolicy 固定为 open，
-                                                allowFrom 默认 ["*"]，群组默认 requireMention=true。以下字段仅展示，实际不参与保存。
+                                                提示：首次使用建议选择 open（开放）或更宽松的策略，
+                                                降低调试成本；需要收紧权限时再逐步调整。
                                             </div>
                                             <div class="form-group">
                                                 <label>
@@ -754,31 +754,31 @@
                                             id="qqbot-specific-config"
                                             style="display: none"
                                         >
-                                        <div class="form-hint warning">
-                                            QQ 渠道使用官方结构：`allowFrom`
-                                            固定为 `["*"]`，表单仅维护
-                                            `appId` 和 `clientSecret`。
-                                        </div>
-                                        <div class="form-group">
-                                            <label>QQ 插件状态</label>
-                                            <button
-                                                type="button"
-                                                id="qqbot-plugin-btn"
-                                                class="btn btn-secondary btn-sm plugin-status-btn"
-                                                onclick="installQqbotPlugin()"
-                                            >
-                                                QQ 插件：检测中...
-                                            </button>
                                             <div class="form-hint warning">
-                                                提示：首次使用建议先安装插件，保存时也会自动尝试安装。
+                                                提示：首次使用建议保持 allowFrom 为 `*`（开放），
+                                                需要收紧权限时再改为具体账号。
                                             </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>允许来源（固定）</label>
-                                            <input
-                                                type="text"
-                                                value='["*"]'
-                                                    readonly
+                                            <div class="form-group">
+                                                <label>QQ 插件状态</label>
+                                                <button
+                                                    type="button"
+                                                    id="qqbot-plugin-btn"
+                                                    class="btn btn-secondary btn-sm plugin-status-btn"
+                                                    onclick="installQqbotPlugin()"
+                                                >
+                                                    QQ 插件：检测中...
+                                                </button>
+                                                <div class="form-hint warning">
+                                                    提示：首次使用建议先安装插件，保存时也会自动尝试安装。
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>允许来源</label>
+                                                <input
+                                                    type="text"
+                                                    id="qqbot-allow-from"
+                                                    name="qqbotAllowFrom"
+                                                    placeholder="默认 *，多个以英文逗号分隔"
                                                 />
                                             </div>
                                             <div class="form-group">
@@ -816,6 +816,9 @@
                                             id="feishu-specific-config"
                                             style="display: none"
                                         >
+                                            <div class="form-hint warning">
+                                                提示：首次使用建议私信策略选择 open（开放）。
+                                            </div>
                                             <div class="form-group">
                                                 <label>
                                                     App ID

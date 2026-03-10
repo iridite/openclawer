@@ -1310,6 +1310,21 @@ function getChannelBadgeText(channelType, channel) {
   return "未绑定凭据";
 }
 
+function parseCommaList(value) {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function inferTelegramGroupPolicy(channel) {
+  const group = channel?.groups?.["*"];
+  if (!group) return "disabled";
+  if (group.requireMention === false) return "open";
+  return "allowlist";
+}
+
 // 加载消息渠道列表
 async function loadChannelsList() {
   try {
@@ -1427,6 +1442,8 @@ function handleChannelTypeChange() {
   const discordConfig = document.getElementById("discord-specific-config");
   const qqbotConfig = document.getElementById("qqbot-specific-config");
   const feishuConfig = document.getElementById("feishu-specific-config");
+  const editKey = document.getElementById("edit-channel-key")?.value || "";
+  const isEditMode = !!editKey;
   const tokenField = document.getElementById("channel-token");
   const tokenLabel = tokenField
     ? tokenField.parentElement.querySelector("label")
@@ -1485,48 +1502,25 @@ function handleChannelTypeChange() {
       "telegram-group-allow-from",
     );
 
-    if (dmPolicyEl) {
-      dmPolicyEl.value = "open";
-      dmPolicyEl.disabled = true;
-    }
-    if (groupPolicyEl) {
-      groupPolicyEl.disabled = true;
-    }
-    if (allowFromEl) {
-      allowFromEl.disabled = true;
-    }
-    if (groupAllowFromEl) {
-      groupAllowFromEl.disabled = true;
+    if (!isEditMode) {
+      if (dmPolicyEl) dmPolicyEl.value = "open";
+      if (groupPolicyEl) groupPolicyEl.value = "open";
+      if (allowFromEl) allowFromEl.value = "*";
+      if (groupAllowFromEl) groupAllowFromEl.value = "";
     }
   } else if (channelType === "discord" && discordConfig) {
     discordConfig.style.display = "block";
   } else if (channelType === "qqbot" && qqbotConfig) {
     qqbotConfig.style.display = "block";
     refreshQqbotPluginStatus();
+    if (!isEditMode) {
+      const qqbotAllowFromEl = document.getElementById("qqbot-allow-from");
+      if (qqbotAllowFromEl && !qqbotAllowFromEl.value) {
+        qqbotAllowFromEl.value = "*";
+      }
+    }
   } else if (channelType === "feishu" && feishuConfig) {
     feishuConfig.style.display = "block";
-  }
-
-  if (channelType !== "telegram") {
-    const dmPolicyEl = document.getElementById("telegram-dm-policy");
-    const groupPolicyEl = document.getElementById("telegram-group-policy");
-    const allowFromEl = document.getElementById("telegram-allow-from");
-    const groupAllowFromEl = document.getElementById(
-      "telegram-group-allow-from",
-    );
-
-    if (dmPolicyEl) {
-      dmPolicyEl.disabled = false;
-    }
-    if (groupPolicyEl) {
-      groupPolicyEl.disabled = false;
-    }
-    if (allowFromEl) {
-      allowFromEl.disabled = false;
-    }
-    if (groupAllowFromEl) {
-      groupAllowFromEl.disabled = false;
-    }
   }
 }
 
@@ -1551,9 +1545,9 @@ function toggleChannelForm() {
   const dmPolicyEl = document.getElementById("telegram-dm-policy");
   if (dmPolicyEl) dmPolicyEl.value = "open";
   const groupPolicyEl = document.getElementById("telegram-group-policy");
-  if (groupPolicyEl) groupPolicyEl.value = "allowlist";
+  if (groupPolicyEl) groupPolicyEl.value = "open";
   const allowFromEl = document.getElementById("telegram-allow-from");
-  if (allowFromEl) allowFromEl.value = "";
+  if (allowFromEl) allowFromEl.value = "*";
   const groupAllowFromEl = document.getElementById("telegram-group-allow-from");
   if (groupAllowFromEl) groupAllowFromEl.value = "";
 
@@ -1569,13 +1563,15 @@ function toggleChannelForm() {
   );
   if (feishuVerificationTokenEl) feishuVerificationTokenEl.value = "";
   const feishuDmPolicyEl = document.getElementById("feishu-dm-policy");
-  if (feishuDmPolicyEl) feishuDmPolicyEl.value = "pairing";
+  if (feishuDmPolicyEl) feishuDmPolicyEl.value = "open";
 
   // 清空 QQ 特定字段
   const qqbotAppIdEl = document.getElementById("qqbot-app-id");
   if (qqbotAppIdEl) qqbotAppIdEl.value = "";
   const qqbotClientSecretEl = document.getElementById("qqbot-client-secret");
   if (qqbotClientSecretEl) qqbotClientSecretEl.value = "";
+  const qqbotAllowFromEl = document.getElementById("qqbot-allow-from");
+  if (qqbotAllowFromEl) qqbotAllowFromEl.value = "*";
 
   // 显示对应类型的配置
   handleChannelTypeChange();
@@ -1694,23 +1690,33 @@ async function submitChannelForm(event) {
 
     // 添加或更新渠道配置（使用渠道名称作为 key）
     if (channelType === "telegram") {
-      const existing = config.channels[channelId];
-      const existingGroups = existing?.groups;
-      const groups =
-        existingGroups &&
-        typeof existingGroups === "object" &&
-        !Array.isArray(existingGroups)
-          ? existingGroups
-          : { "*": { requireMention: true } };
-      const allowFrom = Array.isArray(existing?.allowFrom)
-        ? existing.allowFrom
-        : ["*"];
+      const allowFromList = parseCommaList(
+        document.getElementById("telegram-allow-from")?.value,
+      );
+      const groupAllowFromList = parseCommaList(
+        document.getElementById("telegram-group-allow-from")?.value,
+      );
+      const dmPolicy =
+        document.getElementById("telegram-dm-policy")?.value || "open";
+      const groupPolicy =
+        document.getElementById("telegram-group-policy")?.value || "open";
+      let groups = {};
+      if (groupPolicy !== "disabled") {
+        groups = {
+          "*": {
+            requireMention: groupPolicy !== "open",
+          },
+        };
+        if (groupAllowFromList.length > 0) {
+          groups["*"].allowFrom = groupAllowFromList;
+        }
+      }
 
       config.channels[channelId] = {
         enabled: enabled,
         botToken: token,
-        dmPolicy: "open",
-        allowFrom: allowFrom,
+        dmPolicy: dmPolicy,
+        allowFrom: allowFromList.length > 0 ? allowFromList : ["*"],
         groups: groups,
       };
     } else if (channelType === "feishu") {
@@ -1736,9 +1742,10 @@ async function submitChannelForm(event) {
       const qqbotClientSecretEl = document.getElementById(
         "qqbot-client-secret",
       );
-      const allowFrom = Array.isArray(existing?.allowFrom)
-        ? existing.allowFrom
-        : ["*"];
+      const allowFromList = parseCommaList(
+        document.getElementById("qqbot-allow-from")?.value,
+      );
+      const allowFrom = allowFromList.length > 0 ? allowFromList : ["*"];
       config.channels[channelId] = {
         enabled: enabled,
         allowFrom: allowFrom,
@@ -1924,18 +1931,31 @@ async function editChannel(channelId) {
     // 填充 Telegram 特定字段
     if (channelType === "telegram") {
       const dmPolicyEl = document.getElementById("telegram-dm-policy");
-      if (dmPolicyEl) dmPolicyEl.value = "open";
+      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "open";
 
       const groupPolicyEl = document.getElementById("telegram-group-policy");
-      if (groupPolicyEl) groupPolicyEl.value = "allowlist";
+      if (groupPolicyEl) {
+        groupPolicyEl.value = inferTelegramGroupPolicy(channel);
+      }
 
       const allowFromEl = document.getElementById("telegram-allow-from");
-      if (allowFromEl) allowFromEl.value = "";
+      if (allowFromEl) {
+        const allowFrom = Array.isArray(channel.allowFrom)
+          ? channel.allowFrom
+          : [];
+        allowFromEl.value = allowFrom.length > 0 ? allowFrom.join(", ") : "";
+      }
 
       const groupAllowFromEl = document.getElementById(
         "telegram-group-allow-from",
       );
-      if (groupAllowFromEl) groupAllowFromEl.value = "";
+      if (groupAllowFromEl) {
+        const allowFrom = Array.isArray(channel.groups?.["*"]?.allowFrom)
+          ? channel.groups["*"].allowFrom
+          : [];
+        groupAllowFromEl.value =
+          allowFrom.length > 0 ? allowFrom.join(", ") : "";
+      }
     }
 
     // 填充 Discord 特定字段
@@ -1964,11 +1984,19 @@ async function editChannel(channelId) {
       //   verificationTokenEl.value = mainAccount.verificationToken || "";
 
       const dmPolicyEl = document.getElementById("feishu-dm-policy");
-      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "pairing";
+      if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "open";
     }
 
     // 填充 QQ 特定字段
     if (channelType === "qqbot") {
+      const qqbotAllowFromEl = document.getElementById("qqbot-allow-from");
+      if (qqbotAllowFromEl) {
+        const allowFrom = Array.isArray(channel.allowFrom)
+          ? channel.allowFrom
+          : [];
+        qqbotAllowFromEl.value =
+          allowFrom.length > 0 ? allowFrom.join(", ") : "*";
+      }
       const qqbotAppIdEl = document.getElementById("qqbot-app-id");
       if (qqbotAppIdEl) qqbotAppIdEl.value = channel.appId || "";
 
