@@ -53,6 +53,10 @@ const NODE_BIN = process.env.NODE_BIN || "/var/apps/nodejs_v22/target/bin/node";
 const NODE_BIN_DIR = path.dirname(NODE_BIN);
 const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");
 
+// 插件相关
+const QQBOT_PLUGIN_PKG = "@tencent-connect/openclaw-qqbot";
+let qqbotPluginInstalling = false;
+
 // env 变量设置，确保调用 openclaw 的命令行工具时能够正确找到 Node.js 和相关依赖
 process.env.CONFIG_FILE = process.env.CONFIG_FILE || CONFIG_FILE;
 process.env.OPENCLAW_CONFIG_PATH =
@@ -192,6 +196,97 @@ function fixResponseHeaders(headers) {
 function isHtmlResponse(headers) {
   const ct = headers["content-type"] || "";
   return ct.includes("text/html");
+}
+
+function getQqbotPluginPackageJsonPath() {
+  const candidates = [
+    path.join(
+      TRIM_PKGVAR,
+      "node_modules",
+      "@tencent-connect",
+      "openclaw-qqbot",
+      "package.json",
+    ),
+    path.join(
+      OC_HOME,
+      "plugins",
+      "@tencent-connect",
+      "openclaw-qqbot",
+      "package.json",
+    ),
+    path.join(
+      TRIM_PKGVAR,
+      "plugins",
+      "@tencent-connect",
+      "openclaw-qqbot",
+      "package.json",
+    ),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return "";
+}
+
+async function getQqbotPluginStatus() {
+  const packageJsonPath = getQqbotPluginPackageJsonPath();
+  if (!packageJsonPath) {
+    return {
+      success: true,
+      installed: false,
+      version: "",
+      package: QQBOT_PLUGIN_PKG,
+    };
+  }
+
+  const pkg = readJSON(packageJsonPath);
+  return {
+    success: true,
+    installed: true,
+    version: pkg?.version || "unknown",
+    package: QQBOT_PLUGIN_PKG,
+  };
+}
+
+async function installQqbotPlugin() {
+  if (qqbotPluginInstalling) {
+    throw new Error("QQ 插件安装中，请稍后重试");
+  }
+
+  qqbotPluginInstalling = true;
+  const installCmd = `${OC_BIN_PATH} plugins install ${QQBOT_PLUGIN_PKG}@latest`;
+
+  try {
+    await execCommand(installCmd, {
+      timeout: 600000,
+      env: {
+        HOME: "/root",
+        OPENCLAW_CONFIG_PATH: CONFIG_FILE,
+      },
+    });
+
+    const status = await getQqbotPluginStatus();
+    if (!status.installed) {
+      throw new Error("插件安装完成但未检测到安装结果");
+    }
+
+    return {
+      success: true,
+      message: "QQ 插件安装成功",
+      version: status.version,
+      package: status.package,
+    };
+  } catch (err) {
+    const errorMessage = err?.stderr || err?.message || "QQ 插件安装失败";
+    console.error("[qqbot-plugin] install failed:", errorMessage);
+    throw new Error(errorMessage);
+  } finally {
+    qqbotPluginInstalling = false;
+  }
 }
 
 // 工具函数：从 openclaw.json 读取 token
@@ -1200,6 +1295,8 @@ font-family:system-ui,sans-serif;background:#fff5f0;color:#666;}
       "GET /api/version/current": getCurrentVersion,
       "GET /api/version/latest": getLatestVersion,
       "POST /api/version/update": updateVersion,
+      "GET /api/plugins/qqbot/status": getQqbotPluginStatus,
+      "POST /api/plugins/qqbot/install": installQqbotPlugin,
       "GET /api/console/url": () => getConsoleUrl(req),
       "GET /api/logs": () =>
         getLogs(parseInt(url.searchParams.get("lines") || "100", 10)),

@@ -12,6 +12,7 @@ let aceEditorLoaded = false; // Ace Editor 是否已加载
 let aceEditorLoading = false; // Ace Editor 是否正在加载
 let activeTooltipTarget = null;
 let currentTabName = "overview";
+let qqbotPluginInstalling = false;
 
 // 快速添加模型预设
 const QUICK_ADD_MODELS = {
@@ -1501,6 +1502,7 @@ function handleChannelTypeChange() {
     discordConfig.style.display = "block";
   } else if (channelType === "qqbot" && qqbotConfig) {
     qqbotConfig.style.display = "block";
+    refreshQqbotPluginStatus();
   } else if (channelType === "feishu" && feishuConfig) {
     feishuConfig.style.display = "block";
   }
@@ -1662,6 +1664,11 @@ async function submitChannelForm(event) {
       showToast("请输入 QQ Client Secret", "error");
       return;
     }
+
+    const pluginReady = await ensureQqbotPluginInstalled();
+    if (!pluginReady) {
+      return;
+    }
   }
 
   try {
@@ -1787,6 +1794,98 @@ async function submitChannelForm(event) {
         error.message,
       "error",
     );
+  }
+}
+
+async function fetchQqbotPluginStatus() {
+  return apiRequest("/plugins/qqbot/status");
+}
+
+function setQqbotPluginButtonState(state, version = "") {
+  const btn = document.getElementById("qqbot-plugin-btn");
+  if (!btn) return;
+
+  btn.classList.remove("installed", "missing", "error", "installing");
+
+  switch (state) {
+    case "installed":
+      btn.classList.add("installed");
+      btn.textContent = version
+        ? `QQ 插件：已安装 (${version})`
+        : "QQ 插件：已安装";
+      btn.disabled = false;
+      break;
+    case "missing":
+      btn.classList.add("missing");
+      btn.textContent = "QQ 插件：未安装（点击安装）";
+      btn.disabled = false;
+      break;
+    case "installing":
+      btn.classList.add("installing");
+      btn.textContent = "QQ 插件：安装中...";
+      btn.disabled = true;
+      break;
+    case "error":
+    default:
+      btn.classList.add("error");
+      btn.textContent = "QQ 插件：检测失败（点击重试）";
+      btn.disabled = false;
+      break;
+  }
+}
+
+async function refreshQqbotPluginStatus() {
+  try {
+    const status = await fetchQqbotPluginStatus();
+    if (status && status.installed) {
+      setQqbotPluginButtonState("installed", status.version || "");
+    } else {
+      setQqbotPluginButtonState("missing");
+    }
+  } catch (error) {
+    setQqbotPluginButtonState("error");
+  }
+}
+
+async function ensureQqbotPluginInstalled() {
+  try {
+    const status = await fetchQqbotPluginStatus();
+    if (status && status.installed) {
+      return true;
+    }
+  } catch (error) {
+    setQqbotPluginButtonState("error");
+    showToast("QQ 插件状态检测失败: " + error.message, "error");
+    return false;
+  }
+
+  const installed = await installQqbotPlugin();
+  return installed;
+}
+
+async function installQqbotPlugin() {
+  if (qqbotPluginInstalling) {
+    return false;
+  }
+
+  qqbotPluginInstalling = true;
+  setQqbotPluginButtonState("installing");
+  showToast("正在安装 QQ 插件...", "info");
+
+  try {
+    const result = await apiRequest("/plugins/qqbot/install", {
+      method: "POST",
+    });
+    const version = result?.version || "";
+    setQqbotPluginButtonState("installed", version);
+    showToast("QQ 插件安装成功", "success");
+    qqbotPluginInstalling = false;
+    return true;
+  } catch (error) {
+    setQqbotPluginButtonState("missing");
+    showToast("QQ 插件安装失败: " + error.message, "error");
+    qqbotPluginInstalling = false;
+    return false;
   }
 }
 

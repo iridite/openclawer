@@ -303,6 +303,35 @@ body {
     font-size: 0.85rem;
 }
 
+.plugin-status-btn {
+    min-width: 180px;
+    justify-content: center;
+}
+
+.plugin-status-btn.installed {
+    background: rgba(76, 175, 80, 0.15);
+    color: #2e7d32;
+    border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.plugin-status-btn.missing {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ef6c00;
+    border: 1px solid rgba(255, 152, 0, 0.4);
+}
+
+.plugin-status-btn.error {
+    background: rgba(244, 67, 54, 0.12);
+    color: #c62828;
+    border: 1px solid rgba(244, 67, 54, 0.35);
+}
+
+.plugin-status-btn.installing {
+    background: rgba(33, 150, 243, 0.12);
+    color: #1565c0;
+    border: 1px solid rgba(33, 150, 243, 0.35);
+}
+
 .btn-lg {
     padding: 14px 28px;
     font-size: 1.1rem;

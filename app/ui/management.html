@@ -754,16 +754,30 @@
                                             id="qqbot-specific-config"
                                             style="display: none"
                                         >
+                                        <div class="form-hint warning">
+                                            QQ 渠道使用官方结构：`allowFrom`
+                                            固定为 `["*"]`，表单仅维护
+                                            `appId` 和 `clientSecret`。
+                                        </div>
+                                        <div class="form-group">
+                                            <label>QQ 插件状态</label>
+                                            <button
+                                                type="button"
+                                                id="qqbot-plugin-btn"
+                                                class="btn btn-secondary btn-sm plugin-status-btn"
+                                                onclick="installQqbotPlugin()"
+                                            >
+                                                QQ 插件：检测中...
+                                            </button>
                                             <div class="form-hint warning">
-                                                QQ 渠道使用官方结构：`allowFrom`
-                                                固定为 `["*"]`，表单仅维护
-                                                `appId` 和 `clientSecret`。
+                                                提示：首次使用建议先安装插件，保存时也会自动尝试安装。
                                             </div>
-                                            <div class="form-group">
-                                                <label>允许来源（固定）</label>
-                                                <input
-                                                    type="text"
-                                                    value='["*"]'
+                                        </div>
+                                        <div class="form-group">
+                                            <label>允许来源（固定）</label>
+                                            <input
+                                                type="text"
+                                                value='["*"]'
                                                     readonly
                                                 />
                                             </div>
