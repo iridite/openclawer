@@ -286,14 +286,57 @@ function initTooltips() {
   const icons = document.querySelectorAll(".tooltip-icon[data-tooltip]");
 
   icons.forEach((icon) => {
+    if (!icon.hasAttribute("tabindex")) {
+      icon.setAttribute("tabindex", "0");
+    }
+    if (!icon.hasAttribute("aria-label")) {
+      icon.setAttribute("aria-label", "查看说明");
+    }
+
     icon.addEventListener("mouseenter", () => showTooltip(icon));
     icon.addEventListener("mouseleave", () => hideTooltip(icon));
     icon.addEventListener("focus", () => showTooltip(icon));
     icon.addEventListener("blur", () => hideTooltip(icon));
+    icon.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (activeTooltipTarget === icon) {
+        hideTooltip(icon);
+      } else {
+        showTooltip(icon);
+      }
+    });
+    icon.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      if (activeTooltipTarget === icon) {
+        hideTooltip(icon);
+      } else {
+        showTooltip(icon);
+      }
+    });
   });
 
   window.addEventListener("resize", refreshTooltipPosition);
   document.addEventListener("scroll", refreshTooltipPosition, true);
+  document.addEventListener("pointerdown", (e) => {
+    const target = e.target;
+    if (!(target instanceof Element)) {
+      hideTooltip();
+      return;
+    }
+
+    if (target.closest(".tooltip-icon")) {
+      return;
+    }
+
+    const popup = document.getElementById("tooltip-popup");
+    if (popup && popup.contains(target)) {
+      return;
+    }
+
+    hideTooltip();
+  });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       hideTooltip();
@@ -554,12 +597,25 @@ function updateConfigSummary(config) {
     const summaryEl = document.getElementById("config-summary");
 
     // 正确解析模型：检查 config.models.providers
-    let models = {};
-    if (config.models && config.models.providers) {
-      models = config.models.providers;
+    const providers = config.models?.providers || {};
+    const primaryModel = config.agents?.defaults?.model?.primary || "";
+    const modelEntries = [];
+
+    for (const [providerName, provider] of Object.entries(providers)) {
+      const models = Array.isArray(provider?.models) ? provider.models : [];
+      const baseUrl = provider.baseUrl || provider.baseURL || "";
+      const urlHint = baseUrl ? ` - ${baseUrl.split("/")[2] || baseUrl}` : "";
+
+      for (const model of models) {
+        const modelId = model?.id || model?.name || model?.model;
+        if (!modelId) continue;
+        const modelKey = `${providerName}/${modelId}`;
+        const isPrimary = modelKey === primaryModel;
+        modelEntries.push({ modelKey, urlHint, isPrimary });
+      }
     }
 
-    const modelCount = Object.keys(models).length;
+    const modelCount = modelEntries.length;
     const channelCount = config.channels
       ? Object.keys(config.channels).length
       : 0;
@@ -581,12 +637,9 @@ function updateConfigSummary(config) {
     if (modelCount > 0) {
       html +=
         '<div style="margin-top: 15px;"><strong>已配置模型：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
-      for (const [name, model] of Object.entries(models)) {
-        const provider = name; // provider 名称就是 key
-        const hasKey = model.apiKey ? "已配置" : "未配置";
-        const baseUrl = model.baseURL || model.baseUrl || "";
-        const urlHint = baseUrl ? ` - ${baseUrl.split("/")[2] || baseUrl}` : "";
-        html += `<li><code>${provider}</code>${urlHint} ${hasKey}</li>`;
+      for (const entry of modelEntries) {
+        const activeTag = entry.isPrimary ? " 【已激活】" : "";
+        html += `<li><code>${entry.modelKey}</code>${entry.urlHint}${activeTag}</li>`;
       }
       html += "</ul></div>";
     } else {
@@ -1008,7 +1061,7 @@ async function loadModelsList() {
           const primaryClass = isPrimary ? " model-card-primary" : "";
 
           html += `
-          <div class="model-card${primaryClass}" data-model-key="${modelKey}" title="点击设为当前模型">
+          <div class="model-card${primaryClass}" data-model-key="${modelKey}">
           <div class="model-card-header">
             <h3 class="model-card-title">${modelKey}</h3>
           </div>
@@ -1020,7 +1073,7 @@ async function loadModelsList() {
                   ${
                     apiKey
                       ? `<code style="margin-left: 8px; font-size: 0.85em;">${maskedKey}</code>
-                  <button class="btn btn-secondary btn-sm copy-apikey-btn" style="margin-left: 4px; padding: 2px 6px; font-size: 0.85em;" data-apikey="${apiKey.replace(/"/g, "&quot;")}" title="复制 API Key">
+                  <button class="btn btn-secondary btn-sm copy-apikey-btn" style="margin-left: 4px; padding: 2px 6px; font-size: 0.85em;" data-apikey="${apiKey.replace(/"/g, "&quot;")}">
                     复制
                   </button>`
                       : ""
@@ -2268,7 +2321,6 @@ async function toggleEditorMode() {
     textareaContainer.style.display = "block";
     editorMode = "textarea";
     toggleBtn.textContent = "切换到高级编辑器";
-    toggleBtn.title = "切换到高级编辑器（语法高亮）";
   } else {
     // 从 textarea 切换到 Ace
     const content = textareaContainer.value;
@@ -2292,7 +2344,6 @@ async function toggleEditorMode() {
             aceContainer.style.display = "block";
             editorMode = "ace";
             toggleBtn.textContent = "切换到简单编辑器";
-            toggleBtn.title = "切换到简单编辑器";
           } else {
             showToast("高级编辑器初始化失败，继续使用简单编辑器", "error");
           }
@@ -2316,7 +2367,6 @@ async function toggleEditorMode() {
       aceContainer.style.display = "block";
       editorMode = "ace";
       toggleBtn.textContent = "切换到简单编辑器";
-      toggleBtn.title = "切换到简单编辑器";
     }
   }
 

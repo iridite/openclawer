@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 OC-Deploy is a fnOS (飞牛 NAS) FPK package that wraps OpenClaw AI Gateway with a web-based management console. The project provides a user-friendly interface for configuring and managing OpenClaw Gateway on fnOS systems.
 
-**Architecture**: User → fnOS App Center → Management Console (port 18790) → OpenClaw Gateway (port 18789)
+**Architecture**: User → fnOS App Center → Management Console (port 18790) → `/dashboard` proxy → OpenClaw Gateway (port 18789)
 
 ## Key Technologies
 
@@ -21,14 +21,14 @@ OC-Deploy is a fnOS (飞牛 NAS) FPK package that wraps OpenClaw AI Gateway with
 oc-deploy/
 ├── app/
 │   ├── server/
-│   │   ├── management-api.js      # RESTful API server (port 18790)
-│   │   └── iframe-proxy.js        # Proxy for iframe embedding
+│   │   └── management-api.js      # RESTful API server + dashboard proxy (port 18790)
 │   └── ui/
 │       ├── management.html        # Main management interface
-│       ├── index.cgi              # CGI gateway for fnOS routing
-│       └── assets/
-│           ├── management.js      # Frontend logic
-│           └── management.css     # Styles
+│       ├── assets/
+│       │   ├── management.js      # Frontend logic
+│       │   └── management.css     # Styles
+│       ├── config/                # UI config snippets
+│       └── images/                # UI assets
 ├── cmd/
 │   ├── main                       # Lifecycle script (start/stop/status)
 │   ├── install_callback           # Post-install initialization
@@ -66,7 +66,6 @@ node app/server/management-api.js
 ```bash
 # Ensure executable permissions
 chmod +x cmd/main cmd/install_callback cmd/install_init cmd/uninstall_init
-chmod +x app/ui/index.cgi
 chmod +x app/server/management-api.js
 
 # Package into FPK (from project root)
@@ -88,13 +87,11 @@ tar -czf oc-deploy_1.0.0_x86_64.fpk app/ cmd/ config/ manifest wizard/
 ### Request Flow
 
 1. **User Access**: User opens app from fnOS App Center
-2. **CGI Gateway**: `index.cgi` routes requests:
-   - `/api/*` → proxies to Management API (port 18790)
-   - Static files → serves from `app/ui/`
-3. **Management API**: Node.js server handles:
+2. **Management API**: Node.js server serves the UI and handles:
    - Gateway control (start/stop/restart)
    - Config management (read/write `openclaw.json`)
    - Status monitoring (process info, CPU, memory)
+3. **Dashboard Proxy**: `/dashboard/*` proxies to Gateway, injects token and WS bridge
 4. **OpenClaw Gateway**: Runs on port 18789 (managed by Management API)
 
 ### Process Management
@@ -105,7 +102,7 @@ tar -czf oc-deploy_1.0.0_x86_64.fpk app/ cmd/ config/ manifest wizard/
 ### Configuration Files
 
 - **OpenClaw Config**: `/root/.openclaw/openclaw.json` (managed by Management API)
-- **Initial Config Template**: Includes `reload: "hybrid"` mode by default
+- **Initial Config Template**: `/root/.openclaw/openclaw.json.initial` if present
 - **Environment Variables**:
   - `TRIM_PKGVAR`: `/var/apps/oc-deploy/var` (runtime data)
   - `TRIM_APPDEST`: `/var/apps/oc-deploy/target` (application files)
@@ -114,6 +111,9 @@ tar -czf oc-deploy_1.0.0_x86_64.fpk app/ cmd/ config/ manifest wizard/
   - `CONFIG_FILE`: `/root/.openclaw/openclaw.json` (used by Management API)
   - `NODE_BIN`: `/var/apps/nodejs_v22/target/bin/node`
   - `OC_BIN_PATH`: `/var/apps/oc-deploy/var/node_modules/.bin/openclaw`
+  - `OC_HOME`: `/root/.openclaw`
+  - `OC_JS_PATH`: `/var/apps/oc-deploy/var/node_modules/openclaw/dist/index.js`
+  - `INITIAL_CONFIG_FILE`: `/root/.openclaw/openclaw.json.initial`
 
 ## API Endpoints
 
@@ -121,6 +121,7 @@ tar -czf oc-deploy_1.0.0_x86_64.fpk app/ cmd/ config/ manifest wizard/
 GET  /api/status              # Gateway status (running/offline, PID, CPU, memory)
 GET  /api/config              # Get openclaw.json
 POST /api/config              # Save openclaw.json (auto-backup)
+POST /api/config/reset        # Restore initial/fallback config + restart
 POST /api/config/validate     # Validate JSON config
 POST /api/models/add          # Quick add model
 POST /api/models/delete       # Delete model by ID
@@ -130,9 +131,18 @@ POST /api/gateway/restart     # Restart gateway (stop + 2s delay + start)
 GET  /api/version/current     # Get OpenClaw version
 GET  /api/version/latest      # Get latest available version
 POST /api/version/update      # Update OpenClaw to latest version
+GET  /api/plugins/qqbot/status  # Check QQ plugin status
+POST /api/plugins/qqbot/install # Install QQ plugin
 GET  /api/console/url         # Get console URL with token
 GET  /api/logs?lines=100      # Get recent logs
 ```
+
+## Notable UI Behaviors
+
+- **Config Editor**: supports import/export/copy/reset and optional Ace editor (loaded from CDN).
+- **Model Keys**: use `provider/modelId`; primary model highlighted in UI.
+- **Channels**: type is the unique key (one config per type).
+- **QQ Plugin**: can be installed from UI; requires `openclaw-qqbot` to be allowed in `plugins.allow`.
 
 ### Status API Response Structure
 
@@ -179,6 +189,7 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 - **API calls**: Use `apiRequest()` helper function
 - **Toast notifications**: Use `showToast(message, type)` for user feedback
 - **Tooltips**: Use `class="tooltip-icon" data-tooltip="..."` for help text
+- **Config Editor**: Supports textarea + Ace editor (Ace is loaded from CDN; no build tools)
 
 ### Backend Code
 
@@ -199,6 +210,21 @@ if (element) {
   element.value = "...";
 }
 ```
+
+### Config Validation
+
+- `/api/config/validate` returns `valid=false` with warnings; UI should warn but still allow saving.
+
+### Model Rules
+
+- **Model ID**: `^[a-zA-Z0-9.-]+$` (letters, numbers, hyphen, dot)
+- **Provider Name**: `^[a-z]+$` (lowercase letters only)
+- **Primary Model**: stored at `agents.defaults.model.primary` and highlighted in UI
+
+### Channel Rules
+
+- Each channel type is a unique key under `channels` (no extra channel name).
+- Telegram/Feishu/QQ default to `open`-style policies for easier onboarding.
 
 ### Gateway Status Check
 
@@ -232,13 +258,9 @@ fnOS provides these variables to lifecycle scripts:
 - `TRIM_APPDEST`: Application destination directory
 - `TRIM_TEMP_LOGFILE`: Temporary log file for error reporting
 
-### CGI Gateway
+### Dashboard Proxy
 
-The `index.cgi` script is the entry point for all web requests. It:
-- Routes `/api/*` to Management API via curl
-- Serves static files from `app/ui/`
-- Prevents directory traversal attacks
-- Sets appropriate MIME types
+The Management API proxies `/dashboard/*` to the Gateway and injects token/bootstrap config. It also bridges WebSocket traffic for the native dashboard.
 
 ## Troubleshooting
 
@@ -256,6 +278,17 @@ Check OpenClaw installation:
 ```bash
 ls -la /var/apps/oc-deploy/var/node_modules/.bin/openclaw
 node /var/apps/oc-deploy/var/node_modules/.bin/openclaw --version
+```
+
+### QQ Plugin Install Fails
+
+If you see `plugins.allow is empty`, add `openclaw-qqbot` to `openclaw.json`:
+```json
+{
+  "plugins": {
+    "allow": ["openclaw-qqbot"]
+  }
+}
 ```
 
 ### Config Not Saving
@@ -283,4 +316,4 @@ See `TODO.md` for active development tasks. Key areas:
 ## Version Information
 
 Current version: 1.0.0 (see `manifest` file)
-README version: 0.2.2 (documentation may be ahead of manifest)
+README version: 1.0.0

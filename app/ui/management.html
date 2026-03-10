@@ -14,7 +14,8 @@
                 <div class="header-info">
                     <h1>OC-Deploy 管理面板</h1>
                     <p class="subtitle">
-                        用于管理 OpenClaw Gateway（区别于原生 dashboard）
+                        在这里管理 OpenClaw
+                        Gateway；原生控制面板请用“进入原生控制面板（dashboard）”。
                     </p>
                 </div>
                 <div class="header-status">
@@ -170,9 +171,9 @@
                                             color: #666;
                                         "
                                     >
-                                        使用说明：当前仅一个模型作为主模型生效（高亮显示）。
+                                        使用说明：当前仅一个模型作为主模型生效（边框高亮）。
                                         新增模型不会自动切换，点击模型卡片可设置为主模型。
-                                        编辑或删除请使用卡片右侧的按钮。
+                                        编辑或删除请使用卡片底部的按钮。
                                     </p>
                                     <div id="models-list" class="models-grid">
                                         <p class="loading">加载中...</p>
@@ -219,6 +220,13 @@
                                             id="edit-model-key"
                                             value=""
                                         />
+                                        <div class="form-hint warning">
+                                            重要：模型 ID
+                                            创建后不可修改。编辑时若修改供应商，模型会迁移到新供应商分组（<code
+                                                >provider/modelId</code
+                                            >
+                                            会随之变化）。
+                                        </div>
 
                                         <div class="form-row">
                                             <div class="form-group">
@@ -229,7 +237,7 @@
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="模型的唯一名称，只能包含字母、数字、连字符(-)和点号(.)，不能有空格或其他特殊字符。例如：gpt-4、glm4.7、claude-3-opus。"
+                                                        data-tooltip="模型 ID 是唯一标识，用于路由与主模型选择。仅允许字母、数字、连字符(-)、点号(.)；不允许空格。示例：gpt-4o、claude-3-7-sonnet。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -239,7 +247,6 @@
                                                     name="modelId"
                                                     placeholder="例如: gpt-4, claude-3-opus"
                                                     pattern="[a-zA-Z0-9.-]+"
-                                                    title="只能包含字母、数字、连字符(-)和点号(.)"
                                                     required
                                                 />
                                             </div>
@@ -252,7 +259,7 @@
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="AI 模型的提供商名称只能包含小写英文字符（a-z）。常见的有：openai（ChatGPT）、anthropic（Claude）、google（Gemini）等。"
+                                                        data-tooltip="供应商用于分组模型并组成模型键（provider/modelId）。仅允许小写英文 a-z。示例：openai、anthropic、zhipu。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -263,7 +270,6 @@
                                                     list="provider-suggestions"
                                                     placeholder="选择或输入供应商"
                                                     pattern="[a-z]+"
-                                                    title="只能包含小写英文字符（a-z）"
                                                     required
                                                 />
                                                 <datalist
@@ -294,7 +300,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="API 服务器的网址。官方地址如：https://api.openai.com（OpenAI）、https://api.anthropic.com（Anthropic）。如果使用第三方代理或自建服务器，请填写对应的完整网址。"
+                                                    data-tooltip="填写该供应商 API 根地址。OpenAI 常用 https://api.openai.com/v1，Anthropic 常用 https://api.anthropic.com。使用代理或网关时请填写其完整地址。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -306,9 +312,8 @@
                                                 required
                                             />
                                             <div class="form-hint warning">
-                                                请务必确认 Base URL
-                                                正确！错误的 URL
-                                                可能导致请求失败。
+                                                请务必确认 Base URL 正确！错误的
+                                                URL 可能导致请求失败。
                                             </div>
                                         </div>
 
@@ -318,7 +323,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="从 AI 服务提供商获取的密钥，用于身份验证和计费。格式通常是 sk- 开头的长字符串。请妥善保管，不要泄露给他人。添加后会自动隐藏显示。"
+                                                    data-tooltip="API Key 用于鉴权与计费。建议使用最小权限密钥并定期轮换；保存后界面会脱敏显示。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -337,7 +342,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="选择 API 的通信协议。OpenAI 协议：适用于 ChatGPT 和兼容 OpenAI 格式的服务；Anthropic 协议：适用于 Claude 模型。大多数第三方服务使用 OpenAI 协议。"
+                                                    data-tooltip="协议决定请求格式。大多数兼容服务选择 OpenAI；Claude 官方接口选择 Anthropic；其余按服务文档选择。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -345,7 +350,11 @@
                                                 id="api-protocol"
                                                 name="apiProtocol"
                                                 required
-                                                onchange="updateApiTypeOptions(this.value)"
+                                                onchange="
+                                                    updateApiTypeOptions(
+                                                        this.value,
+                                                    )
+                                                "
                                             >
                                                 <option value="openai">
                                                     OpenAI 协议
@@ -374,7 +383,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="选择具体的 API 实现方式。Chat：对话式 API（最常用，适合聊天场景）；Completion：文本补全 API（适合生成文本）；Embedding：文本向量化 API（适合语义搜索）。一般选择 Chat 即可。"
+                                                    data-tooltip="API 类型决定具体端点实现。通常使用 Chat/Completions；仅在服务明确要求时改为其他类型。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -383,7 +392,9 @@
                                                 name="apiType"
                                                 required
                                             >
-                                                <option value="openai-completions">
+                                                <option
+                                                    value="openai-completions"
+                                                >
                                                     OpenAI Completions
                                                 </option>
                                             </select>
@@ -410,7 +421,7 @@
                                                             上下文窗口
                                                             <span
                                                                 class="tooltip-icon"
-                                                                data-tooltip="模型能够"记住"的最大对话长度，以 token 为单位（约等于 0.75 个汉字或 1 个英文单词）。例如：4096 表示约 3000 字的上下文。数值越大，模型能记住的对话历史越长，但成本也越高。"
+                                                                data-tooltip="上下文窗口是模型可读取的历史上限（token）。值越大可保留更多历史，但成本和延迟通常更高。"
                                                                 >ⓘ</span
                                                             >
                                                         </label>
@@ -428,7 +439,7 @@
                                                             最大 Tokens
                                                             <span
                                                                 class="tooltip-icon"
-                                                                data-tooltip="模型单次回复的最大长度限制，以 token 为单位。例如：2048 表示约 1500 字的回复长度。设置过小可能导致回复被截断，设置过大会增加响应时间和成本。建议根据实际需求调整。"
+                                                                data-tooltip="最大 Tokens 是单次回复的输出上限。过小会截断回答，过大可能增加延迟和费用。"
                                                                 >ⓘ</span
                                                             >
                                                         </label>
@@ -456,7 +467,7 @@
                                                         >
                                                         <span
                                                             class="tooltip-icon"
-                                                            data-tooltip="推理模式（Reasoning）是一种特殊的思考模式，模型会在回答前进行深度思考和推理。适用于需要复杂逻辑分析的场景，如数学题、编程问题等。目前仅部分高级模型支持此功能。"
+                                                            data-tooltip="启用后模型会进行更深推理，仅对支持该能力的模型生效。若开启后响应变慢属正常现象。"
                                                             >ⓘ</span
                                                         >
                                                     </label>
@@ -467,7 +478,7 @@
                                                         输入类型
                                                         <span
                                                             class="tooltip-icon"
-                                                            data-tooltip="模型能够处理的输入内容类型。Text：纯文本；Multimodal：多模态（文本+图片+音频等）。如果模型支持图片识别、语音输入等功能，请选择 Multimodal。大多数基础模型只支持 Text。"
+                                                            data-tooltip="声明模型支持的输入类型。至少勾选“文本”；仅在模型确实支持图像时再启用“图像”。"
                                                             >ⓘ</span
                                                         >
                                                     </label>
@@ -534,10 +545,17 @@
                                     </div>
                                     <div class="form-hint warning">
                                         说明：每种渠道类型仅支持配置一条记录，系统会使用类型作为唯一标识。
-                                        Telegram/飞书/QQ 已按官方结构给出推荐默认值（如 dmPolicy / groups / allowFrom）。
+                                        Telegram/飞书/QQ
+                                        已按官方结构给出推荐默认值（如 dmPolicy
+                                        / groups / allowFrom）。
                                         未在表单中内置的渠道类型，可在下方配置编辑器中按官方文档补充配置。
                                         此处提供的是最简化的可配置项，并不完整。可参考
-                                        <a href="https://docs.openclaw.ai/zh-CN/channels" target="_blank" rel="noreferrer">官方文档</a>
+                                        <a
+                                            href="https://docs.openclaw.ai/zh-CN/channels"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            >官方文档</a
+                                        >
                                         在下方配置编辑器中自行补充。
                                     </div>
                                     <div
@@ -575,6 +593,9 @@
                                             id="edit-channel-key"
                                             value=""
                                         />
+                                        <div class="form-hint warning">
+                                            重要：先选择渠道类型再填写字段。每种类型只保留一条配置，保存时会覆盖该类型现有配置。
+                                        </div>
 
                                         <div class="form-group">
                                             <label>
@@ -582,7 +603,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="选择要使用的消息平台。每种类型仅支持配置一条记录，系统会自动使用类型作为唯一标识。"
+                                                    data-tooltip="选择消息平台类型。系统以类型作为唯一键（如 telegram、feishu、qqbot），同类型仅保留一条配置。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -615,7 +636,7 @@
                                                 <span class="required">*</span>
                                                 <span
                                                     class="tooltip-icon"
-                                                    data-tooltip="Telegram 机器人的访问令牌，从 @BotFather 创建机器人时获得。格式类似：123456789:ABCdefGHIjklMNOpqrsTUVwxyz。这是机器人的身份凭证，请妥善保管。"
+                                                    data-tooltip="从 @BotFather 获取的 Telegram Bot Token。请粘贴完整值并避免前后空格。"
                                                     >ⓘ</span
                                                 >
                                             </label>
@@ -634,7 +655,8 @@
                                             style="display: none"
                                         >
                                             <div class="form-hint warning">
-                                                提示：首次使用建议选择 open（开放）或更宽松的策略，
+                                                提示：首次使用建议选择
+                                                open（开放）或更宽松的策略，
                                                 降低调试成本；需要收紧权限时再逐步调整。
                                             </div>
                                             <div class="form-group">
@@ -642,7 +664,7 @@
                                                     私信策略
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="控制谁可以给机器人发私信。open：任何人都可以发私信（推荐新手使用）；pairing：需要先输入配对码才能使用；allowlist：只有白名单中的用户可以发私信；disabled：完全禁用私信功能。"
+                                                        data-tooltip="控制谁可私聊机器人。建议先用 open 完成联调，再按需切换为 pairing 或 allowlist。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -650,11 +672,16 @@
                                                     id="telegram-dm-policy"
                                                     name="dmPolicy"
                                                 >
-                                                    <option value="open" selected>
-                                                        Open（开放 - 允许所有私信）
+                                                    <option
+                                                        value="open"
+                                                        selected
+                                                    >
+                                                        Open（开放 -
+                                                        允许所有私信）
                                                     </option>
                                                     <option value="pairing">
-                                                        Pairing（配对模式 - 需要配对码）
+                                                        Pairing（配对模式 -
+                                                        需要配对码）
                                                     </option>
                                                     <option value="allowlist">
                                                         Allowlist（仅允许列表）
@@ -670,7 +697,7 @@
                                                     群组策略
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="控制机器人在群组中的行为。allowlist：只在白名单中的群组响应（推荐，更安全）；open：在所有群组中都响应；disabled：完全禁用群组功能，只能私聊使用。"
+                                                        data-tooltip="控制群组可用范围。open=所有群组，allowlist=仅允许列表，disabled=禁用群组。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -688,6 +715,12 @@
                                                         Disabled（禁用）
                                                     </option>
                                                 </select>
+                                                <div class="form-hint warning">
+                                                    仅当策略为
+                                                    <code>allowlist</code>
+                                                    时，下方“私信允许列表 /
+                                                    群组发送者允许列表”才会生效。
+                                                </div>
                                             </div>
 
                                             <div class="form-group">
@@ -695,7 +728,7 @@
                                                     私信允许列表
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="允许给机器人发私信的用户 ID 列表，多个 ID 用英文逗号分隔。例如：123456789, 987654321。用户 ID 可以通过 @userinfobot 等机器人获取。仅在 DM Policy 设置为 allowlist 时生效。"
+                                                        data-tooltip="私信白名单用户 ID，多个值用英文逗号分隔；仅在私信策略为 allowlist 时生效。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -712,7 +745,7 @@
                                                     群组发送者允许列表
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="允许在群组中使用机器人的用户 ID 列表，多个 ID 用英文逗号分隔。只有这些用户在群组中 @ 机器人时才会得到响应。仅在 Group Policy 设置为 allowlist 时生效。"
+                                                        data-tooltip="群组白名单用户 ID，多个值用英文逗号分隔；仅在群组策略为 allowlist 时生效。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -733,10 +766,12 @@
                                             <div class="form-group">
                                                 <label>
                                                     Bot Token
-                                                    <span class="required">*</span>
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="Discord 机器人的访问令牌，从 Discord Developer Portal 创建应用并添加 Bot 后获得。格式是一串长字符串。这是机器人登录 Discord 的凭证，请妥善保管，不要泄露。"
+                                                        data-tooltip="在 Discord Developer Portal 的 Bot 页面获取 Token。保存后建议立刻在仪表盘验证连接。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -755,7 +790,8 @@
                                             style="display: none"
                                         >
                                             <div class="form-hint warning">
-                                                提示：首次使用建议保持 allowFrom 为 `*`（开放），
+                                                提示：首次使用建议保持 allowFrom
+                                                为 <code>*</code>（开放），
                                                 需要收紧权限时再改为具体账号。
                                             </div>
                                             <div class="form-group">
@@ -764,7 +800,9 @@
                                                     type="button"
                                                     id="qqbot-plugin-btn"
                                                     class="btn btn-secondary btn-sm plugin-status-btn"
-                                                    onclick="installQqbotPlugin()"
+                                                    onclick="
+                                                        installQqbotPlugin()
+                                                    "
                                                 >
                                                     QQ 插件：检测中...
                                                 </button>
@@ -817,7 +855,8 @@
                                             style="display: none"
                                         >
                                             <div class="form-hint warning">
-                                                提示：首次使用建议私信策略选择 open（开放）。
+                                                提示：首次使用建议私信策略选择
+                                                open（开放）。
                                             </div>
                                             <div class="form-group">
                                                 <label>
@@ -827,7 +866,7 @@
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="飞书应用的唯一标识符，格式通常是 cli_ 开头的字符串（如 cli_a1b2c3d4e5f6）。在飞书开放平台创建应用后，可以在"凭证与基础信息"页面找到 App ID。"
+                                                        data-tooltip="飞书应用 App ID（通常以 cli_ 开头），可在开发者后台“凭证与基础信息”页面获取。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -847,7 +886,7 @@
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="飞书应用的密钥，用于验证应用身份和调用 API。在飞书开放平台的"凭证与基础信息"页面可以找到 App Secret。这是敏感信息，请妥善保管，不要泄露。"
+                                                        data-tooltip="飞书应用 App Secret（敏感凭据），可在“凭证与基础信息”页面获取，建议定期轮换。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -864,7 +903,7 @@
                                                     机器人名称
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="机器人在飞书中显示的名称，用户看到的就是这个名字。可以自定义，例如：AI助手、小智等。这是可选项，不填写则使用应用默认名称。"
+                                                        data-tooltip="机器人在飞书中的显示名称。可选，留空时使用飞书应用默认名称。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -881,7 +920,7 @@
                                                     Verification Token
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="飞书应用的验证令牌，用于验证飞书服务器发来的回调请求是否合法。在飞书开放平台的"事件订阅"页面可以找到 Verification Token。这是可选项，建议填写以提高安全性。"
+                                                        data-tooltip="用于校验飞书事件回调来源，可在开发者后台“事件订阅”页面获取。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -898,7 +937,7 @@
                                                     私信策略
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="控制谁可以给机器人发私信。open：任何人都可以发私信（推荐新手使用）；pairing：需要先输入配对码才能使用；allowlist：只有白名单中的用户可以发私信；disabled：完全禁用私信功能。"
+                                                        data-tooltip="控制谁可私聊飞书机器人。建议先用 open 验证可用性，再根据需要收紧。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -906,11 +945,16 @@
                                                     id="feishu-dm-policy"
                                                     name="dmPolicy"
                                                 >
-                                                    <option value="open" selected>
-                                                        Open（开放 - 允许所有私信）
+                                                    <option
+                                                        value="open"
+                                                        selected
+                                                    >
+                                                        Open（开放 -
+                                                        允许所有私信）
                                                     </option>
                                                     <option value="pairing">
-                                                        Pairing（配对模式 - 需要配对码）
+                                                        Pairing（配对模式 -
+                                                        需要配对码）
                                                     </option>
                                                     <option value="allowlist">
                                                         Allowlist（仅允许列表）
@@ -965,7 +1009,6 @@
                                         class="btn btn-secondary btn-sm"
                                         onclick="toggleEditorMode()"
                                         id="toggle-editor-btn"
-                                        title="切换到高级编辑器（语法高亮）"
                                         style="font-size: 0.85em"
                                     >
                                         切换到高级编辑器
@@ -1018,7 +1061,8 @@
                                     <h3>导入 openclaw.json</h3>
                                     <p>
                                         支持直接粘贴 JSON，或上传 `.json` 文件。
-                                        仅在 JSON 语法合法时才会应用，并自动重启 Gateway。
+                                        仅在 JSON 语法合法时才会应用，并自动重启
+                                        Gateway。
                                     </p>
                                 </div>
                                 <div class="import-panel-field">
@@ -1063,7 +1107,10 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="editor-container" style="position: relative;">
+                            <div
+                                class="editor-container"
+                                style="position: relative"
+                            >
                                 <!-- Ace Editor 容器（默认隐藏） -->
                                 <div
                                     id="config-editor-ace"
@@ -1106,7 +1153,9 @@
                                         gap: 10px;
                                     "
                                 >
-                                    <div style="font-size: 14px; color: #666;">正在加载高级编辑器...</div>
+                                    <div style="font-size: 14px; color: #666">
+                                        正在加载高级编辑器...
+                                    </div>
                                 </div>
                             </div>
                             <div class="editor-footer">
@@ -1116,7 +1165,8 @@
                                 ></div>
                                 <div class="editor-tips">
                                     <p>
-                                        提示：修改配置后需要重启 Gateway 才能生效
+                                        提示：修改配置后需要重启 Gateway
+                                        才能生效
                                     </p>
                                 </div>
                             </div>
@@ -1268,13 +1318,17 @@
                         <div class="card">
                             <h2>OpenClaw 原生控制面板（dashboard）</h2>
                             <p>
-                                您当前所在的是 OC-Deploy 管理面板。点击下方按钮将跳转到
-                                OpenClaw 原生控制面板（dashboard），可在其中管理 AI
+                                您当前所在的是 OC-Deploy
+                                管理面板。点击下方按钮将跳转到 OpenClaw
+                                原生控制面板（dashboard），可在其中管理 AI
                                 智能体、查看会话记录等。使用浏览器后退即可返回
                                 OC-Deploy 管理面板。
                             </p>
 
-                            <div class="action-buttons" style="margin-bottom: 15px;">
+                            <div
+                                class="action-buttons"
+                                style="margin-bottom: 15px"
+                            >
                                 <button
                                     class="btn btn-primary"
                                     onclick="openConsole()"
