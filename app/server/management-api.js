@@ -14,6 +14,7 @@ const { readJSON, writeJSON, readText, readBody, execCommand } = require("./core
 const { createBackupService } = require("./services/backup");
 const { createPluginService } = require("./services/plugins");
 const { createDashboardProxyService } = require("./http/dashboard-proxy");
+const { createGatewayService } = require("./services/gateway");
 
 console.log(`[Manager] PM2_HOME 已固化为: ${process.env.PM2_HOME}`);
 
@@ -62,53 +63,30 @@ function getTokenFromConfig() {
   }
 }
 
-// API: 启动 Gateway
-async function startGateway() {
-  // 核心：启动前先尝试杀掉所有可能存在的旧进程，防止多开
-  try {
-    await execCommand('pkill -9 -f "openclaw.*gateway"');
-  } catch (e) {}
-  // 组装纯净的 nohup 后台启动命令
-  const startCmd = `nohup env HOME="/root" OPENCLAW_CONFIG_PATH="${CONFIG_FILE}" ${NODE_BIN} ${OC_JS_PATH} gateway --port ${GATEWAY_PORT} > ${LOG_FILE} 2>&1 &`;
-
-  try {
-    await execCommand(startCmd);
-    return { success: true, method: "nohup-start" };
-  } catch (err) {
-    throw new Error("启动失败: " + (err.stderr || err.message));
-  }
-}
-
-// API: 停止 Gateway
-async function stopGateway() {
-  // 匹配所有 openclaw gateway 相关的进程并强杀
-  const stopCmd = `pkill -9 -f "openclaw.*gateway"`;
-  try {
-    await execCommand(stopCmd);
-    return { success: true, method: "pkill-stop" };
-  } catch (err) {
-    // pkill 返回 1 说明没找到进程，结果等同于已经停止
-    return { success: true, note: "Process was already stopped" };
-  }
-}
-
-// API: 重启 Gateway
-async function restartGateway() {
-  try {
-    // 1. 先尝试停止
-    await stopGateway();
-
-    // 2. 等待一小会儿，确保端口被操作系统释放 (非常重要！)
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // 3. 再次启动
-    await startGateway();
-
-    return { success: true, method: "nohup-restart" };
-  } catch (err) {
-    throw new Error("重启流程失败: " + err.message);
-  }
-}
+const gatewayService = createGatewayService({
+  CONFIG_FILE,
+  GATEWAY_PORT,
+  LOG_FILE,
+  NODE_BIN,
+  OC_JS_PATH,
+  OC_PKG_JSON_PATH,
+  GATEWAY_PID_FILE,
+  readJSON,
+  execCommand,
+  isProcessRunning,
+  getTokenFromConfig,
+});
+const {
+  startGateway,
+  stopGateway,
+  restartGateway,
+  getStatus,
+  getCurrentVersion,
+  getLatestVersion,
+  updateVersion,
+  getConsoleUrl,
+  getLogs,
+} = gatewayService;
 
 const backupService = createBackupService({
   OC_HOME,
@@ -149,101 +127,6 @@ const dashboardProxy = createDashboardProxyService({
   readJSON,
 });
 const { handleDashboardHttp, handleDashboardUpgrade } = dashboardProxy;
-
-// API: 获取系统状态 (包含进程探测与状态打包)
-async function getStatus() {
-  // 1. 初始化基础状态对象 (保持原有输出结构完全一致)
-  const status = {
-    gateway: "unknown",
-    gatewayPid: null,
-    proxy: "running",
-    proxyPid: process.pid,
-    system: {
-      cpuUsage: 0,
-      memoryMB: 0,
-      memoryPercent: 0,
-      totalMemoryMB: 0,
-    },
-    version: "unknown",
-    configExists: fs.existsSync(CONFIG_FILE),
-    token: getTokenFromConfig(),
-    uptime: null,
-  };
-
-  // 2. 获取 OpenClaw 版本信息
-  try {
-    const packageJson = readJSON(OC_PKG_JSON_PATH);
-    if (packageJson && packageJson.version) {
-      status.version = packageJson.version;
-    }
-  } catch (err) {
-    // 忽略文件读取错误，保留 "unknown"
-  }
-
-  // 3. 检测进程状态并填充系统资源信息
-  try {
-    // 通过进程特征查找 PID (与 pkill 的逻辑保持完全一致)
-    // pgrep -f 会匹配整个命令行，head -n 1 确保即使有多个相关进程也只取主进程
-    const pgrepOut = await execCommand(
-      `pgrep -f "openclaw.*gateway" | head -n 1`,
-    );
-
-    const pid = pgrepOut.trim();
-
-    // 判断进程是否存在
-    if (!pid || isNaN(pid)) {
-      status.gateway = "offline";
-    } else {
-      // 确认运行中，更新核心状态
-      status.gateway = "running";
-      status.gatewayPid = parseInt(pid);
-
-      // 获取进程详情 (CPU, 内存, 启动时间)
-      // %cpu: CPU 占用率 | rss: 物理内存占用 (KB) | lstart: 启动时间
-      const psOut = await execCommand(
-        `ps -p ${pid} -o %cpu,rss,lstart --no-headers`,
-      );
-
-      const stats = psOut.trim().split(/\s+/);
-
-      // 写入 CPU 数据
-      status.system.cpuUsage = parseFloat(stats[0]) || 0;
-
-      // 计算并写入内存数据 (stats[1] 是 RSS，单位 KB，转换为 MB)
-      const memoryKB = parseInt(stats[1]) || 0;
-      status.system.memoryMB = memoryKB / 1024;
-
-      // 获取系统总内存 (从 /proc/meminfo 读取 MemTotal)
-      try {
-        const meminfoOut = await execCommand(
-          `grep MemTotal /proc/meminfo | awk '{print $2}'`,
-        );
-        const totalMemoryKB = parseInt(meminfoOut.trim()) || 0;
-        status.system.totalMemoryMB = totalMemoryKB / 1024;
-
-        // 计算内存使用百分比
-        if (status.system.totalMemoryMB > 0) {
-          status.system.memoryPercent =
-            (status.system.memoryMB / status.system.totalMemoryMB) * 100;
-        }
-      } catch (err) {
-        // 如果获取总内存失败，保持默认值 0
-      }
-
-      // 解析启动时间并计算 uptime (毫秒)
-      const startTimeStr = stats.slice(2).join(" ");
-      const startTimeMs = new Date(startTimeStr).getTime();
-      status.uptime = Date.now() - startTimeMs;
-    }
-  } catch (err) {
-    // 发生错误（例如 pgrep 没搜到进程抛出 exit code 1）
-    // 直接判定为离线状态，其余数据保留默认的 0/null
-    status.gateway = "offline";
-  }
-
-  // 4. 返回组装好的状态对象给前端
-  return status;
-}
 
 // API: 获取配置
 async function getConfig() {
@@ -847,82 +730,6 @@ async function validateConfig(config) {
     valid: errors.length === 0,
     errors,
   };
-}
-
-// API: 获取当前版本
-async function getCurrentVersion() {
-  const packageJson = readJSON(OC_PKG_JSON_PATH);
-  return {
-    version: packageJson ? packageJson.version : "unknown",
-  };
-}
-
-// API: 获取最新版本
-async function getLatestVersion() {
-  try {
-    console.log("[management-api] 检查最新版本...");
-    await execCommand("npm config set registry https://registry.npmmirror.com");
-
-    const output = await execCommand("npm view openclaw version", {
-      timeout: 10000,
-    });
-
-    const latestVersion = output.trim();
-    const currentVersion = (await getCurrentVersion()).version;
-
-    console.log(
-      "[management-api] 版本对比 - 当前:",
-      currentVersion,
-      "最新:",
-      latestVersion,
-    );
-
-    return {
-      version: latestVersion,
-      current: currentVersion,
-      available: latestVersion !== currentVersion,
-    };
-  } catch (err) {
-    console.error("[management-api] 检查更新失败:", err);
-    throw new Error(err.stderr || err.message || "无法连接到 npm registry");
-  }
-}
-
-// API: 更新版本
-async function updateVersion() {
-  // TODO：应该是通过 npm 的内置升级功能进行升级
-  return {
-    success: false,
-    message: "还没做",
-  };
-}
-
-// API: 获取控制台 URL (走管理端代理，自动携带 token)
-async function getConsoleUrl(req) {
-  const token = getTokenFromConfig();
-
-  // 优先使用当前访问的 host/协议，确保走管理端代理 (/dashboard)
-  const host = req.headers.host || "127.0.0.1:18790";
-  const proto =
-    req.headers["x-forwarded-proto"] ||
-    (req.socket && req.socket.encrypted ? "https" : "http");
-
-  let url = `${proto}://${host}/dashboard/`;
-  if (token) {
-    url += `?token=${encodeURIComponent(token)}`;
-  }
-
-  return { url, token };
-}
-
-// API: 获取日志
-async function getLogs(lines = 100) {
-  try {
-    const output = await execCommand(`tail -n ${lines} ${LOG_FILE}`);
-    return { logs: output };
-  } catch (err) {
-    return { logs: "" };
-  }
 }
 
 // 工具函数：获取 MIME 类型
