@@ -1,106 +1,101 @@
 # OC-Deploy for fnOS
 
-一个为飞牛 NAS 设计的 OpenClaw AI Gateway 应用，提供完整的 Web 管理界面。
+一个用于飞牛 NAS 的 OpenClaw Gateway 管理面板，提供部署、配置、运行状态和渠道管理能力。
 
-## 📋 项目简介
+## 项目简介
 
-OpenClaw 是一个强大的 AI Agent Gateway，支持多种 AI 模型和消息渠道。本项目将 OpenClaw 打包为 fnOS FPK 格式，并提供完整的 Web 管理控制台，让用户可以在飞牛 NAS 上轻松部署和管理 OpenClaw Gateway。
+OC-Deploy 将 OpenClaw Gateway 封装为 fnOS FPK 应用，并提供 Web 管理界面。
 
-## ✨ 核心特性
+架构：
 
-### 🎯 Web 管理控制台
-- **📊 仪表板**：实时监控 Gateway 运行状态（PID、CPU、内存）、版本信息、配置摘要
-- **⚙️ 模型管理**：卡片式展示已配置模型，支持快速添加、编辑、删除；主模型边框高亮
-- **📝 配置编辑器**：可视化编辑 `openclaw.json`，支持导入/导出/复制/恢复原始配置（高级编辑器从 CDN 加载 Ace）
-- **🎮 原生控制面板**：一键进入 OpenClaw 原生控制面板（dashboard），自动注入访问令牌
-- **📋 日志路径**：显示各类日志文件位置，方便故障排查
+`用户 -> fnOS App Center -> Management Console (18790) -> /dashboard 代理 -> OpenClaw Gateway (18789)`
 
-### 🔧 配置管理
-- ✅ 快速添加模型（支持 OpenAI、Anthropic、Google、Bedrock、Ollama 等协议）
-- ✅ 卡片式模型管理（编辑、删除、查看详情）
-- ✅ 支持自定义服务器（Custom baseURL）
-- ✅ 消息渠道配置（Telegram、Discord、飞书、QQ）
-- ✅ JSON 语法校验与配置校验（校验异常会提示但不阻断保存）
-- ✅ 自动配置备份 + 一键恢复原始配置（自动重启 Gateway）
-- ✅ 预配置 Hybrid Reload 模式
+职责分工：
 
-### 📊 状态监控
-- ✅ Gateway 运行状态监控（PID、CPU、内存使用情况）
-- ✅ 快速操作（启动/停止/重启 Gateway）
-- ✅ 版本信息查看
-- ✅ 实时配置摘要更新（显示主模型标记）
+- OC-Deploy：网关启停、配置管理、模型/渠道配置、插件安装
+- 原生 dashboard：智能体、会话和运行时使用
 
-## 🚀 快速开始
+## 核心能力
+
+### 管理面板
+
+- 仪表板：Gateway 状态、PID、CPU、内存、配置摘要
+- 模型管理：快速添加、编辑、删除，主模型边框高亮
+- 渠道管理：Telegram / Discord / 飞书 / QQ
+- 配置编辑器：导入 / 导出 / 复制 / 恢复原始配置
+- 原生控制面板入口：自动拼接 token，走 `/dashboard` 代理
+- 日志路径展示：便于排障
+
+### 配置体验
+
+- 模型与渠道表单均分为“推荐配置 / 高级配置”
+- 渠道配置引导卡片集中展示关键字段与最小示例
+- JSON 校验异常会提示，但不强制阻断保存
+- 一键恢复原始配置后自动重启 Gateway
+- QQ 渠道支持插件状态检测与一键安装
+
+### 关键规则
+
+- 模型 ID 支持：字母、数字、`-`、`.`、`/`、`:`
+- 供应商名称仅支持小写英文：`a-z`
+- 渠道以类型作为 key（同类型仅保留一条）
+
+## 快速开始
 
 ### 安装
 
-1. 在当前网页的左侧（桌面端）下面（移动端）找到 [Release](https://github.com/iridite/oc-deploy/releases) 页面
-2. 下载最新 Release 的 zip 包 （或者直接在这里下载：https://share.fnnas.net/s/e807108f1701416a80 ）
-3. 然后在飞牛应用中心上传并安装
-4. 等待安装完成（约 2-3 分钟，进度条在 40% 和 55% 时正在在线安装 npm 依赖，请耐心等待。可能会由于网络问题出现安装失败的情况，请重试）
-5. 点击"启动"按钮
-6. 点击"打开"按钮，进入管理控制台
+1. 访问 Releases：`https://github.com/iridite/openclawer/releases`
+2. 下载最新发布包并上传到 fnOS 应用中心安装
+3. 安装完成后点击“启动”
+4. 点击“打开”进入管理控制台
+
+安装提示：
+
+- 40% / 55% 卡住通常是在线安装 npm 依赖
+- 安装时长依赖网络环境
+- 安装向导包含用户条款摘要，继续安装视为同意
 
 ### 首次配置
 
-1. **进入模型管理**：点击“模型”标签
-2. **快速添加模型**：
-   - 在“快速添加模型”区域选择常用模型卡片
-   - 或点击“添加新模型”填写模型 ID、供应商、API Key 与 Base URL
-3. **或手动编辑配置**：
-   - 切换到“配置”标签
-   - 编辑 JSON 配置后点击“保存配置”
-4. **启动 Gateway**：返回“概览”，点击“启动 Gateway”
-5. **开始使用**：点击“进入原生控制面板（dashboard）”进入 OpenClaw 控制台
+1. 在“模型”页添加模型（推荐区先填最小必需项）
+2. 在“渠道”页添加消息渠道（可参考页面内置示例）
+3. 在“概览”页启动 Gateway
+4. 需要智能体/会话管理时进入原生控制面板（dashboard）
 
-## 🏗️ 架构设计
+## 项目结构
 
-```
-用户 → fnOS App Center → Management Console (18790) → /dashboard 代理 → OpenClaw Gateway (18789)
-```
-
-### 端口分配
-- **18790**：Management Console（用户访问入口）
-- **18789**：OpenClaw Gateway（AI 服务）
-
-### 核心组件
-- **Management API**：提供 RESTful API（Node.js）
-- **Web UI**：管理界面（HTML + CSS + Vanilla JS）
-- **Dashboard Proxy**：`/dashboard` 反向代理（自动注入 token）
-- **Lifecycle Scripts**：生命周期管理（cmd/main）
-- **OpenClaw Gateway**：AI Agent 核心服务
-
-## 📁 项目结构
-
-```
+```text
 oc-deploy/
 ├── app/
 │   ├── server/
-│   │   └── management-api.js      # Management API 服务器 + dashboard 代理
+│   │   └── management-api.js
 │   └── ui/
-│       ├── management.html        # 管理界面
-│       ├── assets/                # 前端资源
-│       │   ├── management.js      # 前端逻辑
-│       │   └── management.css     # 样式表
-│       ├── config/                # UI 配置片段
-│       └── images/                # UI 资源
+│       ├── management.html
+│       ├── assets/
+│       │   ├── management.js
+│       │   └── management.css
+│       ├── config
+│       └── images/
 ├── cmd/
-│   ├── main                       # 生命周期脚本
-│   ├── install_callback           # 安装后回调
-│   ├── install_init               # 安装前初始化
-│   └── uninstall_init             # 卸载前清理
+│   ├── main
+│   ├── install_init / install_callback
+│   ├── upgrade_init / upgrade_callback
+│   ├── config_init / config_callback
+│   └── uninstall_init / uninstall_callback
 ├── config/
-│   ├── privilege                  # 权限配置
-│   └── resource                   # 资源配置
-├── wizard/                        # 安装向导
-└── manifest                       # FPK 元数据
+├── wizard/
+├── test/
+│   ├── smoke.sh
+│   ├── local-test.sh
+│   ├── setup-test-env.sh
+│   └── README.md
+├── manifest
+└── TODO.md
 ```
 
-## 📝 配置示例
+## 配置示例
 
-### AI 模型配置
-
-支持多种 AI 模型提供商，可自定义 API 端点：
+### 模型配置（新结构）
 
 ```json
 {
@@ -112,15 +107,8 @@ oc-deploy/
         "baseUrl": "https://api.openai.com/v1",
         "api": "openai-completions",
         "models": [
-          { "id": "gpt-4o", "name": "gpt-4o" }
-        ]
-      },
-      "anthropic": {
-        "apiKey": "sk-ant-...",
-        "baseUrl": "https://api.anthropic.com",
-        "api": "anthropic",
-        "models": [
-          { "id": "claude-3-7-sonnet", "name": "claude-3-7-sonnet" }
+          { "id": "gpt-4o", "name": "gpt-4o" },
+          { "id": "azure:gpt-4o", "name": "azure:gpt-4o" }
         ]
       }
     }
@@ -136,21 +124,17 @@ oc-deploy/
 }
 ```
 
-### 消息渠道配置
-
-目前支持多种消息渠道：
+### 渠道配置
 
 ```json
 {
   "channels": {
     "telegram": {
       "enabled": true,
-      "botToken": "123456:ABC-DEF",
+      "botToken": "123:abc",
       "dmPolicy": "open",
       "allowFrom": ["*"],
-      "groups": {
-        "*": { "requireMention": false, "allowFrom": ["*"] }
-      }
+      "groups": { "*": { "requireMention": true } }
     },
     "discord": {
       "enabled": true,
@@ -158,167 +142,131 @@ oc-deploy/
     },
     "feishu": {
       "enabled": true,
+      "dmPolicy": "open",
       "accounts": {
         "main": {
           "appId": "cli_xxx",
           "appSecret": "xxx",
           "botName": "MyBot"
         }
-      },
-      "dmPolicy": "open"
+      }
     },
     "qqbot": {
       "enabled": true,
       "allowFrom": ["*"],
       "appId": "1903321275",
-      "clientSecret": "jPt9C1cz94mGWYQ5"
+      "clientSecret": "xxxx"
     }
   }
 }
 ```
 
-> 说明：渠道以类型为 key（如 `telegram`/`feishu`/`qqbot`），同类型仅保留一条配置。  
-> QQ 渠道需要安装 `@tencent-connect/openclaw-qqbot` 插件；面板会提供安装入口。
+QQ 说明：
 
-## 🔧 API 端点
+- 需要安装 `@tencent-connect/openclaw-qqbot`
+- 面板内提供状态检测和安装入口
+- 若报 `plugins.allow is empty`，需在 `openclaw.json` 中允许 `openclaw-qqbot`
 
-Management API 提供以下 RESTful 接口：
+## API 列表
 
-### 系统状态
-```
-GET  /api/status              - 获取系统状态（Gateway PID、CPU、内存）
-GET  /api/logs?lines=100      - 获取日志（可指定行数）
-```
+### 系统与配置
 
-### 配置管理
-```
-GET  /api/config              - 获取完整配置
-POST /api/config              - 保存配置（自动备份）
-POST /api/config/reset        - 恢复原始配置并重启 Gateway
-POST /api/config/validate     - 验证 JSON 配置格式
-```
-
-### 模型管理
-```
-POST /api/models/add          - 快速添加模型
-POST /api/models/delete       - 删除指定模型
+```text
+GET  /api/status
+GET  /api/config
+POST /api/config
+POST /api/config/reset
+POST /api/config/validate
+GET  /api/logs?lines=100
+GET  /api/console/url
 ```
 
-### Gateway 控制
-```
-POST /api/gateway/start       - 启动 Gateway
-POST /api/gateway/stop        - 停止 Gateway
-POST /api/gateway/restart     - 重启 Gateway
-```
+### 模型与渠道
 
-### 版本管理
-```
-GET  /api/version/current     - 获取当前 OpenClaw 版本
-GET  /api/version/latest      - 检查最新版本
-POST /api/version/update      - 更新到最新版本
+```text
+POST /api/models/add
+POST /api/models/delete
 ```
 
-### 插件管理
-```
-GET  /api/plugins/qqbot/status  - 获取 QQ 插件状态
-POST /api/plugins/qqbot/install - 安装 QQ 插件
-```
+### 网关控制
 
-### 控制台
-```
-GET  /api/console/url         - 获取控制台 URL（含认证 token）
+```text
+POST /api/gateway/start
+POST /api/gateway/stop
+POST /api/gateway/restart
 ```
 
-### 日志
+### 版本与插件
+
+```text
+GET  /api/version/current
+GET  /api/version/latest
+POST /api/version/update
+GET  /api/plugins/qqbot/status
+POST /api/plugins/qqbot/install
 ```
-GET  /api/logs?lines=100      - 获取日志（可指定行数）
-```
 
-## 📚 文档
+注意：
 
-详细文档请参考：
+- `/api/version/update` 当前为占位实现，返回 `success: false`（尚未完成在线升级逻辑）
 
-- **[CLAUDE.md](CLAUDE.md)**：开发者指南和项目架构说明
-- **[TODO.md](TODO.md)**：开发路线图和待实现功能
+## 测试与打包
 
-## 🎨 技术栈
-
-### 后端
-- **Node.js**：原生 HTTP 模块
-- **child_process**：进程管理
-- **fs/path**：文件系统操作
-
-### 前端
-- **HTML5 + CSS3**：页面结构和样式
-- **Vanilla JavaScript**：前端逻辑
-- **Fetch API**：HTTP 请求
-
-### 部署
-- **fnOS**：飞牛 NAS 平台
-- **FPK**：打包格式
-- **Bash**：生命周期脚本
-
-## 💡 特性亮点
-
-- ✅ **纯原生实现**：无需构建工具，直接部署
-- ✅ **卡片式管理**：直观的模型管理界面
-- ✅ **快速配置**：一键添加 AI 模型
-- ✅ **配置工具**：导入 / 导出 / 复制 / 恢复原始配置
-- ✅ **实时验证**：JSON 语法检查、配置校验提示
-- ✅ **原生控制台**：一键进入 OpenClaw 原生控制面板（dashboard）
-- ✅ **响应式设计**：适配桌面和移动端
-- ✅ **安全可靠**：配置备份、路径验证、错误处理
-- ✅ **用户友好**：Toast 通知、自定义 Tooltip、状态更新
-
-## 🔒 安全特性
-
-- 配置文件自动备份（`.backup.时间戳`）
-- JSON 格式验证
-- 路径安全检查（防止目录穿越）
-- 进程隔离
-- Token 认证（控制台访问）
-
-## 📊 系统要求
-
-- **平台**：fnOS（飞牛 NAS）
-- **架构**：x86_64
-- **依赖**：nodejs_v22（由 fnOS 提供）
-- **端口**：18789（Gateway）、18790（Management Console）
-- **内存**：建议 2GB 以上
-- **存储**：建议 5GB 以上（用于 OpenClaw 及模型缓存）
-
-## 🐛 故障排查
-
-### Management API 无法启动
+### 本地运行
 
 ```bash
-# 检查进程状态
-ps aux | grep management-api
+export TRIM_PKGVAR="/tmp/oc-deploy-test"
+export TRIM_APPDEST="/tmp/oc-deploy-test"
+export MANAGEMENT_PORT="18790"
+export GATEWAY_PORT="18789"
+node app/server/management-api.js
+```
 
-# 检查端口占用
+### 轻量 smoke 测试
+
+```bash
+bash test/smoke.sh
+```
+
+### 打包 FPK
+
+```bash
+chmod +x cmd/main cmd/install_callback cmd/install_init cmd/uninstall_init cmd/upgrade_init cmd/upgrade_callback
+chmod +x app/server/management-api.js
+tar -czf oc-deploy.fpk app/ cmd/ config/ manifest wizard/
+```
+
+## 故障排查
+
+### 端口占用 / API 启动失败
+
+```bash
 ss -ltn | grep 18790
-
-# 查看详细日志
-tail -f /var/apps/oc-deploy/var/info.log
+lsof -ti:18790 | xargs kill -9
+tail -n 100 /var/apps/oc-deploy/var/info.log
 ```
 
 ### Gateway 启动失败
 
 ```bash
-# 检查配置文件
-cat /root/.openclaw/openclaw.json
-
-# 查看运行日志
-tail -f /var/apps/oc-deploy/var/info.log
-
-# 手动测试启动
-cd /var/apps/oc-deploy/var
-node node_modules/openclaw/dist/index.js gateway --port 18789
+ls -la /var/apps/oc-deploy/var/node_modules/.bin/openclaw
+tail -n 100 /var/apps/oc-deploy/var/openclaw.log
 ```
+
+### 400 no body
+
+常见于模型配置不匹配导致上游没有返回可用响应体，优先检查：
+
+- 模型 ID
+- Base URL
+- API 协议 / API 类型
+
+是否与供应商文档一致。
 
 ### QQ 插件安装失败
 
-如果提示 `plugins.allow is empty`，请在 `openclaw.json` 中显式允许：
+若出现 `plugins.allow is empty`，在 `openclaw.json` 中加入：
+
 ```json
 {
   "plugins": {
@@ -327,84 +275,24 @@ node node_modules/openclaw/dist/index.js gateway --port 18789
 }
 ```
 
-### 配置保存失败
+## 文档
 
-1. 检查 JSON 格式是否正确（使用"验证配置"按钮）
-2. 检查配置文件目录权限：`ls -la /root/.openclaw/`
-3. 查看浏览器控制台错误信息（F12 开发者工具）
-4. 查看 Management API 日志
+- `CLAUDE.md`：开发与维护说明
+- `TODO.md`：需求与迭代清单
+- `test/README.md`：本地测试脚本说明
 
-### 安装过程卡住
+## 相关链接
 
-- 如果进度条在 40% 停留超过 10 分钟，可能是网络问题
-- 检查 fnOS 的网络连接和 DNS 设置
-- 查看安装日志：`/var/apps/oc-deploy/var/info.log`
-
-## 🧪 开发测试
-
-### 本地测试
-
-```bash
-# 1. 设置环境变量
-export TRIM_PKGVAR="/tmp/oc-deploy-test"
-export TRIM_APPDEST="/tmp/oc-deploy-test"
-export MANAGEMENT_PORT="18790"
-export GATEWAY_PORT="18789"
-
-# 2. 运行 Management API
-node app/server/management-api.js
-
-# 3. 访问管理界面
-# 打开浏览器访问 http://localhost:18790/
-
-# 4. 测试 API
-curl http://localhost:18790/api/status
-curl http://localhost:18790/api/config
-```
-
-### 打包 FPK
-
-```bash
-# 设置权限
-chmod +x cmd/main
-chmod +x cmd/install_callback
-chmod +x cmd/install_init
-chmod +x cmd/uninstall_init
-chmod +x app/server/management-api.js
-
-# 打包（从项目根目录）
-tar -czf oc-deploy_1.0.0_x86_64.fpk app/ cmd/ config/ manifest wizard/
-```
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 本项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 发起 Pull Request
-
-## 📄 许可证
-
-本项目遵循 OpenClaw 的许可证。
-
-## 🔗 相关链接
-
-- **OpenClaw 官方**：https://openclaw.ai
-- **OpenClaw 文档**：https://docs.openclaw.ai
-- **fnOS 开发者**：https://developer.fnnas.com
-- **项目仓库**：https://github.com/iridite/oc-deploy
-
-## 🙏 致谢
-
-感谢 OpenClaw 团队开发了这个优秀的 AI Agent Gateway。
+- OpenClaw 官方：`https://openclaw.ai`
+- OpenClaw 文档：`https://docs.openclaw.ai`
+- 项目仓库：`https://github.com/iridite/openclawer`
 
 ---
 
-**版本**：1.0.0
-**最后更新**：2026-03-10
-**维护者**：iridite@github
+- Manifest 版本：`1.0.0`
+- Release 标签：`v1.1.0`
+- 最后更新：`2026-03-11`
+- 维护者：`iridite@github`
 
-**注意**：本项目是社区贡献的 FPK 打包版本，非 OpenClaw 官方发布。
+本项目是社区贡献的 FPK 打包版本，非 OpenClaw 官方发布。
+
