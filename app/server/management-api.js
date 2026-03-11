@@ -8,110 +8,39 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { spawn, exec } = require("child_process");
+const { spawn } = require("child_process");
+const env = require("./core/env");
+const { readJSON, writeJSON, readText, readBody, execCommand } = require("./core/io");
 const { createBackupService } = require("./services/backup");
 const { createPluginService } = require("./services/plugins");
 const { createDashboardProxyService } = require("./http/dashboard-proxy");
 
 console.log(`[Manager] PM2_HOME 已固化为: ${process.env.PM2_HOME}`);
 
-const PORT = parseInt(process.env.MANAGEMENT_PORT || "18790", 10); // 管理 API 端口
-const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
-
-// 路径配置
-const TRIM_PKGVAR = process.env.TRIM_PKGVAR || "/var/apps/oc-deploy/var";
-const TRIM_APPDEST = process.env.TRIM_APPDEST || "/var/apps/oc-deploy/target";
-const CONFIG_FILE =
-  process.env.CONFIG_FILE ||
-  process.env.OPENCLAW_CONFIG_PATH ||
-  "/root/.openclaw/openclaw.json";
-const INITIAL_CONFIG_FILE =
-  process.env.INITIAL_CONFIG_FILE ||
-  path.join(path.dirname(CONFIG_FILE), "openclaw.json.initial");
-
-// oc
-const OC_HOME = process.env.OC_HOME || path.dirname(CONFIG_FILE);
-const OC_BIN_PATH =
-  process.env.OC_BIN_PATH ||
-  path.join(TRIM_PKGVAR, "node_modules", ".bin", "openclaw");
-const OC_JS_PATH =
-  process.env.OC_JS_PATH ||
-  path.join(TRIM_PKGVAR, "node_modules", "openclaw", "dist", "index.js");
-const OC_PKG_JSON_PATH = path.join(
+const {
+  PORT,
+  BIND_ADDR,
   TRIM_PKGVAR,
-  "node_modules",
-  "openclaw",
-  "package.json",
-);
-// @deprecated - Token 现在直接从 openclaw.json 读取，不再使用独立文件
-const TOKEN_FILE = path.join(TRIM_PKGVAR, "gateway_token");
-const DASHBOARD_PID_FILE = path.join(TRIM_PKGVAR, "app.pid"); // name's different
-const GATEWAY_PID_FILE = path.join(TRIM_PKGVAR, "gateway.pid"); // name's different
-const LOG_FILE = path.join(TRIM_PKGVAR, "openclaw.log"); // TODO 暂时不能确定 openclaw 的log 在哪里
-
-const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || "18789", 10);
-
-// 使用 fnOS 系统 Node.js (nodejs_v22 依赖包)
-const NODE_BIN = process.env.NODE_BIN || "/var/apps/nodejs_v22/target/bin/node";
-const NODE_BIN_DIR = path.dirname(NODE_BIN);
-const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");
-
-// 插件相关
-const DEFAULT_ALLOWED_PLUGINS = [
-  "openclaw-qqbot",
-  "wecom-openclaw-plugin",
-  "skillhub",
-];
-const BACKUP_MANIFEST_FILE = "oc-deploy-backup-manifest.json";
-const USER_BACKUP_ROOT =
-  process.env.USER_BACKUP_ROOT || "/root/oc-deploy/user-backups";
-const MAX_BACKUP_UPLOAD_BYTES = parseInt(
-  process.env.MAX_BACKUP_UPLOAD_BYTES || String(512 * 1024 * 1024),
-  10,
-);
-
-// env 变量设置，确保调用 openclaw 的命令行工具时能够正确找到 Node.js 和相关依赖
-process.env.CONFIG_FILE = process.env.CONFIG_FILE || CONFIG_FILE;
-process.env.OPENCLAW_CONFIG_PATH =
-  process.env.OPENCLAW_CONFIG_PATH || CONFIG_FILE;
-process.env.NODE_BIN = process.env.NODE_BIN || NODE_BIN;
-process.env.OC_BIN_PATH = process.env.OC_BIN_PATH || OC_BIN_PATH;
-process.env.PATH = `${NODE_BIN_DIR}:${PKG_NODE_BIN_DIR}:${process.env.PATH}`;
-// 不确定有没有用
-
-// 工具函数：读取 JSON 文件
-function readJSON(filePath) {
-  try {
-    const content = fs.readFileSync(filePath, "utf8");
-    return JSON.parse(content);
-  } catch (err) {
-    return null;
-  }
-}
-
-// 工具函数：写入 JSON 文件
-function writeJSON(filePath, data) {
-  try {
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
-    return true;
-  } catch (err) {
-    console.error("写入文件失败:", err);
-    return false;
-  }
-}
-
-// 工具函数：读取文本文件
-function readText(filePath) {
-  try {
-    return fs.readFileSync(filePath, "utf8").trim();
-  } catch (err) {
-    return "";
-  }
-}
+  TRIM_APPDEST,
+  CONFIG_FILE,
+  INITIAL_CONFIG_FILE,
+  OC_HOME,
+  OC_BIN_PATH,
+  OC_JS_PATH,
+  OC_PKG_JSON_PATH,
+  TOKEN_FILE,
+  DASHBOARD_PID_FILE,
+  GATEWAY_PID_FILE,
+  LOG_FILE,
+  GATEWAY_PORT,
+  NODE_BIN,
+  NODE_BIN_DIR,
+  PKG_NODE_BIN_DIR,
+  DEFAULT_ALLOWED_PLUGINS,
+  BACKUP_MANIFEST_FILE,
+  USER_BACKUP_ROOT,
+  MAX_BACKUP_UPLOAD_BYTES,
+} = env;
 
 // 工具函数：检查进程是否运行
 function isProcessRunning(pid) {
@@ -131,31 +60,6 @@ function getTokenFromConfig() {
   } catch (err) {
     return "";
   }
-}
-
-// 工具函数：执行命令
-function execCommand(command, options = {}) {
-  return new Promise((resolve, reject) => {
-    const env = {
-      ...process.env,
-      PATH: `${NODE_BIN_DIR}:${PKG_NODE_BIN_DIR}:${process.env.PATH}`,
-      ...options.env,
-    };
-
-    const timeout = options.timeout || 15000;
-
-    exec(command, { ...options, env, timeout }, (error, stdout, stderr) => {
-      if (error) {
-        if (error.killed) {
-          reject(new Error(`命令超时 (${timeout}ms)`));
-        } else {
-          reject({ error, stderr: stderr || error.message });
-        }
-      } else {
-        resolve(stdout.trim());
-      }
-    });
-  });
 }
 
 // API: 启动 Gateway
@@ -1217,16 +1121,6 @@ function handleRequest(req, res) {
   }
 
   serveStaticFile(filePath, res);
-}
-
-// 读取请求体
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = "";
-    req.on("data", (chunk) => (body += chunk));
-    req.on("end", () => resolve(body));
-    req.on("error", reject);
-  });
 }
 
 // 启动服务器
