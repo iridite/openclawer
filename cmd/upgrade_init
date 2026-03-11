@@ -4,20 +4,65 @@
 
 set -euo pipefail
 
-SRC_DIR="/root/.openclaw"
-BACKUP_ROOT="/root/oc-deploy"
+APP_NAME="${TRIM_APPNAME:-oc-deploy}"
+SRC_DIR="${OC_HOME:-/root/.openclaw}"
+PKG_VAR_DIR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+BACKUP_ROOT="${OC_DEPLOY_BACKUP_ROOT:-/root/oc-deploy}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="${BACKUP_ROOT}/${STAMP}-backup"
 MARKER_FILE="${BACKUP_ROOT}/.upgrade_backup_path"
+MANIFEST_FILE="${BACKUP_DIR}/manifest.tsv"
+BACKUP_ITEMS=0
 
-if [ ! -d "${SRC_DIR}" ]; then
-    echo "[upgrade_init] ${SRC_DIR} not found, skip backup."
+backup_entry() {
+    local src="$1"
+    local rel="$2"
+
+    if [ ! -e "${src}" ]; then
+        echo "[upgrade_init] Skip missing path: ${src}"
+        return 0
+    fi
+
+    BACKUP_ITEMS=$((BACKUP_ITEMS + 1))
+
+    if [ -d "${src}" ]; then
+        mkdir -p "${BACKUP_DIR}/${rel}"
+        cp -a "${src}/." "${BACKUP_DIR}/${rel}/"
+        printf '%s|%s|dir\n' "${src}" "${rel}" >> "${MANIFEST_FILE}"
+    else
+        mkdir -p "$(dirname "${BACKUP_DIR}/${rel}")"
+        cp -a "${src}" "${BACKUP_DIR}/${rel}"
+        printf '%s|%s|file\n' "${src}" "${rel}" >> "${MANIFEST_FILE}"
+    fi
+
+    echo "[upgrade_init] Backed up ${src} -> ${BACKUP_DIR}/${rel}"
+}
+
+mkdir -p "${BACKUP_ROOT}" "${BACKUP_DIR}"
+printf '# target|backup_rel|type\n' > "${MANIFEST_FILE}"
+
+# Core OpenClaw data: includes openclaw.json, workspace(memory), extensions/plugins in OC_HOME
+backup_entry "${SRC_DIR}" ".openclaw"
+
+# Extra plugin locations under package var dir (in case plugin payload is outside OC_HOME)
+backup_entry "${PKG_VAR_DIR}/plugins" "var/plugins"
+backup_entry "${PKG_VAR_DIR}/extensions" "var/extensions"
+backup_entry "${PKG_VAR_DIR}/node_modules/@tencent-connect/openclaw-qqbot" \
+    "var/node_modules/@tencent-connect/openclaw-qqbot"
+backup_entry "${PKG_VAR_DIR}/node_modules/@wecom/wecom-openclaw-plugin" \
+    "var/node_modules/@wecom/wecom-openclaw-plugin"
+backup_entry "${PKG_VAR_DIR}/node_modules/skillhub" "var/node_modules/skillhub"
+backup_entry "${PKG_VAR_DIR}/node_modules/@openclaw/skillhub" \
+    "var/node_modules/@openclaw/skillhub"
+
+if [ "${BACKUP_ITEMS}" -eq 0 ]; then
+    echo "[upgrade_init] No backup sources found, skip."
+    rm -rf "${BACKUP_DIR}"
+    rm -f "${MARKER_FILE}"
     exit 0
 fi
 
-mkdir -p "${BACKUP_DIR}"
-cp -a "${SRC_DIR}" "${BACKUP_DIR}/"
 echo "${BACKUP_DIR}" > "${MARKER_FILE}"
 
-echo "[upgrade_init] Backup created at ${BACKUP_DIR}"
+echo "[upgrade_init] Backup created at ${BACKUP_DIR} (items=${BACKUP_ITEMS})"
 exit 0
