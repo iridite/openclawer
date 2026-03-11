@@ -2201,7 +2201,7 @@ async function submitModelForm(event) {
     ).trim();
 
     // 与后端校验规则保持一致
-    const modelIdPattern = /^[a-zA-Z0-9.-]+$/;
+    const modelIdPattern = /^[a-zA-Z0-9./:-]+$/;
     const providerPattern = /^[a-z]+$/;
 
     if (modelIdInput) {
@@ -2214,7 +2214,7 @@ async function submitModelForm(event) {
     if (!modelIdPattern.test(modelId)) {
       if (modelIdInput) {
         modelIdInput.setCustomValidity(
-          "模型 ID 只能包含字母、数字、连字符(-)和点号(.)，不能包含空格或其他特殊字符",
+          "模型 ID 只能包含字母、数字、连字符(-)、点号(.)、斜杠(/)和冒号(:)，不能包含空格或其他特殊字符",
         );
         modelIdInput.reportValidity();
         modelIdInput.focus();

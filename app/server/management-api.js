@@ -722,10 +722,10 @@ async function addModel(modelData) {
     }
 
     // 验证标识格式：只允许字母、数字、连字符和点号
-    const identifierPattern = /^[a-zA-Z0-9.-]+$/;
+    const identifierPattern = /^[a-zA-Z0-9./:-]+$/;
     if (!identifierPattern.test(modelId)) {
       throw new Error(
-        "模型 ID 只能包含字母、数字、连字符(-)和点号(.)，不能包含空格或其他特殊字符",
+        "模型 ID 只能包含字母、数字、连字符(-)、点号(.)、斜杠(/)和冒号(:)，不能包含空格或其他特殊字符",
       );
     }
 

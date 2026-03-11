@@ -475,7 +475,7 @@ API 类型: openai-completions
                                                         >
                                                         <span
                                                             class="tooltip-icon"
-                                                            data-tooltip="模型 ID 是唯一标识，用于路由与主模型选择。仅允许字母、数字、连字符(-)、点号(.)；不允许空格。示例：gpt-4o、claude-3-7-sonnet。"
+                                                            data-tooltip="模型 ID 是唯一标识，用于路由与主模型选择。允许字母、数字、连字符(-)、点号(.)、斜杠(/)、冒号(:)；不允许空格。示例：gpt-4o、anthropic/claude-3-7-sonnet、azure:gpt-4o。"
                                                             >ⓘ</span
                                                         >
                                                     </label>
@@ -484,7 +484,7 @@ API 类型: openai-completions
                                                         id="model-id"
                                                         name="modelId"
                                                         placeholder="例如: gpt-4, claude-3-opus"
-                                                        pattern="[a-zA-Z0-9.-]+"
+                                                        pattern="[a-zA-Z0-9./:-]+"
                                                         required
                                                     />
                                                 </div>
