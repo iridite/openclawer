@@ -55,7 +55,9 @@ const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");
 
 // 插件相关
 const QQBOT_PLUGIN_PKG = "@tencent-connect/openclaw-qqbot";
+const WECOM_PLUGIN_PKG = "@wecom/wecom-openclaw-plugin";
 let qqbotPluginInstalling = false;
+let wecomPluginInstalling = false;
 
 // env 变量设置，确保调用 openclaw 的命令行工具时能够正确找到 Node.js 和相关依赖
 process.env.CONFIG_FILE = process.env.CONFIG_FILE || CONFIG_FILE;
@@ -353,6 +355,163 @@ async function installQqbotPlugin() {
     throw new Error(errorMessage);
   } finally {
     qqbotPluginInstalling = false;
+  }
+}
+
+function getWecomPluginProofFilePath() {
+  const baseDirs = [
+    path.join(TRIM_PKGVAR, "node_modules", "@wecom", "wecom-openclaw-plugin"),
+    path.join(OC_HOME, "plugins", "@wecom", "wecom-openclaw-plugin"),
+    path.join(TRIM_PKGVAR, "plugins", "@wecom", "wecom-openclaw-plugin"),
+    path.join(OC_HOME, "extensions", "wecom-openclaw-plugin"),
+  ];
+  const proofFiles = ["package.json", "openclaw.plugin.json", "plugin.json"];
+
+  for (const baseDir of baseDirs) {
+    for (const proofFile of proofFiles) {
+      const candidate = path.join(baseDir, proofFile);
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return "";
+}
+
+function getWecomPluginUnverifiedInfo() {
+  const extensionDir = path.join(
+    OC_HOME,
+    "extensions",
+    "wecom-openclaw-plugin",
+  );
+  if (!fs.existsSync(extensionDir)) {
+    return { exists: false, path: extensionDir };
+  }
+
+  const indexCandidates = [
+    path.join(extensionDir, "index.js"),
+    path.join(extensionDir, "index.ts"),
+    path.join(extensionDir, "dist", "index.js"),
+  ];
+
+  const hasIndex = indexCandidates.some((candidate) =>
+    fs.existsSync(candidate),
+  );
+
+  return { exists: true, path: extensionDir, hasIndex };
+}
+
+async function getWecomPluginStatus() {
+  const proofFilePath = getWecomPluginProofFilePath();
+  if (!proofFilePath) {
+    const unverified = getWecomPluginUnverifiedInfo();
+    if (unverified.exists) {
+      return {
+        success: true,
+        installed: false,
+        verified: false,
+        state: "unverified",
+        version: "",
+        package: WECOM_PLUGIN_PKG,
+        message: `检测到插件目录但缺少插件元数据，无法确认安装状态。若为手动插件，请在 openclaw.json 的 plugins.allow 中加入 wecom-openclaw-plugin；否则请清理 ${unverified.path} 后重试`,
+      };
+    }
+
+    return {
+      success: true,
+      installed: false,
+      verified: false,
+      state: "missing",
+      version: "",
+      package: WECOM_PLUGIN_PKG,
+    };
+  }
+
+  const pkg = readJSON(proofFilePath);
+  return {
+    success: true,
+    installed: true,
+    verified: true,
+    state: "installed",
+    version: pkg?.version || "unknown",
+    package: WECOM_PLUGIN_PKG,
+  };
+}
+
+async function installWecomPlugin() {
+  if (wecomPluginInstalling) {
+    throw new Error("企业微信插件安装中，请稍后重试");
+  }
+
+  const preStatus = await getWecomPluginStatus();
+  if (preStatus.state === "installed") {
+    return {
+      success: true,
+      message: "企业微信插件已安装",
+      version: preStatus.version,
+      package: preStatus.package,
+    };
+  }
+  if (preStatus.state === "unverified") {
+    throw new Error(preStatus.message || "企业微信插件目录异常，请清理后重试");
+  }
+
+  wecomPluginInstalling = true;
+  const installCmd = `${OC_BIN_PATH} plugins install ${WECOM_PLUGIN_PKG}`;
+
+  try {
+    await execCommand(installCmd, {
+      timeout: 600000,
+      env: {
+        HOME: "/root",
+        OPENCLAW_CONFIG_PATH: CONFIG_FILE,
+        NODE_BIN,
+        OC_BIN_PATH,
+        PATH: `${NODE_BIN_DIR}:${PKG_NODE_BIN_DIR}:${process.env.PATH}`,
+      },
+    });
+
+    const status = await getWecomPluginStatus();
+    if (!status.installed) {
+      throw new Error("插件安装完成但未检测到安装结果");
+    }
+
+    return {
+      success: true,
+      message: "企业微信插件安装成功",
+      version: status.version,
+      package: status.package,
+    };
+  } catch (err) {
+    const rawError = err?.stderr || err?.message || "企业微信插件安装失败";
+    const isAllowError = rawError.includes("plugins.allow is empty");
+    const status = await getWecomPluginStatus();
+    if (status.installed && !isAllowError) {
+      return {
+        success: true,
+        message: "企业微信插件已安装",
+        version: status.version,
+        package: status.package,
+      };
+    }
+
+    let errorMessage = rawError;
+    if (isAllowError) {
+      errorMessage =
+        "企业微信插件安装被拒绝：请在 openclaw.json 的 plugins.allow 中加入 wecom-openclaw-plugin";
+    } else if (
+      errorMessage.includes("plugin already exists") ||
+      errorMessage.includes("already exists")
+    ) {
+      if (status.state === "unverified") {
+        errorMessage = status.message || errorMessage;
+      }
+    }
+    console.error("[wecom-plugin] install failed:", errorMessage);
+    throw new Error(errorMessage);
+  } finally {
+    wecomPluginInstalling = false;
   }
 }
 
@@ -1102,12 +1261,16 @@ async function validateConfig(config) {
           const hasQqbotShape =
             Object.prototype.hasOwnProperty.call(channel, "appId") ||
             Object.prototype.hasOwnProperty.call(channel, "clientSecret");
+          const hasWecomShape =
+            Object.prototype.hasOwnProperty.call(channel, "botId") ||
+            Object.prototype.hasOwnProperty.call(channel, "secret");
 
           if (
             !hasTelegramShape &&
             !hasFeishuShape &&
             !hasDiscordShape &&
-            !hasQqbotShape
+            !hasQqbotShape &&
+            !hasWecomShape
           ) {
             errors.push(`渠道 ${name} 缺少 type 字段`);
           }
@@ -1373,6 +1536,8 @@ font-family:system-ui,sans-serif;background:#fff5f0;color:#666;}
       "POST /api/version/update": updateVersion,
       "GET /api/plugins/qqbot/status": getQqbotPluginStatus,
       "POST /api/plugins/qqbot/install": installQqbotPlugin,
+      "GET /api/plugins/wecom/status": getWecomPluginStatus,
+      "POST /api/plugins/wecom/install": installWecomPlugin,
       "GET /api/console/url": () => getConsoleUrl(req),
       "GET /api/logs": () =>
         getLogs(parseInt(url.searchParams.get("lines") || "100", 10)),

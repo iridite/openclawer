@@ -805,7 +805,7 @@ API 类型: openai-completions
                                         class="form-hint warning form-hint-spaced"
                                     >
                                         说明：每种渠道类型仅支持配置一条记录，系统会使用类型作为唯一标识。
-                                        Telegram/飞书/QQ
+                                        Telegram/飞书/QQ/企业微信
                                         已按官方结构给出推荐默认值（如 dmPolicy
                                         / groups / allowFrom）。
                                         未在表单中内置的渠道类型，可在下方配置编辑器中按官方文档补充配置。
@@ -928,6 +928,29 @@ API 类型: openai-completions
 }</pre
                                             >
                                         </div>
+                                        <div class="channel-guide-item">
+                                            <h3>企业微信</h3>
+                                            <p class="channel-guide-desc">
+                                                关键字段：<code>botId</code>、
+                                                <code>secret</code> 与
+                                                <code>dmPolicy</code>；建议
+                                                <code>dmPolicy</code>
+                                                先使用
+                                                <code>open</code>。企业微信
+                                                需要安装插件，未安装时保存会提示并引导安装。
+                                            </p>
+                                            <pre class="code-block">
+{
+  "wecom": {
+    "enabled": true,
+    "botId": "ww_xxx",
+    "secret": "xxx",
+    "allowFrom": ["*"],
+    "dmPolicy": "open"
+  }
+}</pre
+                                            >
+                                        </div>
                                     </div>
                                     <div class="form-hint warning">
                                         其他未在表单内置的渠道类型，可在配置编辑器中按官方文档补充字段与结构。
@@ -976,7 +999,7 @@ API 类型: openai-completions
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="选择消息平台类型。系统以类型作为唯一键（如 telegram、feishu、qqbot），同类型仅保留一条配置。"
+                                                        data-tooltip="选择消息平台类型。系统以类型作为唯一键（如 telegram、feishu、qqbot、wecom），同类型仅保留一条配置。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -999,6 +1022,9 @@ API 类型: openai-completions
                                                     </option>
                                                     <option value="qqbot">
                                                         QQ
+                                                    </option>
+                                                    <option value="wecom">
+                                                        企业微信
                                                     </option>
                                                 </select>
                                             </div>
@@ -1279,6 +1305,106 @@ API 类型: openai-completions
                                                         <select
                                                             id="feishu-dm-policy"
                                                             name="dmPolicy"
+                                                        >
+                                                            <option
+                                                                value="open"
+                                                                selected
+                                                            >
+                                                                Open（开放 -
+                                                                允许所有私信）
+                                                            </option>
+                                                            <option
+                                                                value="pairing"
+                                                            >
+                                                                Pairing（配对模式
+                                                                - 需要配对码）
+                                                            </option>
+                                                            <option
+                                                                value="allowlist"
+                                                            >
+                                                                Allowlist（仅允许列表）
+                                                            </option>
+                                                            <option
+                                                                value="disabled"
+                                                            >
+                                                                Disabled（禁用）
+                                                            </option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <!-- 企业微信特定配置 -->
+                                                <div
+                                                    id="wecom-specific-config"
+                                                    style="display: none"
+                                                >
+                                                    <div
+                                                        class="form-hint warning"
+                                                    >
+                                                        提示：首次使用建议先安装插件，保存时也会自动尝试安装。
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label
+                                                            >企业微信插件状态</label
+                                                        >
+                                                        <button
+                                                            type="button"
+                                                            id="wecom-plugin-btn"
+                                                            class="btn btn-secondary btn-sm plugin-status-btn"
+                                                            onclick="
+                                                                installWecomPlugin()
+                                                            "
+                                                        >
+                                                            企业微信插件：检测中...
+                                                        </button>
+                                                        <div
+                                                            class="form-hint warning"
+                                                        >
+                                                            插件已安装后再保存，可避免保存失败。
+                                                        </div>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>
+                                                            Bot ID
+                                                            <span
+                                                                class="required"
+                                                                >*</span
+                                                            >
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            id="wecom-bot-id"
+                                                            name="wecomBotId"
+                                                            placeholder="输入企业微信 Bot ID"
+                                                        />
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>
+                                                            Secret
+                                                            <span
+                                                                class="required"
+                                                                >*</span
+                                                            >
+                                                        </label>
+                                                        <input
+                                                            type="password"
+                                                            id="wecom-secret"
+                                                            name="wecomSecret"
+                                                            placeholder="输入企业微信 Secret"
+                                                        />
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>
+                                                            私信策略
+                                                            <span
+                                                                class="tooltip-icon"
+                                                                data-tooltip="控制谁可私聊企业微信机器人。建议先用 open 完成联调，再按需收紧。"
+                                                                >ⓘ</span
+                                                            >
+                                                        </label>
+                                                        <select
+                                                            id="wecom-dm-policy"
+                                                            name="wecomDmPolicy"
                                                         >
                                                             <option
                                                                 value="open"
@@ -1650,6 +1776,13 @@ API 类型: openai-completions
       "allowFrom": ["*"],
       "appId": "xxx",
       "clientSecret": "xxx"
+    },
+    "wecom": {
+      "enabled": true,
+      "botId": "ww_xxx",
+      "secret": "xxx",
+      "allowFrom": ["*"],
+      "dmPolicy": "open"
     }
   }
 }</pre

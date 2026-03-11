@@ -13,6 +13,7 @@ let aceEditorLoading = false; // Ace Editor 是否正在加载
 let activeTooltipTarget = null;
 let currentTabName = "overview";
 let qqbotPluginInstalling = false;
+let wecomPluginInstalling = false;
 
 // 快速添加模型预设
 const QUICK_ADD_MODELS = {
@@ -1298,6 +1299,9 @@ function inferChannelType(channelId, channel) {
   if (channel && channel.type) {
     return channel.type;
   }
+  if (channel && ("botId" in channel || "secret" in channel)) {
+    return "wecom";
+  }
   if (channel && ("appId" in channel || "clientSecret" in channel)) {
     return "qqbot";
   }
@@ -1316,6 +1320,9 @@ function inferChannelType(channelId, channel) {
   if (channelId === "qqbot") {
     return "qqbot";
   }
+  if (channelId === "wecom") {
+    return "wecom";
+  }
   return "unknown";
 }
 
@@ -1329,6 +1336,8 @@ function getChannelDisplayLabel(channelType, channelId) {
       return "飞书";
     case "qqbot":
       return "QQ";
+    case "wecom":
+      return "企业微信";
     default:
       return channelId || "未知渠道";
   }
@@ -1347,6 +1356,9 @@ function getChannelIdentityValue(channelType, channel) {
   }
   if (channelType === "qqbot") {
     return channel.appId || "";
+  }
+  if (channelType === "wecom") {
+    return channel.botId || "";
   }
   return channel.botToken || channel.token || "";
 }
@@ -1369,6 +1381,19 @@ function parseCommaList(value) {
     .split(",")
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+}
+
+function normalizeAllowFrom(value, fallback = ["*"]) {
+  if (Array.isArray(value)) {
+    const list = value
+      .map((item) => String(item || "").trim())
+      .filter((item) => item.length > 0);
+    return list.length > 0 ? list : fallback;
+  }
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+  return fallback;
 }
 
 function inferTelegramGroupPolicy(channel) {
@@ -1434,6 +1459,11 @@ async function loadChannelsList() {
           ? channel.allowFrom
           : ["*"];
         infoItems.push(`允许来源: ${allowFrom.join(", ")}`);
+      } else if (channelType === "wecom") {
+        if (channel.botId) infoItems.push(`Bot ID: ${channel.botId}`);
+        const allowFrom = normalizeAllowFrom(channel.allowFrom, ["*"]);
+        infoItems.push(`允许来源: ${allowFrom.join(", ")}`);
+        infoItems.push(`私聊策略: ${channel.dmPolicy || "open"}`);
       } else {
         // 其他渠道类型
         const token = channel.botToken || channel.token;
@@ -1495,6 +1525,7 @@ function handleChannelTypeChange() {
   const discordConfig = document.getElementById("discord-specific-config");
   const qqbotConfig = document.getElementById("qqbot-specific-config");
   const feishuConfig = document.getElementById("feishu-specific-config");
+  const wecomConfig = document.getElementById("wecom-specific-config");
   const telegramAdvanced = document.getElementById("telegram-advanced-config");
   const qqbotAdvanced = document.getElementById("qqbot-advanced-config");
   const feishuAdvanced = document.getElementById("feishu-advanced-config");
@@ -1514,6 +1545,7 @@ function handleChannelTypeChange() {
   if (discordConfig) discordConfig.style.display = "none";
   if (qqbotConfig) qqbotConfig.style.display = "none";
   if (feishuConfig) feishuConfig.style.display = "none";
+  if (wecomConfig) wecomConfig.style.display = "none";
   if (telegramAdvanced) telegramAdvanced.style.display = "none";
   if (qqbotAdvanced) qqbotAdvanced.style.display = "none";
   if (feishuAdvanced) feishuAdvanced.style.display = "none";
@@ -1551,6 +1583,12 @@ function handleChannelTypeChange() {
     }
   } else if (channelType === "discord") {
     // Discord 不需要通用 Bot Token 字段（使用专用字段）
+    if (tokenField) {
+      tokenField.parentElement.style.display = "none";
+      tokenField.removeAttribute("required");
+    }
+  } else if (channelType === "wecom") {
+    // 企业微信不需要通用 Bot Token 字段
     if (tokenField) {
       tokenField.parentElement.style.display = "none";
       tokenField.removeAttribute("required");
@@ -1601,6 +1639,13 @@ function handleChannelTypeChange() {
     feishuConfig.style.display = "block";
     if (feishuAdvanced) {
       feishuAdvanced.style.display = "block";
+    }
+  } else if (channelType === "wecom" && wecomConfig) {
+    wecomConfig.style.display = "block";
+    refreshWecomPluginStatus();
+    if (!isEditMode) {
+      const wecomDmPolicyEl = document.getElementById("wecom-dm-policy");
+      if (wecomDmPolicyEl) wecomDmPolicyEl.value = "open";
     }
   }
 
@@ -1661,6 +1706,12 @@ function toggleChannelForm() {
   if (qqbotClientSecretEl) qqbotClientSecretEl.value = "";
   const qqbotAllowFromEl = document.getElementById("qqbot-allow-from");
   if (qqbotAllowFromEl) qqbotAllowFromEl.value = "*";
+  const wecomBotIdEl = document.getElementById("wecom-bot-id");
+  if (wecomBotIdEl) wecomBotIdEl.value = "";
+  const wecomSecretEl = document.getElementById("wecom-secret");
+  if (wecomSecretEl) wecomSecretEl.value = "";
+  const wecomDmPolicyEl = document.getElementById("wecom-dm-policy");
+  if (wecomDmPolicyEl) wecomDmPolicyEl.value = "open";
 
   // 显示对应类型的配置
   handleChannelTypeChange();
@@ -1703,6 +1754,7 @@ async function submitChannelForm(event) {
     channelType !== "feishu" &&
     channelType !== "discord" &&
     channelType !== "qqbot" &&
+    channelType !== "wecom" &&
     !token
   ) {
     showToast("请输入 Token", "error");
@@ -1751,6 +1803,26 @@ async function submitChannelForm(event) {
     }
 
     const pluginReady = await ensureQqbotPluginInstalled();
+    if (!pluginReady) {
+      return;
+    }
+  }
+
+  if (channelType === "wecom") {
+    const wecomBotIdEl = document.getElementById("wecom-bot-id");
+    const wecomSecretEl = document.getElementById("wecom-secret");
+
+    if (!wecomBotIdEl || !wecomBotIdEl.value.trim()) {
+      showToast("请输入企业微信 Bot ID", "error");
+      return;
+    }
+
+    if (!wecomSecretEl || !wecomSecretEl.value.trim()) {
+      showToast("请输入企业微信 Secret", "error");
+      return;
+    }
+
+    const pluginReady = await ensureWecomPluginInstalled();
     if (!pluginReady) {
       return;
     }
@@ -1826,7 +1898,6 @@ async function submitChannelForm(event) {
         },
       };
     } else if (channelType === "qqbot") {
-      const existing = config.channels[channelId];
       const qqbotAppIdEl = document.getElementById("qqbot-app-id");
       const qqbotClientSecretEl = document.getElementById(
         "qqbot-client-secret",
@@ -1841,6 +1912,18 @@ async function submitChannelForm(event) {
         appId: qqbotAppIdEl?.value.trim() || "",
         clientSecret: qqbotClientSecretEl?.value.trim() || "",
       };
+    } else if (channelType === "wecom") {
+      const wecomBotIdEl = document.getElementById("wecom-bot-id");
+      const wecomSecretEl = document.getElementById("wecom-secret");
+      const wecomDmPolicyEl = document.getElementById("wecom-dm-policy");
+      const existing = config.channels[channelId] || {};
+      config.channels[channelId] = {
+        enabled: enabled,
+        botId: wecomBotIdEl?.value.trim() || "",
+        secret: wecomSecretEl?.value.trim() || "",
+        allowFrom: normalizeAllowFrom(existing.allowFrom, ["*"]),
+        dmPolicy: wecomDmPolicyEl?.value || "open",
+      };
     } else {
       config.channels[channelId] = {
         enabled: enabled,
@@ -1852,7 +1935,8 @@ async function submitChannelForm(event) {
       channelType !== "feishu" &&
       channelType !== "discord" &&
       channelType !== "telegram" &&
-      channelType !== "qqbot"
+      channelType !== "qqbot" &&
+      channelType !== "wecom"
     ) {
       config.channels[channelId].botToken = token;
     }
@@ -1997,6 +2081,113 @@ async function installQqbotPlugin() {
   }
 }
 
+async function fetchWecomPluginStatus() {
+  return apiRequest("/plugins/wecom/status");
+}
+
+function setWecomPluginButtonState(state, version = "") {
+  const btn = document.getElementById("wecom-plugin-btn");
+  if (!btn) return;
+
+  btn.classList.remove("installed", "missing", "error", "installing");
+
+  switch (state) {
+    case "installed":
+      btn.classList.add("installed");
+      btn.textContent = version
+        ? `企业微信插件：已安装 (${version})`
+        : "企业微信插件：已安装";
+      btn.disabled = false;
+      break;
+    case "missing":
+      btn.classList.add("missing");
+      btn.textContent = "企业微信插件：未安装（点击安装）";
+      btn.disabled = false;
+      break;
+    case "unverified":
+      btn.classList.add("error");
+      btn.textContent = "企业微信插件：异常（缺少插件元数据）";
+      btn.disabled = false;
+      break;
+    case "installing":
+      btn.classList.add("installing");
+      btn.textContent = "企业微信插件：安装中...";
+      btn.disabled = true;
+      break;
+    case "error":
+    default:
+      btn.classList.add("error");
+      btn.textContent = "企业微信插件：检测失败（点击重试）";
+      btn.disabled = false;
+      break;
+  }
+}
+
+async function refreshWecomPluginStatus() {
+  try {
+    const status = await fetchWecomPluginStatus();
+    if (status && status.state === "installed") {
+      setWecomPluginButtonState("installed", status.version || "");
+    } else if (status && status.state === "unverified") {
+      setWecomPluginButtonState("unverified");
+    } else {
+      setWecomPluginButtonState("missing");
+    }
+  } catch (error) {
+    setWecomPluginButtonState("error");
+  }
+}
+
+async function ensureWecomPluginInstalled() {
+  try {
+    const status = await fetchWecomPluginStatus();
+    if (status && status.state === "installed") {
+      return true;
+    }
+    if (status && status.state === "unverified") {
+      setWecomPluginButtonState("unverified");
+      showToast(
+        status.message || "企业微信插件目录异常，请清理后重试",
+        "error",
+      );
+      return false;
+    }
+  } catch (error) {
+    setWecomPluginButtonState("error");
+    showToast("企业微信插件状态检测失败: " + error.message, "error");
+    return false;
+  }
+
+  const installed = await installWecomPlugin();
+  return installed;
+}
+
+async function installWecomPlugin() {
+  if (wecomPluginInstalling) {
+    return false;
+  }
+
+  wecomPluginInstalling = true;
+  setWecomPluginButtonState("installing");
+  showToast("正在安装企业微信插件...", "info");
+
+  try {
+    const result = await apiRequest("/plugins/wecom/install", {
+      method: "POST",
+    });
+    const version = result?.version || "";
+    setWecomPluginButtonState("installed", version);
+    showToast("企业微信插件安装成功", "success");
+    wecomPluginInstalling = false;
+    return true;
+  } catch (error) {
+    setWecomPluginButtonState("missing");
+    showToast("企业微信插件安装失败: " + error.message, "error");
+    wecomPluginInstalling = false;
+    return false;
+  }
+}
+
 // 编辑渠道
 async function editChannel(channelId) {
   try {
@@ -2107,6 +2298,18 @@ async function editChannel(channelId) {
       if (qqbotClientSecretEl) {
         qqbotClientSecretEl.value = channel.clientSecret || "";
       }
+    }
+
+    // 填充企业微信特定字段
+    if (channelType === "wecom") {
+      const wecomBotIdEl = document.getElementById("wecom-bot-id");
+      if (wecomBotIdEl) wecomBotIdEl.value = channel.botId || "";
+
+      const wecomSecretEl = document.getElementById("wecom-secret");
+      if (wecomSecretEl) wecomSecretEl.value = channel.secret || "";
+
+      const wecomDmPolicyEl = document.getElementById("wecom-dm-policy");
+      if (wecomDmPolicyEl) wecomDmPolicyEl.value = channel.dmPolicy || "open";
     }
 
     // 显示对应类型的配置
