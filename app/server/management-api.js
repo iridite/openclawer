@@ -17,6 +17,7 @@ const { createDashboardProxyService } = require("./http/dashboard-proxy");
 const { createGatewayService } = require("./services/gateway");
 const { createConfigService } = require("./services/config");
 const { createRouter } = require("./http/router");
+const { createStaticFileService } = require("./http/static");
 
 console.log(`[Manager] PM2_HOME 已固化为: ${process.env.PM2_HOME}`);
 
@@ -176,45 +177,10 @@ const router = createRouter({
 });
 const { handleApiRoutes } = router;
 
-// 工具函数：获取 MIME 类型
-function getMimeType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  const mimeTypes = {
-    ".html": "text/html; charset=utf-8",
-    ".css": "text/css; charset=utf-8",
-    ".js": "application/javascript; charset=utf-8",
-    ".json": "application/json; charset=utf-8",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".svg": "image/svg+xml",
-    ".ico": "image/x-icon",
-  };
-  return mimeTypes[ext] || "application/octet-stream";
-}
-
-// 工具函数：提供静态文件
-function serveStaticFile(filePath, res) {
-  // 安全检查：防止目录穿越
-  if (filePath.includes("..")) {
-    res.writeHead(400, { "Content-Type": "text/plain" });
-    res.end("400 Bad Request");
-    return;
-  }
-
-  // 检查文件是否存在
-  if (!fs.existsSync(filePath)) {
-    res.writeHead(404, { "Content-Type": "text/plain" });
-    res.end("404 Not Found");
-    return;
-  }
-
-  // 读取并返回文件
-  const mimeType = getMimeType(filePath);
-  const content = fs.readFileSync(filePath);
-  res.writeHead(200, { "Content-Type": mimeType });
-  res.end(content);
-}
+const staticFileService = createStaticFileService({
+  UI_DIR: path.join(TRIM_APPDEST, "ui"),
+});
+const { handleStaticRequest } = staticFileService;
 
 // HTTP 请求处理
 function handleRequest(req, res) {
@@ -245,18 +211,7 @@ function handleRequest(req, res) {
   }
 
   // 静态文件处理
-  const UI_DIR = path.join(TRIM_APPDEST, "ui"); // 无法进行本地测试，因为路径不同
-  let filePath;
-
-  if (pathname === "/" || pathname === "") {
-    // 默认访问 management.html
-    filePath = path.join(UI_DIR, "management.html");
-  } else {
-    // 其他路径
-    filePath = path.join(UI_DIR, pathname);
-  }
-
-  serveStaticFile(filePath, res);
+  handleStaticRequest(pathname, res);
 }
 
 // 启动服务器
