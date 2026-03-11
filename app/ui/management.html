@@ -1598,6 +1598,18 @@ API 类型: openai-completions
                                     </button>
                                     <button
                                         class="btn btn-secondary btn-sm"
+                                        onclick="exportFullBackup()"
+                                    >
+                                        导出完整备份
+                                    </button>
+                                    <button
+                                        class="btn btn-secondary btn-sm"
+                                        onclick="triggerFullBackupImport()"
+                                    >
+                                        导入完整备份
+                                    </button>
+                                    <button
+                                        class="btn btn-secondary btn-sm"
                                         onclick="copyConfig()"
                                     >
                                         复制配置
@@ -1616,6 +1628,78 @@ API 类型: openai-completions
                                     </button>
                                 </div>
                             </div>
+                            <div class="config-transfer-guide">
+                                <h3>导入 / 导出使用指南</h3>
+                                <div class="config-transfer-grid">
+                                    <div class="config-transfer-item">
+                                        <h4>按钮用途</h4>
+                                        <ul>
+                                            <li>
+                                                <strong>导出配置</strong
+                                                >：仅导出当前
+                                                <code>openclaw.json</code>。
+                                            </li>
+                                            <li>
+                                                <strong>导入配置</strong>：导入
+                                                <code>openclaw.json</code
+                                                >（支持粘贴或上传
+                                                JSON），并尝试自动重启 Gateway。
+                                            </li>
+                                            <li>
+                                                <strong>导出完整备份</strong
+                                                >：导出配置 + 记忆 +
+                                                插件目录，生成
+                                                <code>.tar.gz</code>。
+                                            </li>
+                                            <li>
+                                                <strong>导入完整备份</strong
+                                                >：恢复配置 + 记忆 +
+                                                插件目录，系统会先自动创建导入前备份。
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <div class="config-transfer-item">
+                                        <h4>推荐流程</h4>
+                                        <ol>
+                                            <li>
+                                                日常改配置前，先点一次“导出配置”做轻量备份。
+                                            </li>
+                                            <li>
+                                                跨设备迁移、重大升级前，使用“导出完整备份”。
+                                            </li>
+                                            <li>
+                                                迁移后优先用“导入完整备份”；仅改配置时再用“导入配置”。
+                                            </li>
+                                            <li>
+                                                导入完成后检查：主模型、消息渠道、插件状态是否符合预期。
+                                            </li>
+                                        </ol>
+                                    </div>
+                                    <div class="config-transfer-item">
+                                        <h4>最佳实践</h4>
+                                        <ul>
+                                            <li>
+                                                备份文件建议保留至少两份，并存放到
+                                                NAS 外部位置（本机 +
+                                                异地/云端）。
+                                            </li>
+                                            <li>
+                                                完整导入会触发重启，建议在低峰时段执行，避免中断会话。
+                                            </li>
+                                            <li>
+                                                仅导入可信来源的备份；JSON
+                                                导入失败时请先修复语法错误。
+                                            </li>
+                                            <li>
+                                                如导入后行为异常，请先回滚到系统自动生成的导入前备份。
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <p class="config-transfer-note">
+                                    提示：配置校验出现警告时，系统会提示风险但通常不阻断保存；请结合实际场景判断是否继续。
+                                </p>
+                            </div>
                             <div
                                 id="config-import-panel"
                                 class="config-import-panel"
@@ -1627,6 +1711,10 @@ API 类型: openai-completions
                                         支持直接粘贴 JSON，或上传 `.json` 文件。
                                         仅在 JSON 语法合法时才会应用，并自动重启
                                         Gateway。
+                                    </p>
+                                    <p>
+                                        如需恢复记忆与插件，请使用上方“导入完整备份”按钮上传
+                                        `.tar.gz` 备份包。
                                     </p>
                                 </div>
                                 <div class="import-panel-field">
@@ -1671,6 +1759,13 @@ API 类型: openai-completions
                                     </button>
                                 </div>
                             </div>
+                            <input
+                                type="file"
+                                id="full-backup-file"
+                                accept=".tar.gz,.tgz,application/gzip,application/x-gzip,application/octet-stream"
+                                style="display: none"
+                                onchange="handleFullBackupImportFile(event)"
+                            />
                             <div
                                 class="editor-container"
                                 style="position: relative"

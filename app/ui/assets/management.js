@@ -2876,6 +2876,21 @@ function buildConfigExportFileName() {
   return `openclaw-${stamp}.json`;
 }
 
+function parseDownloadFileName(contentDisposition, fallbackName) {
+  if (!contentDisposition) return fallbackName;
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match && utf8Match[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch (err) {}
+  }
+  const plainMatch = contentDisposition.match(/filename=\"?([^\";]+)\"?/i);
+  if (plainMatch && plainMatch[1]) {
+    return plainMatch[1];
+  }
+  return fallbackName;
+}
+
 async function exportConfig() {
   try {
     const config = await apiRequest("/config");
@@ -2897,6 +2912,119 @@ async function exportConfig() {
     showToast(`配置已导出：${fileName}`, "success");
   } catch (error) {
     showToast("导出配置失败: " + error.message, "error");
+  }
+}
+
+async function exportFullBackup() {
+  const fallbackName = `oc-deploy-backup-manual-export-${buildConfigExportFileName().replace("openclaw-", "").replace(".json", ".tar.gz")}`;
+  try {
+    showToast("正在导出完整备份（包含配置、记忆与插件）...", "info");
+    const response = await fetch(`${API_BASE}/backup/export`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      let message = `HTTP ${response.status}`;
+      try {
+        const payload = await response.json();
+        message = payload.error || payload.message || message;
+      } catch (err) {}
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const fileName = parseDownloadFileName(
+      response.headers.get("content-disposition"),
+      fallbackName,
+    );
+    const downloadUrl = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+
+    showToast(`完整备份已导出：${fileName}`, "success");
+  } catch (error) {
+    showToast("导出完整备份失败: " + error.message, "error");
+  }
+}
+
+function triggerFullBackupImport() {
+  const input = document.getElementById("full-backup-file");
+  if (!input) {
+    showToast("未找到完整备份上传控件", "error");
+    return;
+  }
+  input.value = "";
+  input.click();
+}
+
+async function handleFullBackupImportFile(event) {
+  const file = event?.target?.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  const confirmed = confirm(
+    "确定要导入完整备份吗？\n\n该操作会覆盖配置、记忆与插件目录（append 覆写），并尝试自动重启 Gateway。\n系统会先创建一份导入前备份。",
+  );
+  if (!confirmed) {
+    event.target.value = "";
+    return;
+  }
+
+  try {
+    showToast("正在上传并导入完整备份，请稍候...", "info");
+    const formData = new FormData();
+    formData.append("backupFile", file);
+
+    const response = await fetch(`${API_BASE}/backup/import`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.success === false) {
+      throw new Error(
+        result.error || result.message || `HTTP ${response.status}`,
+      );
+    }
+
+    await Promise.all([
+      loadConfig(),
+      loadModelsList(),
+      loadChannelsList(),
+      refreshDashboard(),
+    ]);
+
+    const restoredHint =
+      typeof result.restoredCount === "number"
+        ? `已恢复 ${result.restoredCount} 项`
+        : "恢复完成";
+    if (result.restarted) {
+      showToast(
+        `完整备份导入成功，${restoredHint}，Gateway 已重启。`,
+        "success",
+      );
+    } else {
+      showToast(
+        `完整备份已导入，${restoredHint}；Gateway 自动重启失败: ${result.restartError || "未知错误"}`,
+        "warning",
+      );
+    }
+    if (result.preBackupWarning) {
+      showToast("导入前备份提示: " + result.preBackupWarning, "warning");
+    } else if (result.preBackupPath) {
+      showToast("已生成导入前备份: " + result.preBackupPath, "info");
+    }
+  } catch (error) {
+    showToast("导入完整备份失败: " + error.message, "error");
+  } finally {
+    event.target.value = "";
   }
 }
 

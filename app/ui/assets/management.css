@@ -435,6 +435,71 @@ body {
     align-items: center;
 }
 
+.config-transfer-guide {
+    margin: 12px 0;
+    padding: 14px;
+    border: 1px solid rgba(244, 81, 30, 0.2);
+    border-radius: 8px;
+    background: linear-gradient(
+        135deg,
+        rgba(244, 81, 30, 0.04),
+        rgba(244, 81, 30, 0.01)
+    );
+}
+
+.config-transfer-guide h3 {
+    margin: 0 0 10px 0;
+    font-size: 1rem;
+    color: var(--text-dark);
+}
+
+.config-transfer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px;
+}
+
+.config-transfer-item {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.config-transfer-item h4 {
+    margin: 0 0 8px 0;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+}
+
+.config-transfer-item ul,
+.config-transfer-item ol {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--text-gray);
+}
+
+.config-transfer-item li {
+    margin-bottom: 6px;
+}
+
+.config-transfer-item li:last-child {
+    margin-bottom: 0;
+}
+
+.config-transfer-note {
+    margin: 10px 0 0 0;
+    padding: 8px 10px;
+    border-left: 3px solid var(--warning);
+    border-radius: 4px;
+    background: #fff8e6;
+    color: #6d4c00;
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
 .config-import-panel {
     margin-bottom: 12px;
     padding: 14px;
@@ -671,6 +736,10 @@ body {
     .card-actions .btn {
         width: 100%;
         justify-content: center;
+    }
+
+    .config-transfer-grid {
+        grid-template-columns: 1fr;
     }
 }
 
