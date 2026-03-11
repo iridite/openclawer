@@ -56,6 +56,11 @@ const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");
 // 插件相关
 const QQBOT_PLUGIN_PKG = "@tencent-connect/openclaw-qqbot";
 const WECOM_PLUGIN_PKG = "@wecom/wecom-openclaw-plugin";
+const DEFAULT_ALLOWED_PLUGINS = [
+  "openclaw-qqbot",
+  "wecom-openclaw-plugin",
+  "skillhub",
+];
 let qqbotPluginInstalling = false;
 let wecomPluginInstalling = false;
 
@@ -743,6 +748,14 @@ function buildFallbackResetConfig(existingConfig = {}) {
     existingConfig?.gateway?.auth?.token ||
     getTokenFromConfig() ||
     crypto.randomBytes(24).toString("hex");
+  const existingAllow = Array.isArray(existingConfig?.plugins?.allow)
+    ? existingConfig.plugins.allow
+        .map((item) => String(item || "").trim())
+        .filter((item) => item.length > 0)
+    : [];
+  const mergedAllow = Array.from(
+    new Set([...DEFAULT_ALLOWED_PLUGINS, ...existingAllow]),
+  );
 
   return {
     meta: {
@@ -762,6 +775,10 @@ function buildFallbackResetConfig(existingConfig = {}) {
       nativeSkills: "auto",
       restart: true,
       ownerDisplay: "raw",
+    },
+    plugins: {
+      enabled: true,
+      allow: mergedAllow,
     },
     gateway: {
       port: GATEWAY_PORT,
