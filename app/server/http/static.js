@@ -33,10 +33,15 @@ function createStaticFileService(deps) {
       return;
     }
 
-    const mimeType = getMimeType(filePath);
-    const content = fs.readFileSync(filePath);
-    res.writeHead(200, { "Content-Type": mimeType });
-    res.end(content);
+    try {
+      const mimeType = getMimeType(filePath);
+      const content = fs.readFileSync(filePath);
+      res.writeHead(200, { "Content-Type": mimeType });
+      res.end(content);
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("500 Internal Server Error");
+    }
   }
 
   function handleStaticRequest(pathname, res) {

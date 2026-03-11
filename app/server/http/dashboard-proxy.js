@@ -47,8 +47,8 @@ function createDashboardProxyService(options) {
   // 立即执行一次
   forceSetConfig();
 
-  // 每秒检查一次，确保配置不被覆盖
-  setInterval(forceSetConfig, 1000);
+  // 每5秒检查一次，确保配置不被覆盖
+  setInterval(forceSetConfig, 5000);
 
   // 监听 localStorage 变化（其他标签页或代码修改时）
   window.addEventListener('storage', function(e) {
@@ -56,17 +56,6 @@ function createDashboardProxyService(options) {
       forceSetConfig();
     }
   });
-
-  // 监听 DOM 变化（SPA 路由跳转时）
-  if (typeof MutationObserver !== 'undefined') {
-    var observer = new MutationObserver(function() {
-      forceSetConfig();
-    });
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  }
 })();
 </script>`;
   }

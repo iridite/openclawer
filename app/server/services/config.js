@@ -1,14 +1,13 @@
 const fs = require("fs");
 const crypto = require("crypto");
 
-const DEFAULT_ALLOWED_PLUGINS = ["qq", "wecom"];
-
 function createConfigService(deps) {
   const {
     CONFIG_FILE,
     INITIAL_CONFIG_FILE,
     GATEWAY_PORT,
     OC_PKG_JSON_PATH,
+    DEFAULT_ALLOWED_PLUGINS,
     readJSON,
     writeJSON,
     getTokenFromConfig,
