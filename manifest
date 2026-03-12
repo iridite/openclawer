@@ -10,4 +10,4 @@ distributor           = iridyne@github
 distributor_url       = https://github.com/iridite/openclawer
 desktop_uidir         = ui
 desktop_applaunchname = oc-deploy.Application
-install_dep_apps      = nodejs_v22
+install_dep_apps      = nodejs_v22, python312
