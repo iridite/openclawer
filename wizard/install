@@ -23,5 +23,17 @@
                 "helpText": "📄 用户条款（摘要）：本工具仅提供 OpenClaw 实例的部署与管理能力，作者不提供 OpenClaw 本体功能的保证或服务。用户对部署后 OpenClaw 的使用、配置、访问控制、数据处理与合规性承担全部责任。因用户使用 OpenClaw 产生的任何直接或间接后果（包括但不限于业务损失、数据泄露、第三方索赔等）由用户自行承担。OpenClaw 在本机运行可能引发的数据丢失、系统损坏、性能下降或其他影响亦由用户自行承担，作者不承担任何责任。继续下一步即视为用户已阅读并同意本条款。"
             }
         ]
+    },
+    {
+        "stepTitle": "环境变量配置",
+        "items": [
+            {
+                "type": "checkbox",
+                "name": "add_to_path",
+                "label": "将 OpenClaw 和 Node.js/npm 添加到系统环境变量",
+                "helpText": "推荐开启。添加后可在终端直接使用 openclaw、node、npm 命令",
+                "default": true
+            }
+        ]
     }
 ]

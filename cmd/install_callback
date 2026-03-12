@@ -378,6 +378,32 @@ snapshot_initial_config() {
     fi
 }
 
+setup_environment_variables() {
+    if [ "${TRIM_WIZARD_add_to_path}" != "true" ]; then
+        log_msg "User opted out of adding to PATH, skipping environment setup"
+        return 0
+    fi
+
+    log_msg "Adding OpenClaw and Node.js to system PATH..."
+
+    local PROFILE_FILE="/etc/profile.d/openclaw.sh"
+
+    cat > "${PROFILE_FILE}" << ENVEOF
+# OpenClaw and Node.js environment variables
+export PATH="/var/apps/nodejs_v22/target/bin:${PKGVAR}/node_modules/.bin:\$PATH"
+ENVEOF
+
+    if [ $? -eq 0 ]; then
+        chmod +x "${PROFILE_FILE}"
+        log_msg "Environment variables configured successfully"
+    else
+        log_msg "Failed to configure environment variables"
+        echo "Failed to configure environment variables" >> "${TRIM_TEMP_LOGFILE}"
+        tail -n 20 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
+        exit 1
+    fi
+}
+
 # entry point
 # 步骤 2: 安装 openclaw
 install_openclaw
@@ -390,5 +416,6 @@ log_msg "Starting OpenClaw configuration setup..."
 setup_openclaw_config
 generate_oc_token
 snapshot_initial_config
+setup_environment_variables
 
 exit 0
