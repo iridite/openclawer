@@ -62,7 +62,7 @@ const QUICK_ADD_MODELS = {
 const PROVIDER_BASE_URLS = {
   openai: "https://api.openai.com/v1",
   anthropic: "https://api.anthropic.com",
-  bailian: "https://coding.dashscope.aliyuncs.com/v1",
+  bailian: "https://dashscope.aliyuncs.com/compatible-mode/v1",
   zhipu: "https://open.bigmodel.cn/api/paas/v4",
   moonshot: "https://api.moonshot.cn/v1",
 };
