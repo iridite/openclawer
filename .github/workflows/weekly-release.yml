@@ -1,0 +1,93 @@
+name: Weekly Release
+
+on:
+  schedule:
+    - cron: '0 0 * * 2'  # 每周二 UTC 00:00 (北京时间 08:00)
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install fnpack
+        run: |
+          wget -q https://developer.fnnas.com/downloads/fnpack-1.2.1-linux-amd64
+          chmod +x fnpack-1.2.1-linux-amd64
+          sudo mv fnpack-1.2.1-linux-amd64 /usr/local/bin/fnpack
+          fnpack --version
+
+      - name: Get version from manifest
+        id: version
+        run: |
+          VERSION=$(grep "^version" manifest | awk '{print $3}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build FPK package
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          chmod +x cmd/main cmd/install_callback cmd/install_init cmd/uninstall_init cmd/upgrade_init cmd/upgrade_callback
+          chmod +x app/server/management-api.js
+          fnpack build
+          mv *.fpk oc-deploy-${{ steps.version.outputs.version }}.fpk
+
+      - name: Generate changelog
+        if: steps.check_tag.outputs.exists == 'false'
+        id: changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s" --no-merges)
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+          fi
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## 📦 OC-Deploy ${{ steps.version.outputs.version }}
+
+            ### 更新内容
+            ${{ steps.changelog.outputs.changelog }}
+
+            ### 安装说明
+            1. 下载 `oc-deploy-${{ steps.version.outputs.version }}.fpk`
+            2. 在 fnOS 应用中心上传安装
+            3. 启动应用并访问管理界面
+
+            ---
+            🤖 自动发布于 $(date +'%Y-%m-%d %H:%M:%S')
+          files: oc-deploy-${{ steps.version.outputs.version }}.fpk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip release (tag exists)
+        if: steps.check_tag.outputs.exists == 'true'
+        run: |
+          echo "Tag ${{ steps.version.outputs.tag }} already exists, skipping release"
