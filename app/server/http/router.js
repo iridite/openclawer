@@ -10,6 +10,7 @@ function createRouter(deps) {
     validateConfig,
     addModel,
     deleteModel,
+    testModel,
     startGateway,
     stopGateway,
     restartGateway,
@@ -111,6 +112,10 @@ function createRouter(deps) {
         const body = await readBody(req);
         const data = JSON.parse(body);
         return deleteModel(data.modelKey);
+      },
+      "POST /api/models/test": async () => {
+        const body = await readBody(req);
+        return testModel(JSON.parse(body));
       },
       "POST /api/gateway/start": startGateway,
       "POST /api/gateway/stop": stopGateway,

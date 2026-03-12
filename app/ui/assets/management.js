@@ -2432,6 +2432,13 @@ function resetModelForm() {
   document.getElementById("edit-model-key").value = "";
   document.getElementById("model-id").disabled = false;
 
+  // 重置测试按钮状态
+  const testBtn = document.getElementById("test-model-btn");
+  if (testBtn) {
+    testBtn.className = "btn";
+    testBtn.disabled = false;
+  }
+
   // 重置高级配置默认值（安全访问）
   const contextWindowEl = document.getElementById("context-window");
   const maxTokensEl = document.getElementById("max-tokens");
@@ -2444,6 +2451,96 @@ function resetModelForm() {
   if (inputTextEl) inputTextEl.checked = true;
   if (inputImageEl) inputImageEl.checked = false;
   if (reasoningEl) reasoningEl.checked = false;
+}
+
+// 测试模型连接
+async function testModelConnection() {
+  const testBtn = document.getElementById("test-model-btn");
+  const modelId = document.getElementById("model-id").value.trim();
+  const providerName = document.getElementById("provider-name").value.trim();
+  const baseUrl = document.getElementById("base-url").value.trim();
+  const apiKey = document.getElementById("api-key").value.trim();
+  const apiProtocol = document.getElementById("api-protocol").value;
+
+  // 验证必填字段
+  if (!modelId || !providerName || !baseUrl || !apiKey) {
+    showToast("请先填写所有必填字段（模型ID、供应商、Base URL、API Key）", "error");
+    return;
+  }
+
+  // 验证格式
+  if (!/^[a-zA-Z0-9./:-]+$/.test(modelId)) {
+    showToast("模型 ID 格式不正确", "error");
+    return;
+  }
+  if (!/^[a-z]+$/.test(providerName)) {
+    showToast("供应商名称格式不正确（仅允许小写字母）", "error");
+    return;
+  }
+
+  // 禁用按钮
+  testBtn.disabled = true;
+  testBtn.className = "btn";
+  testBtn.textContent = "测试中...";
+
+  // 创建终端模态框
+  const modal = document.createElement("div");
+  modal.className = "terminal-modal";
+  modal.innerHTML = `
+    <div class="terminal-content">
+      <div class="terminal-header">
+        <div class="terminal-title">模型连接测试</div>
+        <button class="terminal-close" onclick="this.closest('.terminal-modal').remove()">关闭</button>
+      </div>
+      <div class="terminal-body">
+        <div class="terminal-section">
+          <div class="terminal-label">$ 执行命令:</div>
+          <div class="terminal-output" id="terminal-command">正在构造请求...</div>
+        </div>
+        <div class="terminal-section">
+          <div class="terminal-label">响应:</div>
+          <div class="terminal-output" id="terminal-response">等待响应...</div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  try {
+    const result = await apiRequest("/api/models/test", "POST", {
+      providerName,
+      modelId,
+      baseUrl,
+      apiKey,
+      apiProtocol,
+    });
+
+    // 更新终端显示
+    document.getElementById("terminal-command").textContent = result.curlCommand || "无命令";
+    const responseEl = document.getElementById("terminal-response");
+
+    if (result.success) {
+      responseEl.className = "terminal-output";
+      responseEl.textContent = result.response || "测试成功";
+      testBtn.className = "btn success";
+      testBtn.textContent = "测试成功 ✓";
+      showToast("模型连接测试成功", "success");
+    } else {
+      responseEl.className = "terminal-error";
+      responseEl.textContent = result.response || "测试失败";
+      testBtn.className = "btn error";
+      testBtn.textContent = "测试失败 ✗";
+      showToast("模型连接测试失败", "error");
+    }
+  } catch (error) {
+    document.getElementById("terminal-response").className = "terminal-error";
+    document.getElementById("terminal-response").textContent = error.message || "请求失败";
+    testBtn.className = "btn error";
+    testBtn.textContent = "测试失败 ✗";
+    showToast("测试请求失败: " + error.message, "error");
+  } finally {
+    testBtn.disabled = false;
+  }
 }
 
 // ============================================================================

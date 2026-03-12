@@ -16,6 +16,7 @@ const { createPluginService } = require("./services/plugins");
 const { createDashboardProxyService } = require("./http/dashboard-proxy");
 const { createGatewayService } = require("./services/gateway");
 const { createConfigService } = require("./services/config");
+const { createModelTestService } = require("./services/model-test");
 const { createRouter } = require("./http/router");
 const { createStaticFileService } = require("./http/static");
 
@@ -111,6 +112,9 @@ const {
   validateConfig,
 } = configService;
 
+const modelTestService = createModelTestService({ execCommand });
+const { testModel } = modelTestService;
+
 const backupService = createBackupService({
   OC_HOME,
   TRIM_PKGVAR,
@@ -160,6 +164,7 @@ const router = createRouter({
   validateConfig,
   addModel,
   deleteModel,
+  testModel,
   startGateway,
   stopGateway,
   restartGateway,
