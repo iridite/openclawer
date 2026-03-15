@@ -11,21 +11,3 @@ distributor_url       = https://github.com/iridite/openclawer
 desktop_uidir         = ui
 desktop_applaunchname = oc-deploy.Application
 install_dep_apps      = nodejs_v22, python312
-
-wizard add_to_path {
-    type = "bool"
-    label = "添加到系统 PATH"
-    description = "将 OpenClaw 和 Node.js 添加到系统环境变量"
-    default = true
-}
-
-wizard config_location {
-    type = "select"
-    label = "配置文件存储位置"
-    description = "选择 OpenClaw 配置文件的存储位置"
-    options = [
-        { value = "root", label = "/root/.openclaw (默认)" },
-        { value = "appdir", label = "/var/apps/oc-deploy/var/.openclaw" }
-    ]
-    default = "root"
-}
