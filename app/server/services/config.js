@@ -108,7 +108,7 @@ function createConfigService(deps) {
     if (fs.existsSync(CONFIG_FILE)) {
       const backupFile = CONFIG_FILE + ".backup." + Date.now();
       fs.copyFileSync(CONFIG_FILE, backupFile);
-      if (!fs.existsSync(backupFile)) {
+      if (!fs.existsSync(backupFile) || fs.statSync(backupFile).size === 0) {
         throw new Error("备份创建失败");
       }
     }
@@ -592,12 +592,19 @@ function createConfigService(deps) {
       const affectedAreas = [];
       let requiresRestart = false;
 
-      if (JSON.stringify(oldConfig.gateway) !== JSON.stringify(newConfig.gateway)) {
+      const oldGw = oldConfig.gateway || {};
+      const newGw = newConfig.gateway || {};
+      if (oldGw.port !== newGw.port || oldGw.bind !== newGw.bind ||
+          oldGw.mode !== newGw.mode || oldGw.auth?.mode !== newGw.auth?.mode) {
         affectedAreas.push("Gateway 配置");
         requiresRestart = true;
       }
 
-      if (JSON.stringify(oldConfig.plugins?.allow) !== JSON.stringify(newConfig.plugins?.allow)) {
+      const oldAllow = oldConfig.plugins?.allow;
+      const newAllow = newConfig.plugins?.allow;
+      if (Array.isArray(oldAllow) !== Array.isArray(newAllow) ||
+          (Array.isArray(oldAllow) && (oldAllow.length !== newAllow.length ||
+           oldAllow.some((v, i) => v !== newAllow[i])))) {
         affectedAreas.push("插件列表");
         requiresRestart = true;
       }
