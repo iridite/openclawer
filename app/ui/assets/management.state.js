@@ -43,17 +43,17 @@ const QUICK_ADD_MODELS = {
       maxTokens: 8192,
     },
   },
-  "glm4.7": {
-    modelId: "glm4.7",
-    providerName: "zai",
-    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+  "doubao-pro-32k": {
+    modelId: "doubao-pro-32k",
+    providerName: "volcengine-plan",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
     apiProtocol: "openai",
     apiType: "openai-completions",
     advanced: {
       reasoning: false,
       input: ["text", "image"],
-      contextWindow: 128000,
-      maxTokens: 8192,
+      contextWindow: 32768,
+      maxTokens: 4096,
     },
   },
 };
@@ -63,7 +63,7 @@ const PROVIDER_BASE_URLS = {
   openai: "https://api.openai.com/v1",
   anthropic: "https://api.anthropic.com",
   bailian: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  zhipu: "https://open.bigmodel.cn/api/paas/v4",
+  "volcengine-plan": "https://ark.cn-beijing.volces.com/api/v3",
   moonshot: "https://api.moonshot.cn/v1",
 };
 

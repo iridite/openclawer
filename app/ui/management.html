@@ -394,12 +394,12 @@ API 类型: openai-completions
                                                 >
                                             </li>
                                             <li>
-                                                智谱 AI（BigModel）：
+                                                火山引擎（Volcengine）：
                                                 <a
-                                                    href="https://open.bigmodel.cn/dev/api/normal-model/glm-4"
+                                                    href="https://www.volcengine.com/docs/82379/1263482"
                                                     target="_blank"
                                                     rel="noreferrer"
-                                                    >https://open.bigmodel.cn/dev/api/normal-model/glm-4</a
+                                                    >https://www.volcengine.com/docs/82379/1263482</a
                                                 >
                                             </li>
                                             <li>
@@ -505,7 +505,7 @@ API 类型: openai-completions
                                                         >
                                                         <span
                                                             class="tooltip-icon"
-                                                            data-tooltip="供应商用于分组模型并组成模型键（provider/modelId）。仅允许小写英文 a-z。示例：openai、anthropic、zhipu。"
+                                                            data-tooltip="供应商用于分组模型并组成模型键（provider/modelId）。仅允许小写英文 a-z 和连字符 -。示例：openai、anthropic、volcengine-plan。"
                                                             >ⓘ</span
                                                         >
                                                     </label>
@@ -515,7 +515,7 @@ API 类型: openai-completions
                                                         name="providerName"
                                                         list="provider-suggestions"
                                                         placeholder="选择或输入供应商"
-                                                        pattern="[a-z]+"
+                                                        pattern="[a-z-]+"
                                                         required
                                                     />
                                                     <datalist
@@ -532,8 +532,8 @@ API 类型: openai-completions
                                                         <option value="bailian">
                                                             阿里百炼
                                                         </option>
-                                                        <option value="zhipu">
-                                                            智谱 AI
+                                                        <option value="volcengine-plan">
+                                                            火山引擎
                                                         </option>
                                                         <option
                                                             value="moonshot"

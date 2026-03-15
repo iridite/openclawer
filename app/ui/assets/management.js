@@ -2295,7 +2295,7 @@ async function submitModelForm(event) {
 
     // 与后端校验规则保持一致
     const modelIdPattern = /^[a-zA-Z0-9./:-]+$/;
-    const providerPattern = /^[a-z]+$/;
+    const providerPattern = /^[a-z-]+$/;
 
     if (modelIdInput) {
       modelIdInput.setCustomValidity("");
@@ -2318,7 +2318,7 @@ async function submitModelForm(event) {
     if (!providerPattern.test(providerName)) {
       if (providerInput) {
         providerInput.setCustomValidity(
-          "供应商名称只能包含小写英文字符（a-z），不能包含大写字母、数字、中文、空格或特殊字符",
+          "供应商名称只能包含小写英文字符（a-z）和连字符（-）",
         );
         providerInput.reportValidity();
         providerInput.focus();
