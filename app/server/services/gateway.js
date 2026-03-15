@@ -9,6 +9,7 @@ function createGatewayService(options) {
     OC_JS_PATH,
     OC_PKG_JSON_PATH,
     GATEWAY_PID_FILE,
+    TRIM_PKGVAR,
     readJSON,
     execCommand,
     isProcessRunning,
@@ -161,10 +162,30 @@ function createGatewayService(options) {
   }
 
   async function updateVersion() {
-    return {
-      success: false,
-      message: "还没做",
-    };
+    try {
+      console.log("[management-api] 开始更新 OpenClaw...");
+
+      await execCommand("npm config set registry https://registry.npmmirror.com");
+
+      await stopGateway();
+      console.log("[management-api] Gateway 已停止");
+
+      await execCommand(`cd ${TRIM_PKGVAR} && npm install openclaw@latest`, {
+        timeout: 120000,
+      });
+      console.log("[management-api] OpenClaw 更新完成");
+
+      await startGateway();
+      console.log("[management-api] Gateway 已重启");
+
+      return { success: true };
+    } catch (err) {
+      console.error("[management-api] 更新失败:", err);
+      return {
+        success: false,
+        message: err.stderr || err.message || "更新失败",
+      };
+    }
   }
 
   async function getConsoleUrl(req) {

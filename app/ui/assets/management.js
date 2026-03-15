@@ -2569,7 +2569,15 @@ async function checkUpdate() {
 }
 
 async function updateVersion() {
-  if (!confirm("确定要更新版本吗？")) {
+  const message =
+    "确定要更新 OpenClaw 到最新版本吗？\n\n" +
+    "升级过程将执行以下操作：\n" +
+    "1. 停止 Gateway 服务\n" +
+    "2. 通过 npm 安装最新版本\n" +
+    "3. 重启 Gateway 服务\n\n" +
+    "整个过程大约需要 1-2 分钟，期间服务将暂时不可用。";
+
+  if (!confirm(message)) {
     return;
   }
 

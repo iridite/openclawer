@@ -75,6 +75,7 @@ const gatewayService = createGatewayService({
   OC_JS_PATH,
   OC_PKG_JSON_PATH,
   GATEWAY_PID_FILE,
+  TRIM_PKGVAR,
   readJSON,
   execCommand,
   isProcessRunning,
