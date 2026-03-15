@@ -108,9 +108,10 @@ const {
   getConfig,
   saveConfig,
   resetConfig,
+  validateConfig,
   addModel,
   deleteModel,
-  validateConfig,
+  analyzeConfigImpact,
 } = configService;
 
 const modelTestService = createModelTestService({ execCommand });
@@ -163,6 +164,7 @@ const router = createRouter({
   saveConfig,
   resetConfig,
   validateConfig,
+  analyzeConfigImpact,
   addModel,
   deleteModel,
   testModel,

@@ -579,6 +579,30 @@ function createConfigService(deps) {
     addModel,
     deleteModel,
     validateConfig,
+    analyzeConfigImpact: (newConfig) => {
+      const oldConfig = readJSON(CONFIG_FILE) || {};
+      const affectedAreas = [];
+      let requiresRestart = false;
+
+      if (JSON.stringify(oldConfig.gateway) !== JSON.stringify(newConfig.gateway)) {
+        affectedAreas.push("Gateway 配置");
+        requiresRestart = true;
+      }
+
+      if (JSON.stringify(oldConfig.plugins?.allow) !== JSON.stringify(newConfig.plugins?.allow)) {
+        affectedAreas.push("插件列表");
+        requiresRestart = true;
+      }
+
+      const oldPrimary = oldConfig.agents?.defaults?.model?.primary;
+      const newPrimary = newConfig.agents?.defaults?.model?.primary;
+      if (oldPrimary !== newPrimary) {
+        affectedAreas.push("主模型");
+        requiresRestart = true;
+      }
+
+      return { requiresRestart, affectedAreas };
+    },
   };
 }
 

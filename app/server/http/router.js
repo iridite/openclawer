@@ -8,6 +8,7 @@ function createRouter(deps) {
     saveConfig,
     resetConfig,
     validateConfig,
+    analyzeConfigImpact,
     addModel,
     deleteModel,
     testModel,
@@ -103,6 +104,10 @@ function createRouter(deps) {
       "POST /api/config/validate": async () => {
         const body = await readBody(req);
         return validateConfig(JSON.parse(body));
+      },
+      "POST /api/config/analyze-impact": async () => {
+        const body = await readBody(req);
+        return analyzeConfigImpact(JSON.parse(body));
       },
       "POST /api/models/add": async () => {
         const body = await readBody(req);

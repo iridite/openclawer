@@ -106,6 +106,24 @@ async function saveConfig() {
     // 解析 JSON
     const config = JSON.parse(content);
 
+    // 分析配置影响
+    const impact = await apiRequest("/config/analyze-impact", {
+      method: "POST",
+      body: JSON.stringify(config),
+    });
+
+    // 如果需要重启，显示确认对话框
+    if (impact.requiresRestart && impact.affectedAreas.length > 0) {
+      const message =
+        "此配置变更将影响以下功能：\n\n" +
+        impact.affectedAreas.map((area) => `• ${area}`).join("\n") +
+        "\n\n需要重启 Gateway 以生效，这将中断当前所有连接。\n\n确定要保存并重启吗？";
+
+      if (!confirm(message)) {
+        return;
+      }
+    }
+
     // 验证配置
     const validation = await apiRequest("/config/validate", {
       method: "POST",
