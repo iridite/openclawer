@@ -37,11 +37,7 @@ const NODE_BIN = process.env.NODE_BIN || "/var/apps/nodejs_v22/target/bin/node";
 const NODE_BIN_DIR = path.dirname(NODE_BIN);
 const PKG_NODE_BIN_DIR = path.join(TRIM_PKGVAR, "node_modules", ".bin");
 
-const DEFAULT_ALLOWED_PLUGINS = [
-  "openclaw-qqbot",
-  "wecom-openclaw-plugin",
-  "skillhub",
-];
+const DEFAULT_ALLOWED_PLUGINS = [];
 const BACKUP_MANIFEST_FILE = "oc-deploy-backup-manifest.json";
 const USER_BACKUP_ROOT =
   process.env.USER_BACKUP_ROOT || "/root/oc-deploy/user-backups";
