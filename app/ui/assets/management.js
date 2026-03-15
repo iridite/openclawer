@@ -581,7 +581,7 @@ function updateConfigSummary(config) {
       html +=
         '<div style="margin-top: 15px;"><strong>已配置模型：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
       for (const entry of modelEntries) {
-        const activeTag = entry.isPrimary ? " 【已激活】" : "";
+        const activeTag = entry.isPrimary ? ' <span class="primary-badge" style="margin-left: 8px;">主模型</span>' : "";
         html += `<li><code>${entry.modelKey}</code>${entry.urlHint}${activeTag}</li>`;
       }
       html += "</ul></div>";
@@ -955,6 +955,7 @@ async function loadModelsList() {
           <div class="model-card${primaryClass}" data-model-key="${modelKey}">
           <div class="model-card-header">
             <h3 class="model-card-title">${modelKey}</h3>
+            ${isPrimary ? '<span class="primary-badge">主模型</span>' : ''}
           </div>
             <div class="model-card-info">
               <div class="model-card-info-item">
@@ -977,6 +978,7 @@ async function loadModelsList() {
               </div>
             </div>
             <div class="model-card-actions">
+              ${!isPrimary ? `<button class="btn btn-primary btn-sm set-primary-btn" data-model-key="${modelKey}">设为主模型</button>` : ''}
               <button class="btn btn-secondary btn-sm edit-model-btn" data-provider="${providerName}" data-model="${modelId}">
                 编辑
               </button>
@@ -992,14 +994,14 @@ async function loadModelsList() {
 
     modelsListEl.innerHTML = html;
 
-    // 为卡片添加点击事件（设置当前模型）
-    modelsListEl.querySelectorAll(".model-card").forEach((card) => {
-      card.addEventListener("click", () => {
-        const modelKey = card.dataset.modelKey;
-        if (!modelKey) {
-          return;
+    // 为"设为主模型"按钮添加点击事件
+    modelsListEl.querySelectorAll(".set-primary-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const modelKey = btn.dataset.modelKey;
+        if (modelKey) {
+          setPrimaryModel(modelKey);
         }
-        setPrimaryModel(modelKey);
       });
     });
 
