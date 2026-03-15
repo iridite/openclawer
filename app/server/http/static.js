@@ -21,21 +21,24 @@ function createStaticFileService(deps) {
   }
 
   function serveStaticFile(filePath, res) {
-    if (filePath.includes("..")) {
+    const resolvedPath = path.resolve(filePath);
+    const resolvedUIDir = path.resolve(UI_DIR);
+
+    if (!resolvedPath.startsWith(resolvedUIDir)) {
       res.writeHead(400, { "Content-Type": "text/plain" });
       res.end("400 Bad Request");
       return;
     }
 
-    if (!fs.existsSync(filePath)) {
+    if (!fs.existsSync(resolvedPath)) {
       res.writeHead(404, { "Content-Type": "text/plain" });
       res.end("404 Not Found");
       return;
     }
 
     try {
-      const mimeType = getMimeType(filePath);
-      const content = fs.readFileSync(filePath);
+      const mimeType = getMimeType(resolvedPath);
+      const content = fs.readFileSync(resolvedPath);
       res.writeHead(200, { "Content-Type": mimeType });
       res.end(content);
     } catch (err) {

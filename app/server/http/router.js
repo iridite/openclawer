@@ -98,29 +98,71 @@ function createRouter(deps) {
       "GET /api/config": getConfig,
       "POST /api/config": async () => {
         const body = await readBody(req);
-        return saveConfig(JSON.parse(body));
+        try {
+          return saveConfig(JSON.parse(body));
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error("无效的 JSON 格式");
+          }
+          throw e;
+        }
       },
       "POST /api/config/reset": resetConfig,
       "POST /api/config/validate": async () => {
         const body = await readBody(req);
-        return validateConfig(JSON.parse(body));
+        try {
+          return validateConfig(JSON.parse(body));
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error("无效的 JSON 格式");
+          }
+          throw e;
+        }
       },
       "POST /api/config/analyze-impact": async () => {
         const body = await readBody(req);
-        return analyzeConfigImpact(JSON.parse(body));
+        try {
+          return analyzeConfigImpact(JSON.parse(body));
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error("无效的 JSON 格式");
+          }
+          throw e;
+        }
       },
       "POST /api/models/add": async () => {
         const body = await readBody(req);
-        return addModel(JSON.parse(body));
+        try {
+          return addModel(JSON.parse(body));
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error("无效的 JSON 格式");
+          }
+          throw e;
+        }
       },
       "POST /api/models/delete": async () => {
         const body = await readBody(req);
-        const data = JSON.parse(body);
-        return deleteModel(data.modelKey);
+        try {
+          const data = JSON.parse(body);
+          return deleteModel(data.modelKey);
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error("无效的 JSON 格式");
+          }
+          throw e;
+        }
       },
       "POST /api/models/test": async () => {
         const body = await readBody(req);
-        return testModel(JSON.parse(body));
+        try {
+          return testModel(JSON.parse(body));
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error("无效的 JSON 格式");
+          }
+          throw e;
+        }
       },
       "POST /api/gateway/start": startGateway,
       "POST /api/gateway/stop": stopGateway,

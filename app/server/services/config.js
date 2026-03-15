@@ -100,9 +100,17 @@ function createConfigService(deps) {
       throw new Error("无效的配置格式");
     }
 
+    const validation = validateConfig(newConfig);
+    if (!validation.valid) {
+      throw new Error(`配置验证失败: ${validation.errors.join(", ")}`);
+    }
+
     if (fs.existsSync(CONFIG_FILE)) {
       const backupFile = CONFIG_FILE + ".backup." + Date.now();
       fs.copyFileSync(CONFIG_FILE, backupFile);
+      if (!fs.existsSync(backupFile)) {
+        throw new Error("备份创建失败");
+      }
     }
 
     const success = writeJSON(CONFIG_FILE, newConfig);

@@ -104,25 +104,38 @@ function showToast(message, type = "info") {
 
 // API 请求封装
 async function apiRequest(endpoint, options = {}) {
-  try {
-    const response = await fetch(API_BASE + endpoint, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    });
+  const maxRetries = options.retries || 2;
+  const retryDelay = options.retryDelay || 1000;
 
-    const data = await response.json();
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(API_BASE + endpoint, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(data.error || "请求失败");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "请求失败");
+      }
+
+      return data;
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries;
+      const isNetworkError = error.name === 'TypeError' || error.message.includes('fetch');
+
+      if (!isLastAttempt && isNetworkError) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+        continue;
+      }
+
+      console.error("API 请求失败:", error);
+      throw error;
     }
-
-    return data;
-  } catch (error) {
-    console.error("API 请求失败:", error);
-    throw error;
   }
 }
 
@@ -1844,6 +1857,8 @@ async function submitChannelForm(event) {
     // Telegram 特定配置已在上方处理（严格对齐官方结构）
 
     // 飞书特定配置已在上方处理（严格对齐官方结构）
+
+    showToast(isEditMode ? "正在保存渠道修改..." : "正在添加消息渠道...", "info");
 
     // 保存整个配置
     await apiRequest("/config", {
