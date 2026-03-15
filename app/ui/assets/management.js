@@ -741,15 +741,8 @@ function inferProtocolFromApiType(apiValue) {
   if (!apiValue) return "openai";
   if (apiValue === "anthropic") return "anthropic";
   if (apiValue === "openai") return "openai";
-  if (apiValue === "google-ai") return "google-ai";
-  if (apiValue === "github") return "github";
-  if (apiValue === "bedrock") return "bedrock";
   if (apiValue.startsWith("anthropic-")) return "anthropic";
   if (apiValue.startsWith("openai-")) return "openai";
-  if (apiValue.startsWith("google-")) return "google-ai";
-  if (apiValue.startsWith("github-")) return "github";
-  if (apiValue.startsWith("bedrock-")) return "bedrock";
-  if (apiValue === "ollama") return "ollama";
   return "openai";
 }
 
@@ -767,14 +760,6 @@ function updateApiTypeOptions(protocol) {
     options = API_TYPES.openai;
   } else if (protocol === "anthropic") {
     options = API_TYPES.anthropic;
-  } else if (protocol === "google-ai") {
-    options = API_TYPES.google;
-  } else if (protocol === "github") {
-    options = API_TYPES.github;
-  } else if (protocol === "bedrock") {
-    options = API_TYPES.bedrock;
-  } else if (protocol === "ollama") {
-    options = API_TYPES.ollama;
   } else {
     // 默认显示所有 OpenAI 选项
     options = API_TYPES.openai;
@@ -2712,6 +2697,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const provider = providerInput.value.toLowerCase();
       if (PROVIDER_BASE_URLS[provider]) {
         baseUrlInput.value = PROVIDER_BASE_URLS[provider];
+      }
+
+      // 根据供应商自动设置 API 协议
+      const protocol = provider === "anthropic" ? "anthropic" : "openai";
+      const protocolSelect = document.getElementById("api-protocol");
+      if (protocolSelect) {
+        protocolSelect.value = protocol;
+        updateApiTypeOptions(protocol);
       }
     });
   }

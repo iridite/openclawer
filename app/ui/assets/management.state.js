@@ -77,20 +77,4 @@ const API_TYPES = {
   anthropic: [
     { value: "anthropic-messages", label: "Anthropic Messages", default: true },
   ],
-  google: [
-    {
-      value: "google-generative-ai",
-      label: "Google Generative AI",
-      default: true,
-    },
-  ],
-  github: [{ value: "github-copilot", label: "GitHub Copilot", default: true }],
-  bedrock: [
-    {
-      value: "bedrock-converse-stream",
-      label: "Bedrock Converse Stream",
-      default: true,
-    },
-  ],
-  ollama: [{ value: "ollama", label: "Ollama", default: true }],
 };
