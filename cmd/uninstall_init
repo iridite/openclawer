@@ -44,6 +44,18 @@ if [ -n "${TRIM_APPNAME}" ] && [ -d "/home/${TRIM_APPNAME}/.openclaw" ]; then
     fi
 fi
 
+# 清理 appdir 配置（如果用户选择了 appdir 存储位置）
+PKGVAR="/var/apps/${TRIM_APPNAME}/var"
+if [ -d "${PKGVAR}/.openclaw" ]; then
+    log_msg "正在删除 ${PKGVAR}/.openclaw 配置目录..."
+    rm -rf "${PKGVAR}/.openclaw"
+    if [ $? -eq 0 ]; then
+        log_msg "✅ ${PKGVAR}/.openclaw 已删除"
+    else
+        log_msg "⚠️  删除 ${PKGVAR}/.openclaw 失败"
+    fi
+fi
+
 # # 清理 TRIM_PKGVAR 下的数据目录
 # if [ -n "${TRIM_PKGVAR}" ] && [ -d "${TRIM_PKGVAR}/data" ]; then
 #     log_msg "正在删除 ${TRIM_PKGVAR}/data 数据目录..."

@@ -5,7 +5,16 @@
 set -euo pipefail
 
 APP_NAME="${TRIM_APPNAME:-oc-deploy}"
-SRC_DIR="${OC_HOME:-/root/.openclaw}"
+
+# 自动检测配置文件位置
+if [ -d "/var/apps/${APP_NAME}/var/.openclaw" ]; then
+    SRC_DIR="/var/apps/${APP_NAME}/var/.openclaw"
+elif [ -d "/root/.openclaw" ]; then
+    SRC_DIR="/root/.openclaw"
+else
+    SRC_DIR="${OC_HOME:-/root/.openclaw}"
+fi
+
 PKG_VAR_DIR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
 BACKUP_ROOT="${OC_DEPLOY_BACKUP_ROOT:-/root/oc-deploy}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
