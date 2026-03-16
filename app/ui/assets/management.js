@@ -2476,8 +2476,8 @@ async function testModelConnection() {
     showToast("模型 ID 格式不正确", "error");
     return;
   }
-  if (!/^[a-z]+$/.test(providerName)) {
-    showToast("供应商名称格式不正确（仅允许小写字母）", "error");
+  if (!/^[a-z-]+$/.test(providerName)) {
+    showToast("供应商名称格式不正确（仅允许小写字母和连字符）", "error");
     return;
   }
 
