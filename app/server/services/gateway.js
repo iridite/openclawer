@@ -1,4 +1,5 @@
 const fs = require("fs");
+const path = require("path");
 
 function createGatewayService(options) {
   const {
@@ -134,10 +135,16 @@ function createGatewayService(options) {
   async function getLatestVersion() {
     try {
       console.log("[management-api] 检查最新版本...");
-      await execCommand("npm config set registry https://registry.npmmirror.com");
 
-      const output = await execCommand("npm view openclaw version", {
+      const npmCmd = `${NODE_BIN} ${path.join(path.dirname(NODE_BIN), "npm")}`;
+
+      await execCommand(`${npmCmd} config set registry https://registry.npmmirror.com`, {
+        env: { ...process.env, HOME: "/root" },
+      });
+
+      const output = await execCommand(`${npmCmd} view openclaw version`, {
         timeout: 10000,
+        env: { ...process.env, HOME: "/root" },
       });
 
       const latestVersion = output.trim();
@@ -165,13 +172,20 @@ function createGatewayService(options) {
     try {
       console.log("[management-api] 开始更新 OpenClaw...");
 
-      await execCommand("npm config set registry https://registry.npmmirror.com");
-
       await stopGateway();
       console.log("[management-api] Gateway 已停止");
 
-      await execCommand(`cd ${TRIM_PKGVAR} && npm install openclaw@latest`, {
+      const npmCmd = `${NODE_BIN} ${path.join(path.dirname(NODE_BIN), "npm")}`;
+
+      await execCommand(`${npmCmd} config set registry https://registry.npmmirror.com`, {
+        cwd: TRIM_PKGVAR,
+        env: { ...process.env, HOME: "/root" },
+      });
+
+      await execCommand(`${npmCmd} install openclaw@latest`, {
+        cwd: TRIM_PKGVAR,
         timeout: 120000,
+        env: { ...process.env, HOME: "/root" },
       });
       console.log("[management-api] OpenClaw 更新完成");
 
