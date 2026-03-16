@@ -23,5 +23,44 @@
                 "helpText": "📄 用户条款（摘要）：本工具仅提供 OpenClaw 实例的部署与管理能力，作者不提供 OpenClaw 本体功能的保证或服务。用户对部署后 OpenClaw 的使用、配置、访问控制、数据处理与合规性承担全部责任。因用户使用 OpenClaw 产生的任何直接或间接后果（包括但不限于业务损失、数据泄露、第三方索赔等）由用户自行承担。OpenClaw 在本机运行可能引发的数据丢失、系统损坏、性能下降或其他影响亦由用户自行承担，作者不承担任何责任。继续下一步即视为用户已阅读并同意本条款。"
             }
         ]
+    },
+    {
+        "stepTitle": "安装配置",
+        "items": [
+            {
+                "type": "radio",
+                "field": "clean_old_config",
+                "label": "旧配置处理",
+                "helpText": "如果系统中存在旧的 OpenClaw 配置目录（/root/.openclaw），是否在安装前清理？清理后将重新初始化配置。",
+                "initValue": "yes",
+                "options": [
+                    {
+                        "label": "是，清理旧配置（推荐）",
+                        "value": "yes"
+                    },
+                    {
+                        "label": "否，保留旧配置",
+                        "value": "no"
+                    }
+                ]
+            },
+            {
+                "type": "radio",
+                "field": "add_to_path",
+                "label": "环境变量配置",
+                "helpText": "是否将 OpenClaw 和 Node.js 添加到系统 PATH 环境变量？",
+                "initValue": "true",
+                "options": [
+                    {
+                        "label": "是，添加到 PATH",
+                        "value": "true"
+                    },
+                    {
+                        "label": "否，不添加",
+                        "value": "false"
+                    }
+                ]
+            }
+        ]
     }
 ]

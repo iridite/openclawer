@@ -28,6 +28,36 @@ precheck() {
     return 0
 }
 
+# 清理旧配置目录
+clean_old_config() {
+    if [ "${TRIM_WIZARD_clean_old_config}" != "yes" ]; then
+        log_msg "User opted to keep old config, skipping cleanup"
+        return 0
+    fi
+
+    local CONFIG_DIR="/root/.openclaw"
+
+    if [ -d "${CONFIG_DIR}" ]; then
+        log_msg "Found old config directory: ${CONFIG_DIR}"
+        log_msg "Removing old config directory as per user request..."
+
+        rm -rf "${CONFIG_DIR}" >> ${LOG_FILE} 2>&1
+
+        if [ $? -eq 0 ]; then
+            log_msg "Old config directory removed successfully"
+        else
+            log_msg "Failed to remove old config directory"
+            echo "Failed to remove old config directory: ${CONFIG_DIR}" > $TRIM_TEMP_LOGFILE
+            tail -n 20 "${LOG_FILE}" >> $TRIM_TEMP_LOGFILE
+            exit 1
+        fi
+    else
+        log_msg "No old config directory found, skipping cleanup"
+    fi
+
+    return 0
+}
+
 # 配置 npm 镜像源
 # 将 npm 源切换到淘宝镜像以加速国内下载
 setup_npm_registry() {
@@ -53,6 +83,7 @@ setup_npm_registry() {
 }
 
 precheck
+clean_old_config
 setup_npm_registry
 
 exit 0
