@@ -1008,7 +1008,7 @@ async function loadModelsList() {
               <button class="btn btn-secondary btn-sm edit-model-btn" data-provider="${providerName}" data-model="${modelId}">
                 编辑
               </button>
-              <button class="btn btn-secondary btn-sm delete-model-btn" data-provider="${providerName}" data-model="${modelId}">
+              <button class="btn btn-danger btn-sm delete-model-btn" data-provider="${providerName}" data-model="${modelId}">
                 删除
               </button>
             </div>

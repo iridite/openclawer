@@ -105,14 +105,14 @@
                             </div>
                             <div class="action-buttons">
                                 <button
-                                    class="btn btn-primary"
+                                    class="btn btn-success"
                                     onclick="startGateway()"
                                     id="start-gateway-btn"
                                 >
                                     启动 Gateway
                                 </button>
                                 <button
-                                    class="btn btn-secondary"
+                                    class="btn btn-danger"
                                     onclick="stopGateway()"
                                     id="stop-gateway-btn"
                                 >
@@ -131,7 +131,7 @@
                                     进入原生控制面板（dashboard）
                                 </button>
                                 <button
-                                    class="btn btn-secondary"
+                                    class="btn btn-ghost"
                                     onclick="refreshStatus()"
                                 >
                                     刷新状态
@@ -151,7 +151,7 @@
                             <div class="log-viewer">
                                 <div class="log-header">
                                     <button
-                                        class="btn btn-secondary btn-sm"
+                                        class="btn btn-ghost btn-sm"
                                         onclick="refreshLogs()"
                                     >
                                         刷新日志
@@ -1571,7 +1571,7 @@ API 类型: openai-completions
                                 <h2>配置编辑器</h2>
                                 <div class="card-actions">
                                     <button
-                                        class="btn btn-secondary btn-sm"
+                                        class="btn btn-ghost btn-sm"
                                         onclick="toggleEditorMode()"
                                         id="toggle-editor-btn"
                                         style="font-size: 0.85em"
@@ -1579,7 +1579,7 @@ API 类型: openai-completions
                                         切换到高级编辑器
                                     </button>
                                     <button
-                                        class="btn btn-secondary btn-sm"
+                                        class="btn btn-ghost btn-sm"
                                         onclick="loadConfig()"
                                     >
                                         重新加载
@@ -1592,13 +1592,13 @@ API 类型: openai-completions
                                         导入配置
                                     </button>
                                     <button
-                                        class="btn btn-secondary btn-sm"
+                                        class="btn btn-ghost btn-sm"
                                         onclick="exportConfig()"
                                     >
                                         导出配置
                                     </button>
                                     <button
-                                        class="btn btn-secondary btn-sm"
+                                        class="btn btn-ghost btn-sm"
                                         onclick="exportFullBackup()"
                                     >
                                         导出完整备份
@@ -1610,7 +1610,7 @@ API 类型: openai-completions
                                         导入完整备份
                                     </button>
                                     <button
-                                        class="btn btn-secondary btn-sm"
+                                        class="btn btn-ghost btn-sm"
                                         onclick="copyConfig()"
                                     >
                                         复制配置
@@ -1901,7 +1901,7 @@ API 类型: openai-completions
                             <h2>搜索技能</h2>
                             <div class="input-group">
                                 <input type="text" id="skills-search-input" placeholder="输入关键词搜索技能..." />
-                                <button id="skills-search-btn" class="btn btn-primary">搜索</button>
+                                <button id="skills-search-btn" class="btn btn-secondary">搜索</button>
                             </div>
                             <div id="skills-search-results" class="skills-results"></div>
                         </div>
@@ -1909,7 +1909,7 @@ API 类型: openai-completions
                         <div class="card">
                             <h2>技能列表</h2>
                             <p class="help-text">包含用户安装的技能和系统内置技能。内置技能可以启用或禁用，用户技能可以卸载。</p>
-                            <button id="skills-refresh-btn" class="btn btn-secondary">刷新列表</button>
+                            <button id="skills-refresh-btn" class="btn btn-ghost">刷新列表</button>
                             <div id="skills-installed-list" class="skills-list"></div>
                         </div>
                     </div>
@@ -1955,7 +1955,7 @@ API 类型: openai-completions
                             </div>
                             <div class="action-buttons">
                                 <button
-                                    class="btn btn-secondary"
+                                    class="btn btn-ghost"
                                     onclick="checkUpdate()"
                                 >
                                     检查更新
