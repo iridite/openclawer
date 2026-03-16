@@ -11,6 +11,9 @@ function createGatewayService(options) {
     OC_PKG_JSON_PATH,
     GATEWAY_PID_FILE,
     TRIM_PKGVAR,
+    GATEWAY_RESTART_DELAY,
+    NPM_VIEW_TIMEOUT,
+    NPM_INSTALL_TIMEOUT,
     readJSON,
     execCommand,
     isProcessRunning,
@@ -20,7 +23,9 @@ function createGatewayService(options) {
   async function startGateway() {
     try {
       await execCommand('pkill -9 -f "openclaw.*gateway"');
-    } catch (e) {}
+    } catch (e) {
+      console.log("[gateway] No existing gateway process to kill");
+    }
     const startCmd = `nohup env HOME="/root" OPENCLAW_CONFIG_PATH="${CONFIG_FILE}" ${NODE_BIN} ${OC_JS_PATH} gateway --port ${GATEWAY_PORT} > ${LOG_FILE} 2>&1 &`;
 
     try {
@@ -44,7 +49,7 @@ function createGatewayService(options) {
   async function restartGateway() {
     try {
       await stopGateway();
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, GATEWAY_RESTART_DELAY));
       await startGateway();
       return { success: true, method: "nohup-restart" };
     } catch (err) {
@@ -143,7 +148,7 @@ function createGatewayService(options) {
       });
 
       const output = await execCommand(`${npmCmd} view openclaw version`, {
-        timeout: 10000,
+        timeout: NPM_VIEW_TIMEOUT,
         env: { ...process.env, HOME: "/root" },
       });
 
@@ -184,7 +189,7 @@ function createGatewayService(options) {
 
       await execCommand(`${npmCmd} install openclaw@latest`, {
         cwd: TRIM_PKGVAR,
-        timeout: 120000,
+        timeout: NPM_INSTALL_TIMEOUT,
         env: { ...process.env, HOME: "/root" },
       });
       console.log("[management-api] OpenClaw 更新完成");

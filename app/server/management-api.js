@@ -46,6 +46,9 @@ const {
   BACKUP_MANIFEST_FILE,
   USER_BACKUP_ROOT,
   MAX_BACKUP_UPLOAD_BYTES,
+  GATEWAY_RESTART_DELAY,
+  NPM_VIEW_TIMEOUT,
+  NPM_INSTALL_TIMEOUT,
 } = env;
 
 // 工具函数：检查进程是否运行
@@ -77,6 +80,9 @@ const gatewayService = createGatewayService({
   OC_PKG_JSON_PATH,
   GATEWAY_PID_FILE,
   TRIM_PKGVAR,
+  GATEWAY_RESTART_DELAY,
+  NPM_VIEW_TIMEOUT,
+  NPM_INSTALL_TIMEOUT,
   readJSON,
   execCommand,
   isProcessRunning,

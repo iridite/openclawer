@@ -50,7 +50,7 @@ function execCommand(command, options = {}) {
         if (err.killed) {
           reject(new Error(`命令超时 (${timeout}ms)`));
         } else {
-          reject({ error: err, stderr: stderr || err.message });
+          reject(new Error(stderr || err.message));
         }
       } else {
         resolve(stdout.trim());

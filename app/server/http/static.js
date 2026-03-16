@@ -38,9 +38,19 @@ function createStaticFileService(deps) {
 
     try {
       const mimeType = getMimeType(resolvedPath);
-      const content = fs.readFileSync(resolvedPath);
-      res.writeHead(200, { "Content-Type": mimeType });
-      res.end(content);
+      const stat = fs.statSync(resolvedPath);
+      res.writeHead(200, {
+        "Content-Type": mimeType,
+        "Content-Length": stat.size
+      });
+      const stream = fs.createReadStream(resolvedPath);
+      stream.on("error", (err) => {
+        if (!res.headersSent) {
+          res.writeHead(500, { "Content-Type": "text/plain" });
+          res.end("500 Internal Server Error");
+        }
+      });
+      stream.pipe(res);
     } catch (err) {
       res.writeHead(500, { "Content-Type": "text/plain" });
       res.end("500 Internal Server Error");
