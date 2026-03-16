@@ -103,7 +103,8 @@ function createConfigService(deps) {
 
     const validation = await validateConfig(newConfig);
     if (!validation.valid) {
-      throw new Error(`配置验证失败: ${validation.errors.join(", ")}`);
+      const errorList = validation.errors.map((e, i) => `${i + 1}. ${e}`).join('\n');
+      throw new Error(`配置验证失败:\n${errorList}`);
     }
 
     if (fs.existsSync(CONFIG_FILE)) {

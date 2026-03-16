@@ -49,6 +49,7 @@ const {
   GATEWAY_RESTART_DELAY,
   NPM_VIEW_TIMEOUT,
   NPM_INSTALL_TIMEOUT,
+  STATUS_CACHE_TTL,
 } = env;
 
 // 工具函数：检查进程是否运行
@@ -83,6 +84,7 @@ const gatewayService = createGatewayService({
   GATEWAY_RESTART_DELAY,
   NPM_VIEW_TIMEOUT,
   NPM_INSTALL_TIMEOUT,
+  STATUS_CACHE_TTL,
   readJSON,
   execCommand,
   isProcessRunning,

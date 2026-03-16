@@ -14,11 +14,15 @@ function createGatewayService(options) {
     GATEWAY_RESTART_DELAY,
     NPM_VIEW_TIMEOUT,
     NPM_INSTALL_TIMEOUT,
+    STATUS_CACHE_TTL,
     readJSON,
     execCommand,
     isProcessRunning,
     getTokenFromConfig,
   } = options;
+
+  let statusCache = null;
+  let statusCacheTime = 0;
 
   async function startGateway() {
     try {
@@ -58,6 +62,11 @@ function createGatewayService(options) {
   }
 
   async function getStatus() {
+    const now = Date.now();
+    if (statusCache && (now - statusCacheTime) < STATUS_CACHE_TTL) {
+      return statusCache;
+    }
+
     const status = {
       gateway: "unknown",
       gatewayPid: null,
@@ -127,6 +136,8 @@ function createGatewayService(options) {
       status.gateway = "offline";
     }
 
+    statusCache = status;
+    statusCacheTime = now;
     return status;
   }
 

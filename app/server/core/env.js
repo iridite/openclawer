@@ -52,6 +52,9 @@ const NPM_INSTALL_TIMEOUT = 120000;
 const NPM_VIEW_TIMEOUT = 10000;
 const GATEWAY_RESTART_DELAY = 2000;
 
+// Cache constants
+const STATUS_CACHE_TTL = 2000; // 2 seconds
+
 process.env.CONFIG_FILE = process.env.CONFIG_FILE || CONFIG_FILE;
 process.env.OPENCLAW_CONFIG_PATH =
   process.env.OPENCLAW_CONFIG_PATH || CONFIG_FILE;
@@ -86,4 +89,5 @@ module.exports = {
   NPM_INSTALL_TIMEOUT,
   NPM_VIEW_TIMEOUT,
   GATEWAY_RESTART_DELAY,
+  STATUS_CACHE_TTL,
 };
