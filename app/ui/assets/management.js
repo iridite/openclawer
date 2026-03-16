@@ -2473,13 +2473,15 @@ async function testModelConnection() {
   }
 
   // 验证格式
-  const namePattern = /^[a-zA-Z0-9/_-]+$/;
-  if (!namePattern.test(modelId)) {
-    showToast("模型 ID 格式不正确", "error");
+  const modelIdPattern = /^[a-zA-Z0-9./:-]+$/;
+  const providerPattern = /^[a-z]+$/;
+
+  if (!modelIdPattern.test(modelId)) {
+    showToast("模型 ID 格式不正确（仅支持字母、数字、. / : -）", "error");
     return;
   }
-  if (!namePattern.test(providerName)) {
-    showToast("供应商名称格式不正确", "error");
+  if (!providerPattern.test(providerName)) {
+    showToast("供应商名称格式不正确（仅支持小写字母）", "error");
     return;
   }
 
@@ -2488,23 +2490,32 @@ async function testModelConnection() {
   testBtn.className = "btn";
   testBtn.textContent = "测试中...";
 
-  // 创建终端模态框
+  // 创建测试对话框
   const modal = document.createElement("div");
-  modal.className = "terminal-modal";
+  modal.className = "test-modal";
   modal.innerHTML = `
-    <div class="terminal-content">
-      <div class="terminal-header">
-        <div class="terminal-title">模型连接测试</div>
-        <button class="terminal-close" onclick="this.closest('.terminal-modal').remove()">关闭</button>
+    <div class="test-modal-overlay" onclick="this.closest('.test-modal').remove()"></div>
+    <div class="test-modal-content">
+      <div class="test-modal-header">
+        <h3>模型连接测试</h3>
+        <button class="test-modal-close" onclick="this.closest('.test-modal').remove()">×</button>
       </div>
-      <div class="terminal-body">
-        <div class="terminal-section">
-          <div class="terminal-label">$ 执行命令:</div>
-          <div class="terminal-output" id="terminal-command">正在构造请求...</div>
+      <div class="test-modal-body">
+        <div class="test-section">
+          <div class="test-label">请求方法</div>
+          <div class="test-endpoint" id="test-method">POST</div>
         </div>
-        <div class="terminal-section">
-          <div class="terminal-label">响应:</div>
-          <div class="terminal-output" id="terminal-response">等待响应...</div>
+        <div class="test-section">
+          <div class="test-label">测试端点</div>
+          <div class="test-endpoint" id="test-endpoint">构造中...</div>
+        </div>
+        <div class="test-section">
+          <div class="test-label">请求命令</div>
+          <div class="test-command" id="test-command">正在构造请求...</div>
+        </div>
+        <div class="test-section">
+          <div class="test-label">响应结果</div>
+          <div class="test-response" id="test-response">等待响应...</div>
         </div>
       </div>
     </div>
@@ -2520,26 +2531,53 @@ async function testModelConnection() {
       apiProtocol,
     });
 
-    // 更新终端显示
-    document.getElementById("terminal-command").textContent = result.curlCommand || "无命令";
-    const responseEl = document.getElementById("terminal-response");
+    // 显示协议类型和端点
+    const protocol = (apiProtocol || providerName).toLowerCase();
+    const protocolName = protocol === "anthropic" ? "Anthropic Messages API" : "OpenAI Chat Completions API";
+    document.getElementById("test-method").textContent = `POST (${protocolName})`;
+    document.getElementById("test-endpoint").textContent = result.endpoint || "未知端点";
+    document.getElementById("test-command").textContent = result.curlCommand || "无命令";
+    const responseEl = document.getElementById("test-response");
 
     if (result.success) {
-      responseEl.className = "terminal-output";
-      responseEl.textContent = result.response || "测试成功";
+      responseEl.className = "test-response success";
+      // 格式化 JSON 响应
+      try {
+        const json = JSON.parse(result.response);
+        responseEl.textContent = JSON.stringify(json, null, 2);
+      } catch (e) {
+        responseEl.textContent = result.response || "测试成功";
+      }
       testBtn.className = "btn success";
       testBtn.textContent = "测试成功 ✓";
       showToast("模型连接测试成功", "success");
     } else {
-      responseEl.className = "terminal-error";
-      responseEl.textContent = result.response || "测试失败";
+      responseEl.className = "test-response error";
+      // 尝试解析并格式化错误信息
+      let errorMsg = result.response || "测试失败";
+      try {
+        const errorJson = JSON.parse(result.response);
+        // 提取友好的错误信息
+        if (errorJson.error?.message) {
+          errorMsg = `错误: ${errorJson.error.message}\n\n完整响应:\n${JSON.stringify(errorJson, null, 2)}`;
+        } else if (errorJson.message) {
+          errorMsg = `错误: ${errorJson.message}\n\n完整响应:\n${JSON.stringify(errorJson, null, 2)}`;
+        } else {
+          errorMsg = JSON.stringify(errorJson, null, 2);
+        }
+      } catch (e) {
+        // 保持原始错误信息
+      }
+      responseEl.textContent = errorMsg;
       testBtn.className = "btn error";
       testBtn.textContent = "测试失败 ✗";
       showToast("模型连接测试失败", "error");
     }
+
+    }
   } catch (error) {
-    document.getElementById("terminal-response").className = "terminal-error";
-    document.getElementById("terminal-response").textContent = error.message || "请求失败";
+    document.getElementById("test-response").className = "test-response error";
+    document.getElementById("test-response").textContent = error.message || "请求失败";
     testBtn.className = "btn error";
     testBtn.textContent = "测试失败 ✗";
     showToast("测试请求失败: " + error.message, "error");
