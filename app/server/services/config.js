@@ -39,11 +39,14 @@ function createConfigService(deps) {
       agents: {
         defaults: {
           workspace: "/root/.openclaw/workspace",
-          toolProfiles: "full",
           compaction: {
             mode: "safeguard",
           },
         },
+      },
+      tools: {
+        profile: "full",
+        allow: [],
       },
       commands: {
         native: "auto",

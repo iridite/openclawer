@@ -1926,11 +1926,13 @@ API 类型: openai-completions
                             <div class="form-group" style="margin-top: 15px;">
                                 <label>
                                     Tool Profiles
-                                    <span class="tooltip-icon" data-tooltip="控制 Agent 可用工具集。messaging: 仅消息相关工具（推荐）；full: 完整工具访问权限（高级用户）。">ⓘ</span>
+                                    <span class="tooltip-icon" data-tooltip="控制 Agent 可用工具集。minimal: 最小工具集；messaging: 消息相关工具（推荐）；coding: 编程开发工具；full: 完整工具权限。">ⓘ</span>
                                 </label>
                                 <select id="tool-profiles" onchange="saveToolProfiles()">
+                                    <option value="minimal">Minimal（最小）</option>
                                     <option value="messaging">Messaging（推荐）</option>
-                                    <option value="full">Full（完整权限）</option>
+                                    <option value="coding">Coding（编程）</option>
+                                    <option value="full">Full（完整）</option>
                                 </select>
                             </div>
                         </div>

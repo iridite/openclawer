@@ -2394,7 +2394,7 @@ async function testModelConnection() {
 async function loadToolProfiles() {
   try {
     const config = await apiRequest("/config");
-    const toolProfiles = config?.agents?.defaults?.toolProfiles || "full";
+    const toolProfiles = config?.tools?.profile || "full";
     document.getElementById("tool-profiles").value = toolProfiles;
   } catch (error) {
     console.error("加载 Tool Profiles 失败:", error);
@@ -2406,9 +2406,8 @@ async function saveToolProfiles() {
     const value = document.getElementById("tool-profiles").value;
     const config = await apiRequest("/config");
 
-    config.agents = config.agents || {};
-    config.agents.defaults = config.agents.defaults || {};
-    config.agents.defaults.toolProfiles = value;
+    config.tools = config.tools || {};
+    config.tools.profile = value;
 
     await apiRequest("/config", { method: "POST", body: JSON.stringify(config) });
     showToast("Tool Profiles 已更新为: " + value, "success");
