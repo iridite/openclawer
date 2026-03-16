@@ -289,22 +289,10 @@ setup_openclaw_config() {
         config.gateway.reload.mode = 'hybrid';
         config.gateway.reload.debounceMs = 300;
 
-        // 6. 预置插件配置（保留已有 allow 并合并必需项）
-        const REQUIRED_PLUGIN_ALLOW = [
-            'openclaw-qqbot',
-            'wecom-openclaw-plugin',
-            'skillhub'
-        ];
+        // 6. 清理未安装的插件（防止 openclaw setup 自动添加）
         config.plugins = config.plugins || {};
         config.plugins.enabled = true;
-        const existingAllow = Array.isArray(config.plugins.allow)
-            ? config.plugins.allow
-                .map((item) => String(item || '').trim())
-                .filter((item) => item.length > 0)
-            : [];
-        config.plugins.allow = Array.from(
-            new Set([...REQUIRED_PLUGIN_ALLOW, ...existingAllow])
-        );
+        config.plugins.allow = [];
 
         // 7. 写回文件
         fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
