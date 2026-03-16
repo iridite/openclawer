@@ -153,6 +153,7 @@ const {
 
 const skillsService = createSkillsService({
   OC_HOME,
+  TRIM_PKGVAR,
   readJSON,
   writeJSON,
 });

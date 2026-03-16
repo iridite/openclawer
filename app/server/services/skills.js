@@ -5,10 +5,11 @@ const http = require("http");
 const { execSync } = require("child_process");
 
 function createSkillsService(options) {
-  const { OC_HOME, readJSON, writeJSON } = options;
+  const { OC_HOME, TRIM_PKGVAR, readJSON, writeJSON } = options;
 
   const installingSkills = new Set();
   const SKILLS_DIR = path.join(OC_HOME, "skills");
+  const BUILTIN_SKILLS_DIR = path.join(TRIM_PKGVAR, "node_modules", "openclaw", "skills");
   const LOCKFILE_PATH = path.join(SKILLS_DIR, ".skills_store_lock.json");
   const SEARCH_API = "https://lightmake.site/api/v1/search";
   const PRIMARY_DOWNLOAD = "https://lightmake.site/api/v1/download";
@@ -220,28 +221,47 @@ function createSkillsService(options) {
     }
   }
 
+  function listBuiltinSkills() {
+    if (!fs.existsSync(BUILTIN_SKILLS_DIR)) {
+      return [];
+    }
+
+    try {
+      const entries = fs.readdirSync(BUILTIN_SKILLS_DIR, { withFileTypes: true });
+      return entries
+        .filter(e => e.isDirectory())
+        .map(e => ({
+          slug: e.name,
+          name: e.name,
+          version: "",
+          source: "builtin",
+          installed_at: "",
+          exists: true,
+          location: "builtin"
+        }));
+    } catch (err) {
+      return [];
+    }
+  }
+
   async function list() {
     try {
       const lock = loadLockfile();
-      const skills = lock.skills || {};
-      const result = [];
+      const userSkills = Object.entries(lock.skills || {}).map(([slug, meta]) => ({
+        slug,
+        name: meta.name || slug,
+        version: meta.version || "",
+        source: meta.source || "unknown",
+        installed_at: meta.installed_at || "",
+        exists: fs.existsSync(path.join(SKILLS_DIR, slug)),
+        location: "user"
+      }));
 
-      for (const [slug, meta] of Object.entries(skills)) {
-        const skillDir = path.join(SKILLS_DIR, slug);
-        const exists = fs.existsSync(skillDir);
-        result.push({
-          slug,
-          name: meta.name || slug,
-          version: meta.version || "",
-          source: meta.source || "unknown",
-          installed_at: meta.installed_at || "",
-          exists,
-        });
-      }
+      const builtinSkills = listBuiltinSkills();
 
       return {
         success: true,
-        skills: result,
+        skills: [...userSkills, ...builtinSkills],
       };
     } catch (err) {
       return {

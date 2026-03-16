@@ -313,6 +313,7 @@ function initTabs() {
     models: ["tab-config"],
     channels: ["tab-config"],
     config: ["tab-config"],
+    skills: ["tab-skills"],
     system: ["tab-version", "tab-console"],
   };
 
@@ -475,6 +476,9 @@ function loadTabData(tabName) {
     case "config":
       setConfigViewMode("config");
       loadConfig();
+      break;
+    case "skills":
+      loadInstalledSkills();
       break;
     case "system":
       loadToolProfiles();
@@ -2767,7 +2771,7 @@ async function searchSkills() {
   }
 
   try {
-    const result = await apiRequest(`/api/skills/search?q=${encodeURIComponent(query)}`);
+    const result = await apiRequest(`/skills/search?q=${encodeURIComponent(query)}`);
     const container = document.getElementById("skills-search-results");
     
     if (!result.success || !result.skills || result.skills.length === 0) {
@@ -2794,11 +2798,10 @@ async function searchSkills() {
     showToast(`搜索失败: ${err.message}`, "error");
   }
 }
-        <button class="btn btn-danger btn-sm" onclick="uninstallSkill('${escapeHtml(skill.slug)}')">卸载</button>
 
 async function installSkill(slug, force = false) {
   try {
-    const result = await apiRequest("/api/skills/install", "POST", { slug, force });
+    const result = await apiRequest("/skills/install", { method: "POST", body: JSON.stringify({ slug, force }) });
     if (result.success) {
       showToast(result.message || `技能 ${slug} 安装成功`, "success");
       await loadInstalledSkills();
@@ -2812,7 +2815,7 @@ async function installSkill(slug, force = false) {
 
 async function loadInstalledSkills() {
   try {
-    const result = await apiRequest("/api/skills/list");
+    const result = await apiRequest("/skills/list");
     const container = document.getElementById("skills-installed-list");
     
     if (!result.success || !result.skills || result.skills.length === 0) {
@@ -2826,9 +2829,13 @@ async function loadInstalledSkills() {
           <strong>${escapeHtml(skill.name)}</strong>
           <span class="skill-slug">${escapeHtml(skill.slug)}</span>
           ${skill.version ? `<span class="skill-version">v${escapeHtml(skill.version)}</span>` : ''}
+          ${skill.location === 'builtin' ? '<span class="badge badge-info">内置</span>' : ''}
           ${!skill.exists ? '<span class="badge badge-warning">目录缺失</span>' : ''}
         </div>
-        <button class="btn btn-danger btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="uninstall">卸载</button>
+        ${skill.location === 'user' ?
+          `<button class="btn btn-danger btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="uninstall">卸载</button>` :
+          `<button class="btn btn-secondary btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="disable" disabled>禁用（待实现）</button>`
+        }
       </div>
     `).join('');
 
@@ -2845,7 +2852,7 @@ async function uninstallSkill(slug) {
   if (!confirm(`确定要卸载技能 ${slug} 吗？`)) return;
 
   try {
-    const result = await apiRequest("/api/skills/uninstall", "POST", { slug });
+    const result = await apiRequest("/skills/uninstall", { method: "POST", body: JSON.stringify({ slug }) });
     if (result.success) {
       showToast(result.message || `技能 ${slug} 已卸载`, "success");
       await loadInstalledSkills();
@@ -2904,6 +2911,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (skillsSearchBtn) {
     skillsSearchBtn.addEventListener("click", searchSkills);
+  }
+
+  // 回车键触发搜索
+  if (skillsSearchInput) {
+    skillsSearchInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        searchSkills();
+      }
+    });
+
+    // 实时动态搜索（防抖 500ms）
+    let searchTimeout;
+    skillsSearchInput.addEventListener("input", () => {
+      clearTimeout(searchTimeout);
+      const query = skillsSearchInput.value.trim();
+      if (query.length > 0) {
+        searchTimeout = setTimeout(() => {
+          searchSkills();
+        }, 500);
+      }
+    });
   }
 
   if (skillsSearchInput) {

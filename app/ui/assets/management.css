@@ -1488,6 +1488,43 @@ span[title] {
     margin-left: 8px;
 }
 
+.badge-info {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #17a2b8;
+    color: white;
+    border-radius: 3px;
+    font-size: 0.85em;
+    margin-left: 8px;
+}
+
+.badge-warning {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--warning);
+    color: white;
+    border-radius: 3px;
+    font-size: 0.85em;
+    margin-left: 8px;
+}
+
+/* 集成搜索框样式 */
+.input-group {
+    display: flex;
+    gap: 0;
+}
+
+.input-group input {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+}
+
+.input-group .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
 .empty-state {
     text-align: center;
     padding: 40px 20px;
