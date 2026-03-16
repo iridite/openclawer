@@ -219,10 +219,13 @@ function createGatewayService(options) {
 
   async function getLogs(lines = 100) {
     try {
+      if (!fs.existsSync(LOG_FILE)) {
+        return { logs: "(日志文件尚不存在，请先启动 Gateway)" };
+      }
       const output = await execCommand(`tail -n ${lines} ${LOG_FILE}`);
-      return { logs: output };
+      return { logs: output || "(日志文件为空)" };
     } catch (err) {
-      return { logs: "" };
+      return { logs: `(读取日志失败: ${err.message})` };
     }
   }
 
