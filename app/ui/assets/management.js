@@ -903,6 +903,11 @@ function maskApiKey(key) {
   return `${start}${"*".repeat(Math.min(20, key.length - 8))}${end}`;
 }
 
+// 复制路径
+function copyPath(path) {
+  copyToClipboard(path, "路径");
+}
+
 // 复制到剪贴板
 function copyToClipboard(text, label) {
   if (navigator.clipboard && navigator.clipboard.writeText) {

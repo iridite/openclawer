@@ -1891,6 +1891,12 @@ API 类型: openai-completions
                 <!-- 技能管理 -->
                 <section class="tab-content" id="tab-skills">
                     <div class="skills-manager">
+                        <div class="form-hint warning" style="margin-bottom: 20px;">
+                            <strong>💡 安装位置说明</strong><br>
+                            通过此面板安装的 Skills 将保存到 <code>/root/.openclaw/skills/</code> 目录。<br>
+                            安装记录保存在 <code>/root/.openclaw/.skills_store_lock.json</code> 文件中。
+                        </div>
+
                         <div class="card">
                             <h2>搜索技能</h2>
                             <div class="input-group">
@@ -2059,198 +2065,189 @@ API 类型: openai-completions
                         </div>
 
                         <div class="card">
-                            <h2>日志文件路径</h2>
+                            <h2>重要路径</h2>
                             <p>
-                                以下是系统各类日志文件的存储位置，您可以直接复制路径查看详细日志：
+                                以下是系统各类文件的存储位置，点击复制按钮可快速复制路径用于排查问题：
                             </p>
 
-                            <div style="margin-top: 15px">
-                                <h3
-                                    style="font-size: 16px; margin-bottom: 10px"
-                                >
-                                    应用日志
-                                </h3>
-                                <ul
-                                    style="
-                                        list-style: none;
-                                        padding: 0;
-                                        margin: 0;
-                                    "
-                                >
-                                    <li style="margin-bottom: 8px">
-                                        <strong>OpenClaw Gateway 日志：</strong
-                                        ><br />
-                                        <code
-                                            style="
-                                                background: #f5f5f5;
-                                                padding: 4px 8px;
-                                                border-radius: 3px;
-                                                font-family:
-                                                    &quot;Courier New&quot;,
-                                                    monospace;
-                                                font-size: 13px;
-                                                display: inline-block;
-                                                margin-top: 4px;
-                                            "
-                                            >/var/apps/oc-deploy/var/openclaw.log</code
-                                        >
-                                    </li>
-                                    <li style="margin-bottom: 8px">
-                                        <strong>Management API 日志：</strong
-                                        ><br />
-                                        <code
-                                            style="
-                                                background: #f5f5f5;
-                                                padding: 4px 8px;
-                                                border-radius: 3px;
-                                                font-family:
-                                                    &quot;Courier New&quot;,
-                                                    monospace;
-                                                font-size: 13px;
-                                                display: inline-block;
-                                                margin-top: 4px;
-                                            "
-                                            >/var/apps/oc-deploy/var/info.log</code
-                                        >
-                                    </li>
-                                </ul>
+                            <div class="path-list">
+                                <div class="path-item">
+                                    <div class="path-label">Gateway 运行日志</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/var/apps/oc-deploy/var/openclaw.log</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/var/apps/oc-deploy/var/openclaw.log')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">Management API 日志</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/var/apps/oc-deploy/var/info.log</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/var/apps/oc-deploy/var/info.log')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">OpenClaw 配置文件</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/root/.openclaw/openclaw.json</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/root/.openclaw/openclaw.json')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">配置备份目录</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/root/.openclaw/openclaw.json.backup.*</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/root/.openclaw/')" title="复制目录路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">初始配置快照</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/root/.openclaw/openclaw.json.initial</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/root/.openclaw/openclaw.json.initial')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">Skills 安装目录</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/root/.openclaw/skills/</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/root/.openclaw/skills/')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">Skills 锁文件</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/root/.openclaw/.skills_store_lock.json</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/root/.openclaw/.skills_store_lock.json')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">Plugins 安装目录</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/root/.openclaw/plugins/</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/root/.openclaw/plugins/')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">应用安装目录</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/var/apps/oc-deploy/target/</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/var/apps/oc-deploy/target/')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">应用运行时目录</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/var/apps/oc-deploy/var/</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/var/apps/oc-deploy/var/')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">OpenClaw 可执行文件</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/var/apps/oc-deploy/var/node_modules/.bin/openclaw</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/var/apps/oc-deploy/var/node_modules/.bin/openclaw')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">Dashboard PID 文件</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/var/apps/oc-deploy/var/app.pid</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/var/apps/oc-deploy/var/app.pid')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="path-item">
+                                    <div class="path-label">Gateway PID 文件</div>
+                                    <div class="path-value-wrapper">
+                                        <code class="path-value">/var/apps/oc-deploy/var/gateway.pid</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/var/apps/oc-deploy/var/gateway.pid')" title="复制路径">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div style="margin-top: 20px">
-                                <h3
-                                    style="font-size: 16px; margin-bottom: 10px"
-                                >
-                                    配置文件
-                                </h3>
-                                <ul
-                                    style="
-                                        list-style: none;
-                                        padding: 0;
-                                        margin: 0;
-                                    "
-                                >
-                                    <li style="margin-bottom: 8px">
-                                        <strong>OpenClaw 配置文件：</strong
-                                        ><br />
-                                        <code
-                                            style="
-                                                background: #f5f5f5;
-                                                padding: 4px 8px;
-                                                border-radius: 3px;
-                                                font-family:
-                                                    &quot;Courier New&quot;,
-                                                    monospace;
-                                                font-size: 13px;
-                                                display: inline-block;
-                                                margin-top: 4px;
-                                            "
-                                            >/root/.openclaw/openclaw.json</code
-                                        >
-                                    </li>
-                                    <li style="margin-bottom: 8px">
-                                        <strong>配置备份文件：</strong><br />
-                                        <code
-                                            style="
-                                                background: #f5f5f5;
-                                                padding: 4px 8px;
-                                                border-radius: 3px;
-                                                font-family:
-                                                    &quot;Courier New&quot;,
-                                                    monospace;
-                                                font-size: 13px;
-                                                display: inline-block;
-                                                margin-top: 4px;
-                                            "
-                                            >/root/.openclaw/openclaw.json.backup.*</code
-                                        >
-                                    </li>
-                                </ul>
-                            </div>
-
-                            <div style="margin-top: 20px">
-                                <h3
-                                    style="font-size: 16px; margin-bottom: 10px"
-                                >
-                                    进程信息
-                                </h3>
-                                <ul
-                                    style="
-                                        list-style: none;
-                                        padding: 0;
-                                        margin: 0;
-                                    "
-                                >
-                                    <li style="margin-bottom: 8px">
-                                        <strong>Dashboard PID 文件：</strong
-                                        ><br />
-                                        <code
-                                            style="
-                                                background: #f5f5f5;
-                                                padding: 4px 8px;
-                                                border-radius: 3px;
-                                                font-family:
-                                                    &quot;Courier New&quot;,
-                                                    monospace;
-                                                font-size: 13px;
-                                                display: inline-block;
-                                                margin-top: 4px;
-                                            "
-                                            >/var/apps/oc-deploy/var/app.pid</code
-                                        >
-                                    </li>
-                                    <li style="margin-bottom: 8px">
-                                        <strong>Gateway PID 文件：</strong
-                                        ><br />
-                                        <code
-                                            style="
-                                                background: #f5f5f5;
-                                                padding: 4px 8px;
-                                                border-radius: 3px;
-                                                font-family:
-                                                    &quot;Courier New&quot;,
-                                                    monospace;
-                                                font-size: 13px;
-                                                display: inline-block;
-                                                margin-top: 4px;
-                                            "
-                                            >/var/apps/oc-deploy/var/gateway.pid</code
-                                        >
-                                    </li>
-                                </ul>
-                            </div>
-
-                            <div
-                                style="
-                                    margin-top: 20px;
-                                    padding: 12px;
-                                    background: #e8f4f8;
-                                    border-left: 4px solid #2196f3;
-                                    border-radius: 4px;
-                                "
-                            >
-                                <p style="margin: 0">
-                                    <strong>提示：</strong>
-                                </p>
-                                <ul
-                                    style="
-                                        margin: 8px 0 0 0;
-                                        padding-left: 20px;
-                                    "
-                                >
-                                    <li>
-                                        您可以使用 SSH 连接到 NAS 后使用
-                                        <code>tail -f</code> 命令实时查看日志
-                                    </li>
-                                    <li>
-                                        例如：<code
-                                            >tail -f
-                                            /var/apps/oc-deploy/var/openclaw.log</code
-                                        >
-                                    </li>
-                                    <li>
-                                        使用
-                                        <code>Ctrl+C</code> 退出实时查看模式
-                                    </li>
+                            <div class="path-tips">
+                                <strong>💡 使用提示：</strong>
+                                <ul>
+                                    <li>SSH 连接后使用 <code>tail -f &lt;路径&gt;</code> 实时查看日志</li>
+                                    <li>使用 <code>ls -la &lt;目录&gt;</code> 查看目录内容</li>
+                                    <li>使用 <code>cat &lt;文件&gt;</code> 查看文件内容</li>
+                                    <li>按 <code>Ctrl+C</code> 退出实时查看模式</li>
                                 </ul>
                             </div>
                         </div>
