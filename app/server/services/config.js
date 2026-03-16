@@ -100,7 +100,7 @@ function createConfigService(deps) {
       throw new Error("无效的配置格式");
     }
 
-    const validation = validateConfig(newConfig);
+    const validation = await validateConfig(newConfig);
     if (!validation.valid) {
       throw new Error(`配置验证失败: ${validation.errors.join(", ")}`);
     }
