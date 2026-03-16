@@ -28,36 +28,55 @@ Core responsibility split:
 oc-deploy/
 ├── app/
 │   ├── server/
-│   │   └── management-api.js      # API server + static server + /dashboard proxy + WS bridge
+│   │   ├── management-api.js      # Main entry point (249 lines after refactor)
+│   │   ├── core/
+│   │   │   ├── env.js            # Environment variables and paths
+│   │   │   └── io.js             # File I/O and command execution utilities
+│   │   ├── services/
+│   │   │   ├── backup.js         # Backup/restore operations
+│   │   │   ├── config.js         # Config read/write/validate/reset
+│   │   │   ├── gateway.js        # Gateway start/stop/restart/status
+│   │   │   ├── model-test.js     # Model connection testing
+│   │   │   └── plugins.js        # Plugin detection and installation
+│   │   └── http/
+│   │       ├── router.js         # API route definitions
+│   │       ├── static.js         # Static file serving
+│   │       └── dashboard-proxy.js # HTTP/WS proxy to native dashboard
 │   └── ui/
 │       ├── management.html        # Main UI
 │       ├── assets/
-│       │   ├── management.js      # Frontend logic
+│       │   ├── management.js      # Frontend logic (main UI controller)
+│       │   ├── state.js          # State management (modularized)
+│       │   ├── editor.js         # Config editor (modularized)
 │       │   └── management.css     # Frontend styles
 │       ├── config                 # fnOS desktop launch config (JSON)
 │       └── images/                # UI images/icons
-├── cmd/
+├── cmd/                           # fnOS lifecycle scripts (Bash)
 │   ├── main                       # start/stop/status/restart
 │   ├── install_init              # pre-install
-│   ├── install_callback          # post-install
+│   ├── install_callback          # post-install (npm install openclaw)
 │   ├── upgrade_init              # pre-upgrade backup
 │   ├── upgrade_callback          # post-upgrade restore
 │   ├── config_init / config_callback
 │   └── uninstall_init / uninstall_callback
-├── config/
+├── config/                        # fnOS app permissions
 │   ├── privilege
 │   └── resource
 ├── test/
 │   ├── smoke.sh                  # lightweight API smoke test
-│   ├── local-test.sh
-│   ├── setup-test-env.sh
-│   └── README.md
+│   ├── local-test.sh             # manual local testing helper
+│   ├── setup-test-env.sh         # test environment setup
+│   └── README.md                 # test documentation
 ├── wizard/
 │   └── install                   # install wizard tips + TOS summary
-├── manifest
+├── docs/                          # design documents
+│   ├── CLAWHUB_INTEGRATION.md    # ClawHub skill integration design
+│   ├── SECURE_API_KEY_STORAGE.md # SecretRef implementation plan
+│   └── *.md                      # other design docs
+├── manifest                       # fnOS package metadata (v1.1.1)
 ├── README.md
-├── TODO.md
-└── docs/
+├── CLAUDE.md
+└── TODO.md
 ```
 
 ## Development Workflow
@@ -87,6 +106,14 @@ This script starts `management-api.js` with temp dirs and checks key endpoints:
 - `/api/config/validate`
 - `/api/console/url`
 - `/api/logs`
+
+### Interactive Local Test
+
+```bash
+bash test/local-test.sh
+```
+
+Interactive menu for starting Management API, Gateway, or both. See `test/README.md` for details.
 
 ### Build FPK
 
@@ -280,19 +307,79 @@ Include:
 - Use `readJSON()` / `writeJSON()` helpers
 - Use `execCommand()` for shell invocation and centralized timeout handling
 
+## Design Documents
+
+Key design docs in `docs/`:
+
+- `CLAWHUB_INTEGRATION.md`: ClawHub skill management WebUI integration plan
+- `SECURE_API_KEY_STORAGE.md`: SecretRef implementation for secure API key storage
+
 ## Current Focus (from TODO)
 
-Open items currently include:
+Open items:
 
+- ClawHub WebUI integration (skill search/install/list)
 - Realtime update mechanism beyond polling
-- Dark/light UI mode switch
 - Offline/online install option strategy
-- Save-time "impact hint" before applying config changes
-- Primary model UX consistency improvements
-- Broader backup coverage (memory/plugins)
+- API Key secure storage (SecretRef support)
+
+## Backend Architecture
+
+The backend was refactored from a single 2199-line file into focused modules:
+
+**Core layer** (`app/server/core/`):
+- `env.js`: Environment variables, paths, port configuration
+- `io.js`: File I/O (`readJSON`, `writeJSON`) and command execution (`execCommand`)
+
+**Service layer** (`app/server/services/`):
+- `backup.js`: Backup/restore operations for config files
+- `config.js`: Config read/write/validate/reset operations
+- `gateway.js`: Gateway lifecycle (start/stop/restart/status)
+- `model-test.js`: Model connection testing with streaming output
+- `plugins.js`: Plugin detection and installation
+
+**HTTP layer** (`app/server/http/`):
+- `router.js`: API route definitions and request routing
+- `static.js`: Static file serving with path traversal protection
+- `dashboard-proxy.js`: HTTP/WebSocket proxy to native OpenClaw dashboard
+
+**Key patterns**:
+- Services export factory functions: `createXxxService(deps)`
+- All services return `{ success, data?, error? }` responses
+- Use `execCommand()` from `core/io.js` for shell invocation with timeout handling
+- Use `readJSON()` / `writeJSON()` from `core/io.js` for config file operations
+
+## Frontend Architecture
+
+Partially modularized from a monolithic file:
+
+- `state.js`: Centralized state management (gateway status, config, UI state)
+- `editor.js`: Config editor logic (Ace integration, import/export, validation)
+- `management.js`: Main UI controller (still large, further modularization pending)
+
+## Skills vs Plugins (Critical Distinction)
+
+**IMPORTANT**: Skills and Plugins are completely different systems with different installation mechanisms.
+
+**Skills** (installed via `clawhub` CLI):
+- Text-based capability packages for AI agents
+- Installed to `~/.openclaw/skills/` or `<project>/skills/`
+- 5,400+ skills available from ClawHub registry (github.com/openclaw/skills)
+- Commands: `clawhub install/uninstall/list/search/update`
+- Example: `clawhub install code-review`
+
+**Plugins** (installed via `openclaw plugins install`):
+- npm packages extending OpenClaw core (e.g., message channels)
+- Installed to `OC_HOME/plugins/` or `OC_HOME/extensions/`
+- Must be listed in `openclaw.json` → `plugins.allow`
+- Example: `openclaw plugins install @tencent-connect/openclaw-qqbot`
+
+**WebUI Integration**:
+- Current: QQ plugin detection and installation via `/api/plugins/qqbot/*`
+- Planned: ClawHub skill management (see `docs/CLAWHUB_INTEGRATION.md`)
 
 ## Version Notes
 
-- `manifest` version: `1.0.0`
-- GitHub release tag has been published as `v1.1.0`
+- `manifest` version: `1.1.1`
+- GitHub release tag: `v1.1.0`
 

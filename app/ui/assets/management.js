@@ -461,6 +461,7 @@ function loadTabData(tabName) {
   switch (tabName) {
     case "overview":
       refreshDashboard();
+      refreshLogs();
       break;
     case "models":
       setConfigViewMode("models");
