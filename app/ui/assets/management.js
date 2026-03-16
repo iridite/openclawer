@@ -2564,7 +2564,7 @@ async function searchSkills() {
       const summary = skill.summary || skill.description || '';
       const version = skill.version || '';
       const updatedAt = skill.updatedAt ? new Date(skill.updatedAt).toLocaleDateString('zh-CN') : '';
-      const score = skill.score ? Math.round(skill.score * 100) : 0;
+      const score = skill.score ? Math.min(100, Math.round(skill.score * 500)) : 0;
 
       return `
       <div class="skill-card">
@@ -2580,7 +2580,6 @@ async function searchSkills() {
             ${version ? `<span class="skill-card-stat">v${escapeHtml(version)}</span>` : ''}
             ${updatedAt ? `<span class="skill-card-stat">更新于 ${updatedAt}</span>` : ''}
           </div>
-          ${score > 0 ? `<div class="skill-relevance-bar"><div class="skill-relevance-fill" style="width: ${score}%"></div></div>` : ''}
         </div>
 
         <div class="skill-card-footer">
