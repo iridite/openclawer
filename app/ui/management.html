@@ -44,6 +44,7 @@
                 <button class="tab-btn" data-tab="models">模型</button>
                 <button class="tab-btn" data-tab="channels">渠道</button>
                 <button class="tab-btn" data-tab="config">配置</button>
+                <button class="tab-btn" data-tab="skills">技能</button>
                 <button class="tab-btn" data-tab="system">系统</button>
             </nav>
 
@@ -1881,6 +1882,26 @@ API 类型: openai-completions
 }</pre
                                 >
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 技能管理 -->
+                <section class="tab-content" id="tab-skills">
+                    <div class="skills-manager">
+                        <div class="card">
+                            <h2>搜索技能</h2>
+                            <div class="form-group">
+                                <input type="text" id="skills-search-input" placeholder="输入关键词搜索技能..." />
+                                <button id="skills-search-btn" class="btn btn-primary">搜索</button>
+                            </div>
+                            <div id="skills-search-results" class="skills-results"></div>
+                        </div>
+
+                        <div class="card">
+                            <h2>已安装技能</h2>
+                            <button id="skills-refresh-btn" class="btn btn-secondary">刷新列表</button>
+                            <div id="skills-installed-list" class="skills-list"></div>
                         </div>
                     </div>
                 </section>

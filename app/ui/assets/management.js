@@ -2756,6 +2756,114 @@ async function refreshLogs() {
 }
 
 // ============================================================================
+// 技能管理
+// ============================================================================
+
+async function searchSkills() {
+  const query = document.getElementById("skills-search-input").value.trim();
+  if (!query) {
+    showToast("请输入搜索关键词", "warning");
+    return;
+  }
+
+  try {
+    const result = await apiRequest(`/api/skills/search?q=${encodeURIComponent(query)}`);
+    const container = document.getElementById("skills-search-results");
+    
+    if (!result.success || !result.skills || result.skills.length === 0) {
+      container.innerHTML = '<p class="empty-state">未找到相关技能</p>';
+      return;
+    }
+
+    container.innerHTML = result.skills.map(skill => `
+      <div class="skill-item">
+        <div class="skill-info">
+          <strong>${escapeHtml(skill.name || skill.slug)}</strong>
+          <span class="skill-slug">${escapeHtml(skill.slug)}</span>
+          ${skill.description ? `<p>${escapeHtml(skill.description)}</p>` : ''}
+        </div>
+        <button class="btn btn-primary btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="install">安装</button>
+      </div>
+    `).join('');
+
+    // 事件委托：为安装按钮绑定事件
+    container.querySelectorAll('button[data-action="install"]').forEach(btn => {
+      btn.addEventListener('click', () => installSkill(btn.dataset.slug));
+    });
+  } catch (err) {
+    showToast(`搜索失败: ${err.message}`, "error");
+  }
+}
+        <button class="btn btn-danger btn-sm" onclick="uninstallSkill('${escapeHtml(skill.slug)}')">卸载</button>
+
+async function installSkill(slug, force = false) {
+  try {
+    const result = await apiRequest("/api/skills/install", "POST", { slug, force });
+    if (result.success) {
+      showToast(result.message || `技能 ${slug} 安装成功`, "success");
+      await loadInstalledSkills();
+    } else {
+      showToast(result.error || "安装失败", "error");
+    }
+  } catch (err) {
+    showToast(`安装失败: ${err.message}`, "error");
+  }
+}
+
+async function loadInstalledSkills() {
+  try {
+    const result = await apiRequest("/api/skills/list");
+    const container = document.getElementById("skills-installed-list");
+    
+    if (!result.success || !result.skills || result.skills.length === 0) {
+      container.innerHTML = '<p class="empty-state">暂无已安装技能</p>';
+      return;
+    }
+
+    container.innerHTML = result.skills.map(skill => `
+      <div class="skill-item ${skill.exists ? '' : 'skill-missing'}">
+        <div class="skill-info">
+          <strong>${escapeHtml(skill.name)}</strong>
+          <span class="skill-slug">${escapeHtml(skill.slug)}</span>
+          ${skill.version ? `<span class="skill-version">v${escapeHtml(skill.version)}</span>` : ''}
+          ${!skill.exists ? '<span class="badge badge-warning">目录缺失</span>' : ''}
+        </div>
+        <button class="btn btn-danger btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="uninstall">卸载</button>
+      </div>
+    `).join('');
+
+    // 事件委托：为卸载按钮绑定事件
+    container.querySelectorAll('button[data-action="uninstall"]').forEach(btn => {
+      btn.addEventListener('click', () => uninstallSkill(btn.dataset.slug));
+    });
+  } catch (err) {
+    showToast(`加载失败: ${err.message}`, "error");
+  }
+}
+
+async function uninstallSkill(slug) {
+  if (!confirm(`确定要卸载技能 ${slug} 吗？`)) return;
+
+  try {
+    const result = await apiRequest("/api/skills/uninstall", "POST", { slug });
+    if (result.success) {
+      showToast(result.message || `技能 ${slug} 已卸载`, "success");
+      await loadInstalledSkills();
+    } else {
+      showToast(result.error || "卸载失败", "error");
+    }
+  } catch (err) {
+    showToast(`卸载失败: ${err.message}`, "error");
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ============================================================================
 // 初始化
 // ============================================================================
 
@@ -2788,6 +2896,27 @@ document.addEventListener("DOMContentLoaded", () => {
   // 初始化标签页
   initTabs();
   initTooltips();
+
+  // Skills 事件绑定
+  const skillsSearchBtn = document.getElementById("skills-search-btn");
+  const skillsSearchInput = document.getElementById("skills-search-input");
+  const skillsRefreshBtn = document.getElementById("skills-refresh-btn");
+
+  if (skillsSearchBtn) {
+    skillsSearchBtn.addEventListener("click", searchSkills);
+  }
+
+  if (skillsSearchInput) {
+    skillsSearchInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        searchSkills();
+      }
+    });
+  }
+
+  if (skillsRefreshBtn) {
+    skillsRefreshBtn.addEventListener("click", loadInstalledSkills);
+  }
 
   // 定时刷新状态（每 5 秒）
   setInterval(() => {

@@ -13,6 +13,7 @@ const env = require("./core/env");
 const { readJSON, writeJSON, readText, readBody, execCommand } = require("./core/io");
 const { createBackupService } = require("./services/backup");
 const { createPluginService } = require("./services/plugins");
+const { createSkillsService } = require("./services/skills");
 const { createDashboardProxyService } = require("./http/dashboard-proxy");
 const { createGatewayService } = require("./services/gateway");
 const { createConfigService } = require("./services/config");
@@ -150,6 +151,18 @@ const {
   installWecomPlugin,
 } = pluginService;
 
+const skillsService = createSkillsService({
+  OC_HOME,
+  readJSON,
+  writeJSON,
+});
+const {
+  search: searchSkills,
+  install: installSkill,
+  list: listSkills,
+  uninstall: uninstallSkill,
+} = skillsService;
+
 const dashboardProxy = createDashboardProxyService({
   CONFIG_FILE,
   GATEWAY_PORT,
@@ -183,6 +196,10 @@ const router = createRouter({
   createBackupArchive,
   importBackupArchiveFromRequest,
   cleanupPathQuietly,
+  searchSkills,
+  installSkill,
+  listSkills,
+  uninstallSkill,
 });
 const { handleApiRoutes } = router;
 

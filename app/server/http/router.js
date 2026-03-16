@@ -27,6 +27,10 @@ function createRouter(deps) {
     createBackupArchive,
     importBackupArchiveFromRequest,
     cleanupPathQuietly,
+    searchSkills,
+    installSkill,
+    listSkills,
+    uninstallSkill,
   } = deps;
 
   function handleApiRoutes(req, res, pathname, method, url) {
@@ -177,6 +181,36 @@ function createRouter(deps) {
       "GET /api/console/url": () => getConsoleUrl(req),
       "GET /api/logs": () =>
         getLogs(parseInt(url.searchParams.get("lines") || "100", 10)),
+      "GET /api/skills/search": () => {
+        const query = url.searchParams.get("q") || "";
+        const limit = parseInt(url.searchParams.get("limit") || "20", 10);
+        return searchSkills(query, limit);
+      },
+      "GET /api/skills/list": listSkills,
+      "POST /api/skills/install": async () => {
+        const body = await readBody(req);
+        try {
+          const data = JSON.parse(body);
+          return installSkill(data.slug, data.force || false);
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error("无效的 JSON 格式");
+          }
+          throw e;
+        }
+      },
+      "POST /api/skills/uninstall": async () => {
+        const body = await readBody(req);
+        try {
+          const data = JSON.parse(body);
+          return uninstallSkill(data.slug);
+        } catch (e) {
+          if (e instanceof SyntaxError) {
+            throw new Error("无效的 JSON 格式");
+          }
+          throw e;
+        }
+      },
     };
 
     const routeKey = `${method} ${pathname}`;
