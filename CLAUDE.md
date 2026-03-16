@@ -378,8 +378,39 @@ Partially modularized from a monolithic file:
 - Current: QQ plugin detection and installation via `/api/plugins/qqbot/*`
 - Planned: ClawHub skill management (see `docs/CLAWHUB_INTEGRATION.md`)
 
+## Skills Management (New Feature)
+
+**IMPORTANT**: Skills are now manageable via WebUI (implemented in v1.2).
+
+**Skills Service** (`app/server/services/skills.js`):
+- Search skills via ClawHub API: `https://lightmake.site/api/v1/search`
+- Download from primary source with fallback to COS backup
+- Install to `~/.openclaw/skills/` with lockfile tracking
+- Smart ZIP extraction (handles nested directory structures)
+
+**API Endpoints**:
+```text
+GET  /api/skills/search?q=query&limit=20
+POST /api/skills/install (body: { slug, force })
+GET  /api/skills/list
+POST /api/skills/uninstall (body: { slug })
+```
+
+**Installation Flow**:
+1. Search returns skill metadata from ClawHub registry
+2. Install downloads ZIP from primary/fallback sources
+3. Extracts to `~/.openclaw/skills/<slug>/`
+4. Updates `.skills_store_lock.json` with metadata
+5. Concurrent installs blocked per slug
+
+**Key Implementation Details**:
+- Slug validation: `^[a-z0-9-]+$`
+- 30s timeout for downloads and API calls
+- Automatic redirect following for downloads
+- Lockfile format: `{ version: 1, skills: { [slug]: { name, zip_url, source, version, installed_at } } }`
+
 ## Version Notes
 
-- `manifest` version: `1.1.1`
-- GitHub release tag: `v1.1.0`
+- `manifest` version: `1.2`
+- GitHub release tag: `v1.1.0` (skills feature added post-release)
 
