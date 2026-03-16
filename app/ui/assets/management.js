@@ -2312,8 +2312,9 @@ async function submitModelForm(event) {
     ).trim();
 
     // 与后端校验规则保持一致
-    const modelIdPattern = /^[a-zA-Z0-9./:-]+$/;
-    const providerPattern = /^[a-z-]+$/;
+    const namePattern = /^[a-zA-Z0-9/_-]+$/;
+    const modelIdPattern = namePattern;
+    const providerPattern = namePattern;
 
     if (modelIdInput) {
       modelIdInput.setCustomValidity("");
@@ -2472,12 +2473,13 @@ async function testModelConnection() {
   }
 
   // 验证格式
-  if (!/^[a-zA-Z0-9./:-]+$/.test(modelId)) {
+  const namePattern = /^[a-zA-Z0-9/_-]+$/;
+  if (!namePattern.test(modelId)) {
     showToast("模型 ID 格式不正确", "error");
     return;
   }
-  if (!/^[a-z-]+$/.test(providerName)) {
-    showToast("供应商名称格式不正确（仅允许小写字母和连字符）", "error");
+  if (!namePattern.test(providerName)) {
+    showToast("供应商名称格式不正确", "error");
     return;
   }
 
