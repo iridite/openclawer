@@ -1,5 +1,6 @@
 const fs = require("fs");
 const crypto = require("crypto");
+const { findPrimaryModelFallback, cleanupEmptyProvider } = require("../core/config-helpers");
 
 function createConfigService(deps) {
   const {
@@ -173,15 +174,116 @@ function createConfigService(deps) {
     };
   }
 
+  function validateModelData(modelData) {
+    const { modelId, providerName } = modelData;
+
+    if (!modelId) throw new Error("模型 ID 不能为空");
+    if (!providerName) throw new Error("供应商名称不能为空");
+
+    const namePattern = /^[a-zA-Z0-9/_-]+$/;
+    if (!namePattern.test(modelId)) {
+      throw new Error("模型 ID 只能包含大小写字母、数字、斜杠(/)、连字符(-)和下划线(_)");
+    }
+    if (!namePattern.test(providerName)) {
+      throw new Error("供应商名称只能包含大小写字母、数字、斜杠(/)、连字符(-)和下划线(_)");
+    }
+  }
+
+  function removeOldModel(config, editModelKey) {
+    const [oldProvider, ...oldModelIdParts] = editModelKey.split("/");
+    const oldModelId = oldModelIdParts.join("/");
+
+    if (!config.models.providers[oldProvider]) return;
+
+    const oldModelIndex = config.models.providers[oldProvider].models?.findIndex((m) => {
+      const mId = m.id || "";
+      const mName = m.name || "";
+      const mModel = m.model || "";
+      return mId === oldModelId || mName === oldModelId || mModel === oldModelId;
+    });
+
+    if (oldModelIndex >= 0) {
+      config.models.providers[oldProvider].models.splice(oldModelIndex, 1);
+    }
+
+    if (config.agents.defaults.models[editModelKey]) {
+      delete config.agents.defaults.models[editModelKey];
+    }
+
+    cleanupEmptyProvider(config, oldProvider);
+  }
+
+  function ensureProvider(config, providerName, baseUrl, apiKey, apiType, apiProtocol) {
+    if (!config.models.providers[providerName]) {
+      config.models.providers[providerName] = {
+        baseUrl,
+        apiKey,
+        api: apiType || apiProtocol,
+        models: [],
+      };
+    } else {
+      if (baseUrl) config.models.providers[providerName].baseUrl = baseUrl;
+      if (apiKey) config.models.providers[providerName].apiKey = apiKey;
+      if (apiType || apiProtocol) {
+        config.models.providers[providerName].api = apiType || apiProtocol;
+      }
+      if (!config.models.providers[providerName].models) {
+        config.models.providers[providerName].models = [];
+      }
+    }
+  }
+
+  function buildModelConfig(modelId, advanced) {
+    return {
+      id: modelId,
+      name: modelId,
+      reasoning: advanced?.reasoning || false,
+      input: advanced?.input || ["text"],
+      cost: advanced?.cost || {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+      },
+      contextWindow: advanced?.contextWindow || 200000,
+      maxTokens: advanced?.maxTokens || 8192,
+    };
+  }
+
+  function upsertModel(config, providerName, modelId, modelConfig) {
+    const existingIndex = config.models.providers[providerName].models.findIndex((m) => {
+      const mId = m.id || "";
+      const mName = m.name || "";
+      const mModel = m.model || "";
+      return mId === modelId || mName === modelId || mModel === modelId;
+    });
+
+    if (existingIndex >= 0) {
+      config.models.providers[providerName].models[existingIndex] = modelConfig;
+    } else {
+      config.models.providers[providerName].models.push(modelConfig);
+    }
+  }
+
+  function updatePrimaryModel(config, agentModelKey, isEditMode, editModelKey) {
+    const existingPrimary = config.agents.defaults.model?.primary || "";
+    config.agents.defaults.model = config.agents.defaults.model || {};
+
+    if (!existingPrimary) {
+      config.agents.defaults.model.primary = agentModelKey;
+    } else if (isEditMode && editModelKey && existingPrimary === editModelKey) {
+      config.agents.defaults.model.primary = agentModelKey;
+    } else {
+      config.agents.defaults.model.primary = existingPrimary;
+    }
+  }
+
   async function addModel(modelData) {
-    const isEditOperation =
-      modelData?.isEditMode === true || modelData?.isEditMode === "true";
+    const isEditOperation = modelData?.isEditMode === true || modelData?.isEditMode === "true";
 
     try {
       const config = readJSON(CONFIG_FILE);
-      if (!config) {
-        throw new Error("配置文件不存在");
-      }
+      if (!config) throw new Error("配置文件不存在");
 
       config.models = config.models || {};
       config.models.mode = config.models.mode || "merge";
@@ -190,132 +292,24 @@ function createConfigService(deps) {
       config.agents.defaults = config.agents.defaults || {};
       config.agents.defaults.models = config.agents.defaults.models || {};
 
-      const {
-        providerName,
-        modelId,
-        baseUrl,
-        apiKey,
-        apiProtocol,
-        apiType,
-        advanced,
-        isEditMode,
-        editModelKey,
-      } = modelData;
+      const { providerName, modelId, baseUrl, apiKey, apiProtocol, apiType, advanced, isEditMode, editModelKey } = modelData;
 
-      if (!modelId) {
-        throw new Error("模型 ID 不能为空");
-      }
-      if (!providerName) {
-        throw new Error("供应商名称不能为空");
-      }
-
-      const namePattern = /^[a-zA-Z0-9/_-]+$/;
-      if (!namePattern.test(modelId)) {
-        throw new Error(
-          "模型 ID 只能包含大小写字母、数字、斜杠(/)、连字符(-)和下划线(_)",
-        );
-      }
-
-      if (!namePattern.test(providerName)) {
-        throw new Error(
-          "供应商名称只能包含大小写字母、数字、斜杠(/)、连字符(-)和下划线(_)",
-        );
-      }
+      validateModelData(modelData);
 
       if (isEditMode && editModelKey) {
-        const [oldProvider, ...oldModelIdParts] = editModelKey.split("/");
-        const oldModelId = oldModelIdParts.join("/");
-        if (config.models.providers[oldProvider]) {
-          const oldModelIndex = config.models.providers[
-            oldProvider
-          ].models?.findIndex((m) => {
-            const mId = m.id || "";
-            const mName = m.name || "";
-            const mModel = m.model || "";
-            return (
-              mId === oldModelId || mName === oldModelId || mModel === oldModelId
-            );
-          });
-          if (oldModelIndex >= 0) {
-            config.models.providers[oldProvider].models.splice(oldModelIndex, 1);
-          }
-          if (config.agents.defaults.models[editModelKey]) {
-            delete config.agents.defaults.models[editModelKey];
-          }
-          const oldModels = config.models.providers[oldProvider].models;
-          if (!Array.isArray(oldModels) || oldModels.length === 0) {
-            delete config.models.providers[oldProvider];
-          }
-        }
+        removeOldModel(config, editModelKey);
       }
 
-      if (!config.models.providers[providerName]) {
-        config.models.providers[providerName] = {
-          baseUrl: baseUrl,
-          apiKey: apiKey,
-          api: apiType || apiProtocol,
-          models: [],
-        };
-      } else {
-        if (baseUrl) config.models.providers[providerName].baseUrl = baseUrl;
-        if (apiKey) config.models.providers[providerName].apiKey = apiKey;
-        if (apiType || apiProtocol) {
-          config.models.providers[providerName].api = apiType || apiProtocol;
-        }
-        if (!config.models.providers[providerName].models) {
-          config.models.providers[providerName].models = [];
-        }
-      }
-
-      const existingModelIndex = config.models.providers[
-        providerName
-      ].models.findIndex((m) => {
-        const mId = m.id || "";
-        const mName = m.name || "";
-        const mModel = m.model || "";
-        return mId === modelId || mName === modelId || mModel === modelId;
-      });
-
-      const modelConfig = {
-        id: modelId,
-        name: modelId,
-        reasoning: advanced?.reasoning || false,
-        input: advanced?.input || ["text"],
-        cost: advanced?.cost || {
-          input: 0,
-          output: 0,
-          cacheRead: 0,
-          cacheWrite: 0,
-        },
-        contextWindow: advanced?.contextWindow || 200000,
-        maxTokens: advanced?.maxTokens || 8192,
-      };
-
-      if (existingModelIndex >= 0) {
-        config.models.providers[providerName].models[existingModelIndex] =
-          modelConfig;
-      } else {
-        config.models.providers[providerName].models.push(modelConfig);
-      }
+      ensureProvider(config, providerName, baseUrl, apiKey, apiType, apiProtocol);
+      const modelConfig = buildModelConfig(modelId, advanced);
+      upsertModel(config, providerName, modelId, modelConfig);
 
       const agentModelKey = `${providerName}/${modelId}`;
       config.agents.defaults.models[agentModelKey] = {};
-
-      const existingPrimary = config.agents.defaults.model?.primary || "";
-      config.agents.defaults.model = config.agents.defaults.model || {};
-
-      if (!existingPrimary) {
-        config.agents.defaults.model.primary = agentModelKey;
-      } else if (isEditMode && editModelKey && existingPrimary === editModelKey) {
-        config.agents.defaults.model.primary = agentModelKey;
-      } else {
-        config.agents.defaults.model.primary = existingPrimary;
-      }
+      updatePrimaryModel(config, agentModelKey, isEditMode, editModelKey);
 
       const success = writeJSON(CONFIG_FILE, config);
-      if (!success) {
-        throw new Error("保存配置失败");
-      }
+      if (!success) throw new Error("保存配置失败");
 
       return {
         success: true,
@@ -323,22 +317,9 @@ function createConfigService(deps) {
         modelKey: agentModelKey,
       };
     } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : typeof err === "string"
-            ? err
-            : JSON.stringify(err);
-
-      console.error("[addModel] failed", {
-        isEditOperation,
-        rawError: err,
-        errorMessage,
-      });
-
-      throw new Error(
-        `${isEditOperation ? "修改模型失败" : "添加模型失败"}: ${errorMessage || "未知错误"}`,
-      );
+      const errorMessage = err instanceof Error ? err.message : typeof err === "string" ? err : JSON.stringify(err);
+      console.error("[addModel] failed", { isEditOperation, rawError: err, errorMessage });
+      throw new Error(`${isEditOperation ? "修改模型失败" : "添加模型失败"}: ${errorMessage || "未知错误"}`);
     }
   }
 
@@ -421,23 +402,7 @@ function createConfigService(deps) {
       }
 
       if (config.agents?.defaults?.model?.primary === modelKey) {
-        let fallbackPrimary = null;
-        const providers = config.models?.providers || {};
-
-        for (const [pName, pConfig] of Object.entries(providers)) {
-          const models = pConfig?.models;
-          if (!Array.isArray(models) || models.length === 0) {
-            continue;
-          }
-
-          const firstModel = models[0];
-          const firstModelId = firstModel?.id || firstModel?.name;
-          if (firstModelId) {
-            fallbackPrimary = `${pName}/${firstModelId}`;
-            break;
-          }
-        }
-
+        const fallbackPrimary = findPrimaryModelFallback(config.models?.providers || {}, null);
         if (fallbackPrimary) {
           config.agents.defaults.model.primary = fallbackPrimary;
         } else {
@@ -456,127 +421,96 @@ function createConfigService(deps) {
     }
   }
 
+  function validateModels(config, errors) {
+    if (config.models === undefined) return;
+
+    if (!config.models || typeof config.models !== "object" || Array.isArray(config.models)) {
+      errors.push("models 必须是对象");
+      return;
+    }
+
+    if (config.models.providers !== undefined) {
+      const providers = config.models.providers;
+      if (!providers || typeof providers !== "object" || Array.isArray(providers)) {
+        errors.push("models.providers 必须是对象");
+        return;
+      }
+
+      for (const [providerName, provider] of Object.entries(providers)) {
+        if (!provider || typeof provider !== "object" || Array.isArray(provider)) {
+          errors.push(`供应商 ${providerName} 配置格式错误`);
+          continue;
+        }
+
+        if (provider.models !== undefined && !Array.isArray(provider.models)) {
+          errors.push(`供应商 ${providerName} 的 models 必须是数组`);
+          continue;
+        }
+
+        if (Array.isArray(provider.models)) {
+          provider.models.forEach((model, idx) => {
+            if (!model || typeof model !== "object" || Array.isArray(model)) {
+              errors.push(`供应商 ${providerName} 的第 ${idx + 1} 个模型格式错误`);
+              return;
+            }
+            if (!model.id && !model.name) {
+              errors.push(`供应商 ${providerName} 的第 ${idx + 1} 个模型缺少 id/name`);
+            }
+          });
+        }
+      }
+    } else {
+      for (const [name, model] of Object.entries(config.models)) {
+        if (name === "mode" || name === "providers") continue;
+        if (!model || typeof model !== "object" || Array.isArray(model)) continue;
+        if (!model.provider) errors.push(`模型 ${name} 缺少 provider 字段`);
+        if (!model.apiKey) errors.push(`模型 ${name} 缺少 apiKey 字段`);
+      }
+    }
+  }
+
+  function validateChannels(config, errors) {
+    if (config.channels === undefined) return;
+
+    if (!config.channels || typeof config.channels !== "object" || Array.isArray(config.channels)) {
+      errors.push("channels 必须是对象");
+      return;
+    }
+
+    for (const [name, channel] of Object.entries(config.channels)) {
+      if (!channel || typeof channel !== "object" || Array.isArray(channel)) {
+        errors.push(`渠道 ${name} 配置格式错误`);
+        continue;
+      }
+
+      if (!channel.type) {
+        const hasTelegramShape = !!(channel.botToken || channel.groups);
+        const hasFeishuShape = !!(channel.accounts && channel.accounts.main);
+        const hasDiscordShape = !!channel.token;
+        const hasQqbotShape =
+          Object.prototype.hasOwnProperty.call(channel, "appId") ||
+          Object.prototype.hasOwnProperty.call(channel, "clientSecret");
+        const hasWecomShape =
+          Object.prototype.hasOwnProperty.call(channel, "botId") ||
+          Object.prototype.hasOwnProperty.call(channel, "secret");
+
+        if (!hasTelegramShape && !hasFeishuShape && !hasDiscordShape && !hasQqbotShape && !hasWecomShape) {
+          errors.push(`渠道 ${name} 缺少 type 字段`);
+        }
+      }
+    }
+  }
+
   async function validateConfig(config) {
-    const errors = [];
-
     if (!config || typeof config !== "object" || Array.isArray(config)) {
-      return {
-        valid: false,
-        errors: ["配置根节点必须是 JSON 对象"],
-      };
+      return { valid: false, errors: ["配置根节点必须是 JSON 对象"] };
     }
 
-    if (config.models !== undefined) {
-      if (
-        !config.models ||
-        typeof config.models !== "object" ||
-        Array.isArray(config.models)
-      ) {
-        errors.push("models 必须是对象");
-      } else if (config.models.providers !== undefined) {
-        const providers = config.models.providers;
-        if (
-          !providers ||
-          typeof providers !== "object" ||
-          Array.isArray(providers)
-        ) {
-          errors.push("models.providers 必须是对象");
-        } else {
-          for (const [providerName, provider] of Object.entries(providers)) {
-            if (
-              !provider ||
-              typeof provider !== "object" ||
-              Array.isArray(provider)
-            ) {
-              errors.push(`供应商 ${providerName} 配置格式错误`);
-              continue;
-            }
+    const errors = [];
+    validateModels(config, errors);
+    validateChannels(config, errors);
 
-            if (
-              provider.models !== undefined &&
-              !Array.isArray(provider.models)
-            ) {
-              errors.push(`供应商 ${providerName} 的 models 必须是数组`);
-              continue;
-            }
-
-            if (Array.isArray(provider.models)) {
-              provider.models.forEach((model, idx) => {
-                if (!model || typeof model !== "object" || Array.isArray(model)) {
-                  errors.push(
-                    `供应商 ${providerName} 的第 ${idx + 1} 个模型格式错误`,
-                  );
-                  return;
-                }
-                if (!model.id && !model.name) {
-                  errors.push(
-                    `供应商 ${providerName} 的第 ${idx + 1} 个模型缺少 id/name`,
-                  );
-                }
-              });
-            }
-          }
-        }
-      } else {
-        for (const [name, model] of Object.entries(config.models)) {
-          if (name === "mode" || name === "providers") {
-            continue;
-          }
-          if (!model || typeof model !== "object" || Array.isArray(model)) {
-            continue;
-          }
-          if (!model.provider) {
-            errors.push(`模型 ${name} 缺少 provider 字段`);
-          }
-          if (!model.apiKey) {
-            errors.push(`模型 ${name} 缺少 apiKey 字段`);
-          }
-        }
-      }
-    }
-
-    if (config.channels !== undefined) {
-      if (
-        !config.channels ||
-        typeof config.channels !== "object" ||
-        Array.isArray(config.channels)
-      ) {
-        errors.push("channels 必须是对象");
-      } else {
-        for (const [name, channel] of Object.entries(config.channels)) {
-          if (!channel || typeof channel !== "object" || Array.isArray(channel)) {
-            errors.push(`渠道 ${name} 配置格式错误`);
-            continue;
-          }
-          if (!channel.type) {
-            const hasTelegramShape = !!(channel.botToken || channel.groups);
-            const hasFeishuShape = !!(channel.accounts && channel.accounts.main);
-            const hasDiscordShape = !!channel.token;
-            const hasQqbotShape =
-              Object.prototype.hasOwnProperty.call(channel, "appId") ||
-              Object.prototype.hasOwnProperty.call(channel, "clientSecret");
-            const hasWecomShape =
-              Object.prototype.hasOwnProperty.call(channel, "botId") ||
-              Object.prototype.hasOwnProperty.call(channel, "secret");
-
-            if (
-              !hasTelegramShape &&
-              !hasFeishuShape &&
-              !hasDiscordShape &&
-              !hasQqbotShape &&
-              !hasWecomShape
-            ) {
-              errors.push(`渠道 ${name} 缺少 type 字段`);
-            }
-          }
-        }
-      }
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-    };
+    return { valid: errors.length === 0, errors };
   }
 
   return {

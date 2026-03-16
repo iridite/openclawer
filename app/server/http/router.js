@@ -33,6 +33,18 @@ function createRouter(deps) {
     uninstallSkill,
   } = deps;
 
+  async function parseJsonBody(req) {
+    const body = await readBody(req);
+    try {
+      return JSON.parse(body);
+    } catch (e) {
+      if (e instanceof SyntaxError) {
+        throw new Error("无效的 JSON 格式");
+      }
+      throw e;
+    }
+  }
+
   function handleApiRoutes(req, res, pathname, method, url) {
     if (method === "GET" && pathname === "/api/backup/export") {
       createBackupArchive("manual-export")
@@ -100,74 +112,16 @@ function createRouter(deps) {
     const routes = {
       "GET /api/status": getStatus,
       "GET /api/config": getConfig,
-      "POST /api/config": async () => {
-        const body = await readBody(req);
-        try {
-          return saveConfig(JSON.parse(body));
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            throw new Error("无效的 JSON 格式");
-          }
-          throw e;
-        }
-      },
+      "POST /api/config": async () => saveConfig(await parseJsonBody(req)),
       "POST /api/config/reset": resetConfig,
-      "POST /api/config/validate": async () => {
-        const body = await readBody(req);
-        try {
-          return validateConfig(JSON.parse(body));
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            throw new Error("无效的 JSON 格式");
-          }
-          throw e;
-        }
-      },
-      "POST /api/config/analyze-impact": async () => {
-        const body = await readBody(req);
-        try {
-          return analyzeConfigImpact(JSON.parse(body));
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            throw new Error("无效的 JSON 格式");
-          }
-          throw e;
-        }
-      },
-      "POST /api/models/add": async () => {
-        const body = await readBody(req);
-        try {
-          return addModel(JSON.parse(body));
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            throw new Error("无效的 JSON 格式");
-          }
-          throw e;
-        }
-      },
+      "POST /api/config/validate": async () => validateConfig(await parseJsonBody(req)),
+      "POST /api/config/analyze-impact": async () => analyzeConfigImpact(await parseJsonBody(req)),
+      "POST /api/models/add": async () => addModel(await parseJsonBody(req)),
       "POST /api/models/delete": async () => {
-        const body = await readBody(req);
-        try {
-          const data = JSON.parse(body);
-          return deleteModel(data.modelKey);
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            throw new Error("无效的 JSON 格式");
-          }
-          throw e;
-        }
+        const data = await parseJsonBody(req);
+        return deleteModel(data.modelKey);
       },
-      "POST /api/models/test": async () => {
-        const body = await readBody(req);
-        try {
-          return testModel(JSON.parse(body));
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            throw new Error("无效的 JSON 格式");
-          }
-          throw e;
-        }
-      },
+      "POST /api/models/test": async () => testModel(await parseJsonBody(req)),
       "POST /api/gateway/start": startGateway,
       "POST /api/gateway/stop": stopGateway,
       "POST /api/gateway/restart": restartGateway,
@@ -179,8 +133,7 @@ function createRouter(deps) {
       "GET /api/plugins/wecom/status": getWecomPluginStatus,
       "POST /api/plugins/wecom/install": installWecomPlugin,
       "GET /api/console/url": () => getConsoleUrl(req),
-      "GET /api/logs": () =>
-        getLogs(parseInt(url.searchParams.get("lines") || "100", 10)),
+      "GET /api/logs": () => getLogs(parseInt(url.searchParams.get("lines") || "100", 10)),
       "GET /api/skills/search": () => {
         const query = url.searchParams.get("q") || "";
         const limit = parseInt(url.searchParams.get("limit") || "20", 10);
@@ -188,28 +141,12 @@ function createRouter(deps) {
       },
       "GET /api/skills/list": listSkills,
       "POST /api/skills/install": async () => {
-        const body = await readBody(req);
-        try {
-          const data = JSON.parse(body);
-          return installSkill(data.slug, data.force || false);
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            throw new Error("无效的 JSON 格式");
-          }
-          throw e;
-        }
+        const data = await parseJsonBody(req);
+        return installSkill(data.slug, data.force || false);
       },
       "POST /api/skills/uninstall": async () => {
-        const body = await readBody(req);
-        try {
-          const data = JSON.parse(body);
-          return uninstallSkill(data.slug);
-        } catch (e) {
-          if (e instanceof SyntaxError) {
-            throw new Error("无效的 JSON 格式");
-          }
-          throw e;
-        }
+        const data = await parseJsonBody(req);
+        return uninstallSkill(data.slug);
       },
     };
 

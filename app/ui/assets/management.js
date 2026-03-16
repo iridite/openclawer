@@ -93,7 +93,7 @@ function initAceEditorInstance() {
 
 // 显示 Toast 通知
 function showToast(message, type = "info") {
-  const toast = document.getElementById("toast");
+  const toast = window.domRefs?.toast || document.getElementById("toast");
   toast.textContent = message;
   toast.className = `toast ${type} show`;
 
@@ -513,29 +513,30 @@ async function refreshDashboard() {
       status.gatewayPid && status.gateway === "running"
         ? ` (PID: ${status.gatewayPid})`
         : "";
-    document.getElementById("dash-gateway-status").textContent =
+    const refs = window.domRefs;
+    if (refs?.dash.gatewayStatus) refs.dash.gatewayStatus.textContent =
       gatewayStatusText + gatewayPidText;
 
     // Proxy 状态：显示状态 + PID
     const proxyStatusText = status.proxy === "running" ? "运行中" : "已停止";
     const proxyPidText = status.proxyPid ? ` (PID: ${status.proxyPid})` : "";
-    document.getElementById("dash-proxy-status").textContent =
+    if (refs?.dash.proxyStatus) refs.dash.proxyStatus.textContent =
       proxyStatusText + proxyPidText;
 
-    document.getElementById("dash-version").textContent =
+    if (refs?.dash.version) refs.dash.version.textContent =
       status.version || "unknown";
-    document.getElementById("dash-config-status").textContent =
+    if (refs?.dash.configStatus) refs.dash.configStatus.textContent =
       status.configExists ? "已配置" : "未配置";
 
     // 更新系统资源信息
     if (status.system) {
-      document.getElementById("dash-cpu-usage").textContent =
+      if (refs?.dash.cpuUsage) refs.dash.cpuUsage.textContent =
         status.system.cpuUsage !== undefined
           ? `${status.system.cpuUsage.toFixed(1)}%`
           : "N/A";
 
       // 显示内存使用：百分比 + MB 数值（小字）
-      const memoryEl = document.getElementById("dash-memory-usage");
+      const memoryEl = refs?.dash.memoryUsage || document.getElementById("dash-memory-usage");
       if (
         status.system.memoryPercent !== undefined &&
         status.system.memoryMB !== undefined
@@ -643,14 +644,15 @@ async function loadConfigSummary() {
 }
 
 function updateStatusBadge(status) {
-  const badge = document.getElementById("gatewayStatus");
+  const refs = window.domRefs;
+  const badge = refs?.gateway.statusBadge || document.getElementById("gatewayStatus");
   const statusText = badge.querySelector(".status-text");
 
   badge.className = "status-badge";
 
   // 获取按钮元素
-  const startBtn = document.getElementById("start-gateway-btn");
-  const stopBtn = document.getElementById("stop-gateway-btn");
+  const startBtn = refs?.gateway.startBtn || document.getElementById("start-gateway-btn");
+  const stopBtn = refs?.gateway.stopBtn || document.getElementById("stop-gateway-btn");
 
   if (status === "running") {
     badge.classList.add("running");
@@ -1432,140 +1434,53 @@ async function loadChannelsList() {
 // 处理渠道类型切换
 function handleChannelTypeChange() {
   const channelType = document.getElementById("channel-type").value;
-  const telegramConfig = document.getElementById("telegram-specific-config");
-  const discordConfig = document.getElementById("discord-specific-config");
-  const qqbotConfig = document.getElementById("qqbot-specific-config");
-  const feishuConfig = document.getElementById("feishu-specific-config");
-  const wecomConfig = document.getElementById("wecom-specific-config");
-  const telegramAdvanced = document.getElementById("telegram-advanced-config");
-  const qqbotAdvanced = document.getElementById("qqbot-advanced-config");
-  const feishuAdvanced = document.getElementById("feishu-advanced-config");
-  const recommendedFields = document.getElementById(
-    "channel-recommended-fields",
-  );
+  const recommendedFields = document.getElementById("channel-recommended-fields");
   const advancedSection = document.getElementById("channel-advanced-section");
   const editKey = document.getElementById("edit-channel-key")?.value || "";
   const isEditMode = !!editKey;
   const tokenField = document.getElementById("channel-token");
-  const tokenLabel = tokenField
-    ? tokenField.parentElement.querySelector("label")
-    : null;
 
   // 隐藏所有特定配置
-  if (telegramConfig) telegramConfig.style.display = "none";
-  if (discordConfig) discordConfig.style.display = "none";
-  if (qqbotConfig) qqbotConfig.style.display = "none";
-  if (feishuConfig) feishuConfig.style.display = "none";
-  if (wecomConfig) wecomConfig.style.display = "none";
-  if (telegramAdvanced) telegramAdvanced.style.display = "none";
-  if (qqbotAdvanced) qqbotAdvanced.style.display = "none";
-  if (feishuAdvanced) feishuAdvanced.style.display = "none";
+  ["telegram", "discord", "qqbot", "feishu", "wecom"].forEach(type => {
+    const config = document.getElementById(`${type}-specific-config`);
+    const advanced = document.getElementById(`${type}-advanced-config`);
+    if (config) config.style.display = "none";
+    if (advanced) advanced.style.display = "none";
+  });
 
-  // 未选择类型时，不展示任何设置项
   if (!channelType) {
-    if (recommendedFields) {
-      recommendedFields.style.display = "none";
-    }
-    if (advancedSection) {
-      advancedSection.style.display = "none";
-    }
+    if (recommendedFields) recommendedFields.style.display = "none";
+    if (advancedSection) advancedSection.style.display = "none";
     if (tokenField) {
       tokenField.parentElement.style.display = "none";
       tokenField.removeAttribute("required");
     }
     return;
   }
-  if (recommendedFields) {
-    recommendedFields.style.display = "block";
-  }
 
-  // 根据渠道类型调整 Token 字段
-  if (channelType === "feishu") {
-    // 飞书不需要 Bot Token 字段，隐藏它
-    if (tokenField) {
-      tokenField.parentElement.style.display = "none";
-      tokenField.removeAttribute("required");
-    }
-  } else if (channelType === "qqbot") {
-    // QQ 不需要通用 Bot Token 字段
-    if (tokenField) {
-      tokenField.parentElement.style.display = "none";
-      tokenField.removeAttribute("required");
-    }
-  } else if (channelType === "discord") {
-    // Discord 不需要通用 Bot Token 字段（使用专用字段）
-    if (tokenField) {
-      tokenField.parentElement.style.display = "none";
-      tokenField.removeAttribute("required");
-    }
-  } else if (channelType === "wecom") {
-    // 企业微信不需要通用 Bot Token 字段
-    if (tokenField) {
-      tokenField.parentElement.style.display = "none";
-      tokenField.removeAttribute("required");
-    }
-  } else {
-    // 其他渠道需要 Bot Token
-    if (tokenField) {
-      tokenField.parentElement.style.display = "block";
-      tokenField.setAttribute("required", "required");
-    }
-  }
+  if (recommendedFields) recommendedFields.style.display = "block";
 
-  // 显示对应类型的配置
-  if (channelType === "telegram" && telegramConfig) {
-    telegramConfig.style.display = "block";
-    if (telegramAdvanced) {
-      telegramAdvanced.style.display = "block";
-    }
-
-    const dmPolicyEl = document.getElementById("telegram-dm-policy");
-    const groupPolicyEl = document.getElementById("telegram-group-policy");
-    const allowFromEl = document.getElementById("telegram-allow-from");
-    const groupAllowFromEl = document.getElementById(
-      "telegram-group-allow-from",
-    );
-
-    if (!isEditMode) {
-      if (dmPolicyEl) dmPolicyEl.value = "open";
-      if (groupPolicyEl) groupPolicyEl.value = "open";
-      if (allowFromEl) allowFromEl.value = "*";
-      if (groupAllowFromEl) groupAllowFromEl.value = "";
-    }
-  } else if (channelType === "discord" && discordConfig) {
-    discordConfig.style.display = "block";
-  } else if (channelType === "qqbot" && qqbotConfig) {
-    qqbotConfig.style.display = "block";
-    if (qqbotAdvanced) {
-      qqbotAdvanced.style.display = "block";
-    }
-    refreshQqbotPluginStatus();
-    if (!isEditMode) {
-      const qqbotAllowFromEl = document.getElementById("qqbot-allow-from");
-      if (qqbotAllowFromEl && !qqbotAllowFromEl.value) {
-        qqbotAllowFromEl.value = "*";
+  const handler = window.channelHandlers?.[channelType];
+  if (handler) {
+    // 调整 Token 字段显示
+    if (tokenField) {
+      if (handler.needsToken) {
+        tokenField.parentElement.style.display = "block";
+        tokenField.setAttribute("required", "required");
+      } else {
+        tokenField.parentElement.style.display = "none";
+        tokenField.removeAttribute("required");
       }
     }
-  } else if (channelType === "feishu" && feishuConfig) {
-    feishuConfig.style.display = "block";
-    if (feishuAdvanced) {
-      feishuAdvanced.style.display = "block";
-    }
-  } else if (channelType === "wecom" && wecomConfig) {
-    wecomConfig.style.display = "block";
-    refreshWecomPluginStatus();
-    if (!isEditMode) {
-      const wecomDmPolicyEl = document.getElementById("wecom-dm-policy");
-      if (wecomDmPolicyEl) wecomDmPolicyEl.value = "open";
-    }
-  }
 
-  if (advancedSection) {
-    const hasAdvanced =
-      channelType === "telegram" ||
-      channelType === "qqbot" ||
-      channelType === "feishu";
-    advancedSection.style.display = hasAdvanced ? "block" : "none";
+    // 显示特定配置
+    handler.showFields();
+    handler.setDefaults(isEditMode);
+
+    // 显示/隐藏高级配置
+    if (advancedSection) {
+      advancedSection.style.display = handler.hasAdvanced ? "block" : "none";
+    }
   }
 }
 
@@ -1660,83 +1575,28 @@ async function submitChannelForm(event) {
     return;
   }
 
-  // 飞书渠道不需要 token，Discord 使用专用字段，其他渠道需要通用 token
-  if (
-    channelType !== "feishu" &&
-    channelType !== "discord" &&
-    channelType !== "qqbot" &&
-    channelType !== "wecom" &&
-    !token
-  ) {
+  const handler = window.channelHandlers?.[channelType];
+
+  // 验证通用 token（如果需要）
+  if (handler && handler.needsToken && !token) {
     showToast("请输入 Token", "error");
     return;
   }
 
-  // Discord 渠道需要验证必填字段
-  if (channelType === "discord") {
-    const discordTokenEl = document.getElementById("discord-token");
-
-    if (!discordTokenEl || !discordTokenEl.value.trim()) {
-      showToast("请输入 Discord Bot Token", "error");
-      return;
-    }
+  // 使用 handler 验证特定字段
+  if (handler && !handler.validate()) {
+    return;
   }
 
-  // 飞书渠道需要验证必填字段
-  if (channelType === "feishu") {
-    const appIdEl = document.getElementById("feishu-app-id");
-    const appSecretEl = document.getElementById("feishu-app-secret");
-
-    if (!appIdEl || !appIdEl.value.trim()) {
-      showToast("请输入飞书 App ID", "error");
-      return;
-    }
-
-    if (!appSecretEl || !appSecretEl.value.trim()) {
-      showToast("请输入飞书 App Secret", "error");
-      return;
-    }
-  }
-
-  // QQ 渠道需要验证必填字段
+  // 插件检查
   if (channelType === "qqbot") {
-    const qqbotAppIdEl = document.getElementById("qqbot-app-id");
-    const qqbotClientSecretEl = document.getElementById("qqbot-client-secret");
-
-    if (!qqbotAppIdEl || !qqbotAppIdEl.value.trim()) {
-      showToast("请输入 QQ App ID", "error");
-      return;
-    }
-
-    if (!qqbotClientSecretEl || !qqbotClientSecretEl.value.trim()) {
-      showToast("请输入 QQ Client Secret", "error");
-      return;
-    }
-
     const pluginReady = await ensureQqbotPluginInstalled();
-    if (!pluginReady) {
-      return;
-    }
+    if (!pluginReady) return;
   }
 
   if (channelType === "wecom") {
-    const wecomBotIdEl = document.getElementById("wecom-bot-id");
-    const wecomSecretEl = document.getElementById("wecom-secret");
-
-    if (!wecomBotIdEl || !wecomBotIdEl.value.trim()) {
-      showToast("请输入企业微信 Bot ID", "error");
-      return;
-    }
-
-    if (!wecomSecretEl || !wecomSecretEl.value.trim()) {
-      showToast("请输入企业微信 Secret", "error");
-      return;
-    }
-
     const pluginReady = await ensureWecomPluginInstalled();
-    if (!pluginReady) {
-      return;
-    }
+    if (!pluginReady) return;
   }
 
   try {
@@ -1760,109 +1620,25 @@ async function submitChannelForm(event) {
       delete config.channels[editKey];
     }
 
-    // 添加或更新渠道配置（使用渠道名称作为 key）
-    if (channelType === "telegram") {
-      const allowFromList = parseCommaList(
-        document.getElementById("telegram-allow-from")?.value,
-      );
-      const groupAllowFromList = parseCommaList(
-        document.getElementById("telegram-group-allow-from")?.value,
-      );
-      const dmPolicy =
-        document.getElementById("telegram-dm-policy")?.value || "open";
-      const groupPolicy =
-        document.getElementById("telegram-group-policy")?.value || "open";
-      let groups = {};
-      if (groupPolicy !== "disabled") {
-        groups = {
-          "*": {
-            requireMention: groupPolicy !== "open",
-          },
-        };
-        if (groupAllowFromList.length > 0) {
-          groups["*"].allowFrom = groupAllowFromList;
-        }
+    // 使用 handler 构建配置
+    if (handler) {
+      const channelConfig = handler.buildConfig();
+      config.channels[channelId] = {
+        enabled: enabled,
+        ...channelConfig
+      };
+
+      // 添加通用 token（如果需要）
+      if (handler.needsToken && token) {
+        config.channels[channelId].botToken = token;
       }
-
-      config.channels[channelId] = {
-        enabled: enabled,
-        botToken: token,
-        dmPolicy: dmPolicy,
-        allowFrom: allowFromList.length > 0 ? allowFromList : ["*"],
-        groups: groups,
-      };
-    } else if (channelType === "feishu") {
-      const dmPolicyEl = document.getElementById("feishu-dm-policy");
-      const appIdEl = document.getElementById("feishu-app-id");
-      const appSecretEl = document.getElementById("feishu-app-secret");
-      const botNameEl = document.getElementById("feishu-bot-name");
-
-      config.channels[channelId] = {
-        enabled: enabled,
-        dmPolicy: dmPolicyEl?.value || "pairing",
-        accounts: {
-          main: {
-            appId: appIdEl?.value.trim() || "",
-            appSecret: appSecretEl?.value.trim() || "",
-            botName: botNameEl?.value.trim() || "",
-          },
-        },
-      };
-    } else if (channelType === "qqbot") {
-      const qqbotAppIdEl = document.getElementById("qqbot-app-id");
-      const qqbotClientSecretEl = document.getElementById(
-        "qqbot-client-secret",
-      );
-      const allowFromList = parseCommaList(
-        document.getElementById("qqbot-allow-from")?.value,
-      );
-      const allowFrom = allowFromList.length > 0 ? allowFromList : ["*"];
-      config.channels[channelId] = {
-        enabled: enabled,
-        allowFrom: allowFrom,
-        appId: qqbotAppIdEl?.value.trim() || "",
-        clientSecret: qqbotClientSecretEl?.value.trim() || "",
-      };
-    } else if (channelType === "wecom") {
-      const wecomBotIdEl = document.getElementById("wecom-bot-id");
-      const wecomSecretEl = document.getElementById("wecom-secret");
-      const wecomDmPolicyEl = document.getElementById("wecom-dm-policy");
-      const existing = config.channels[channelId] || {};
-      config.channels[channelId] = {
-        enabled: enabled,
-        botId: wecomBotIdEl?.value.trim() || "",
-        secret: wecomSecretEl?.value.trim() || "",
-        allowFrom: normalizeAllowFrom(existing.allowFrom, ["*"]),
-        dmPolicy: wecomDmPolicyEl?.value || "open",
-      };
     } else {
+      // 未知渠道类型，使用通用配置
       config.channels[channelId] = {
         enabled: enabled,
+        botToken: token
       };
     }
-
-    // 非飞书和非 Discord 渠道才需要通用 botToken
-    if (
-      channelType !== "feishu" &&
-      channelType !== "discord" &&
-      channelType !== "telegram" &&
-      channelType !== "qqbot" &&
-      channelType !== "wecom"
-    ) {
-      config.channels[channelId].botToken = token;
-    }
-
-    // Discord 特定配置
-    if (channelType === "discord") {
-      const discordTokenEl = document.getElementById("discord-token");
-      if (discordTokenEl && discordTokenEl.value.trim()) {
-        config.channels[channelId].token = discordTokenEl.value.trim();
-      }
-    }
-
-    // Telegram 特定配置已在上方处理（严格对齐官方结构）
-
-    // 飞书特定配置已在上方处理（严格对齐官方结构）
 
     showToast(isEditMode ? "正在保存渠道修改..." : "正在添加消息渠道...", "info");
 
@@ -2987,9 +2763,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 初始化 textarea 的 input 事件监听器（用于实时验证）
-  const textarea = document.getElementById("config-editor-textarea");
+  const refs = window.domRefs;
+  const textarea = refs?.config.editorTextarea || document.getElementById("config-editor-textarea");
   if (textarea) {
     textarea.addEventListener("input", validateConfigInput);
+  }
+
+  // 初始化 DOM 引用缓存
+  if (window.initDomRefs) {
+    window.initDomRefs();
   }
 
   // 初始化标签页
@@ -2997,9 +2779,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initTooltips();
 
   // Skills 事件绑定
-  const skillsSearchBtn = document.getElementById("skills-search-btn");
-  const skillsSearchInput = document.getElementById("skills-search-input");
-  const skillsRefreshBtn = document.getElementById("skills-refresh-btn");
+  const skillsSearchBtn = refs?.skills.searchBtn || document.getElementById("skills-search-btn");
+  const skillsSearchInput = refs?.skills.searchInput || document.getElementById("skills-search-input");
+  const skillsRefreshBtn = refs?.skills.refreshBtn || document.getElementById("skills-refresh-btn");
 
   if (skillsSearchBtn) {
     skillsSearchBtn.addEventListener("click", searchSkills);

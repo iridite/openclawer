@@ -1,8 +1,7 @@
 const fs = require("fs");
 const path = require("path");
-const https = require("https");
-const http = require("http");
 const { execSync } = require("child_process");
+const { fetchJSON, downloadFile } = require("../core/http-client");
 
 function createSkillsService(options) {
   const { OC_HOME, TRIM_PKGVAR, readJSON, writeJSON } = options;
@@ -14,74 +13,6 @@ function createSkillsService(options) {
   const SEARCH_API = "https://lightmake.site/api/v1/search";
   const PRIMARY_DOWNLOAD = "https://lightmake.site/api/v1/download";
   const FALLBACK_DOWNLOAD = "https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com/skills";
-
-  function fetchJSON(url) {
-    return new Promise((resolve, reject) => {
-      const client = url.startsWith("https") ? https : http;
-      const request = client.get(url, (res) => {
-        if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode}`));
-          return;
-        }
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch (err) {
-            reject(err);
-          }
-        });
-      });
-      
-      request.setTimeout(30000, () => {
-        request.destroy();
-        reject(new Error("请求超时"));
-      });
-      
-      request.on("error", reject);
-    });
-  }
-
-  function downloadFile(url, dest) {
-    return new Promise((resolve, reject) => {
-      const client = url.startsWith("https") ? https : http;
-      const file = fs.createWriteStream(dest);
-      
-      const request = client.get(url, (res) => {
-        if (res.statusCode === 302 || res.statusCode === 301) {
-          file.close();
-          fs.unlinkSync(dest);
-          downloadFile(res.headers.location, dest).then(resolve).catch(reject);
-          return;
-        }
-        if (res.statusCode !== 200) {
-          file.close();
-          fs.unlinkSync(dest);
-          reject(new Error(`HTTP ${res.statusCode}`));
-          return;
-        }
-        res.pipe(file);
-        file.on("finish", () => {
-          file.close();
-          resolve();
-        });
-      });
-      
-      request.setTimeout(30000, () => {
-        request.destroy();
-        file.close();
-        if (fs.existsSync(dest)) fs.unlinkSync(dest);
-        reject(new Error("下载超时"));
-      });
-      
-      request.on("error", (err) => {
-        file.close();
-        if (fs.existsSync(dest)) fs.unlinkSync(dest);
-        reject(err);
-      });
-    });
-  }
 
   function loadLockfile() {
     if (!fs.existsSync(LOCKFILE_PATH)) {
