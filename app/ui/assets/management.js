@@ -2522,6 +2522,21 @@ async function testModelConnection() {
   `;
   document.body.appendChild(modal);
 
+  // 立即显示协议类型和端点（不等待网络）
+  const protocol = (apiProtocol || providerName).toLowerCase();
+  const protocolName = protocol === "anthropic" ? "Anthropic Messages API" : "OpenAI Chat Completions API";
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '').replace(/\/chat\/completions$/, '').replace(/\/v1$/, '');
+  const endpoint = protocol === "anthropic" ? `${normalizedBaseUrl}/v1/messages` : `${normalizedBaseUrl}/chat/completions`;
+
+  document.getElementById("test-method").textContent = `POST (${protocolName})`;
+  document.getElementById("test-endpoint").textContent = endpoint;
+
+  // 立即显示基础 curl 命令（不含 API Key）
+  const basicCurl = protocol === "anthropic"
+    ? `curl -X POST ${endpoint} \\\n  -H "anthropic-version: 2023-06-01" \\\n  -H "content-type: application/json"`
+    : `curl -X POST ${endpoint} \\\n  -H "content-type: application/json"`;
+  document.getElementById("test-command").textContent = basicCurl;
+
   try {
     const result = await apiRequest("/models/test", {
       method: "POST",
@@ -2534,12 +2549,10 @@ async function testModelConnection() {
       }),
     });
 
-    // 显示协议类型和端点
-    const protocol = (apiProtocol || providerName).toLowerCase();
-    const protocolName = protocol === "anthropic" ? "Anthropic Messages API" : "OpenAI Chat Completions API";
-    document.getElementById("test-method").textContent = `POST (${protocolName})`;
-    document.getElementById("test-endpoint").textContent = result.endpoint || "未知端点";
-    document.getElementById("test-command").textContent = result.curlCommand || "无命令";
+    // 更新完整 curl 命令（含脱敏 API Key）
+    if (result.curlCommand) {
+      document.getElementById("test-command").textContent = result.curlCommand;
+    }
     const responseEl = document.getElementById("test-response");
 
     if (result.success) {
@@ -2578,8 +2591,6 @@ async function testModelConnection() {
     }
 
   } catch (error) {
-    document.getElementById("test-endpoint").textContent = "请求失败";
-    document.getElementById("test-command").textContent = "无法构造请求";
     document.getElementById("test-response").className = "test-response error";
     document.getElementById("test-response").textContent = error.message || "请求失败";
     testBtn.className = "btn error";
