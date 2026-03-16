@@ -1569,64 +1569,56 @@ API 类型: openai-completions
                         <div class="card" id="config-editor-card">
                             <div class="card-header">
                                 <h2>配置编辑器</h2>
-                                <div class="card-actions">
-                                    <button
-                                        class="btn btn-ghost btn-sm"
-                                        onclick="toggleEditorMode()"
-                                        id="toggle-editor-btn"
-                                        style="font-size: 0.85em"
-                                    >
-                                        切换到高级编辑器
-                                    </button>
-                                    <button
-                                        class="btn btn-ghost btn-sm"
-                                        onclick="loadConfig()"
-                                    >
-                                        重新加载
-                                    </button>
-                                    <button
-                                        class="btn btn-secondary btn-sm"
-                                        onclick="toggleConfigImportPanel()"
-                                        id="toggle-config-import-btn"
-                                    >
-                                        导入配置
-                                    </button>
-                                    <button
-                                        class="btn btn-ghost btn-sm"
-                                        onclick="exportConfig()"
-                                    >
-                                        导出配置
-                                    </button>
-                                    <button
-                                        class="btn btn-ghost btn-sm"
-                                        onclick="exportFullBackup()"
-                                    >
-                                        导出完整备份
-                                    </button>
-                                    <button
-                                        class="btn btn-secondary btn-sm"
-                                        onclick="triggerFullBackupImport()"
-                                    >
-                                        导入完整备份
-                                    </button>
-                                    <button
-                                        class="btn btn-ghost btn-sm"
-                                        onclick="copyConfig()"
-                                    >
-                                        复制配置
-                                    </button>
-                                    <button
-                                        class="btn btn-secondary btn-sm"
-                                        onclick="resetConfigToInitial()"
-                                    >
-                                        恢复原始配置
-                                    </button>
-                                    <button
-                                        class="btn btn-primary btn-sm"
-                                        onclick="saveConfig()"
-                                    >
-                                        保存配置
-                                    </button>
+                                <div class="editor-toolbar">
+                                    <div class="editor-toolbar-group">
+                                        <button
+                                            class="btn btn-ghost btn-sm"
+                                            onclick="toggleEditorMode()"
+                                            id="toggle-editor-btn"
+                                        >
+                                            切换编辑器
+                                        </button>
+                                        <button
+                                            class="btn btn-ghost btn-sm"
+                                            onclick="loadConfig()"
+                                        >
+                                            重新加载
+                                        </button>
+                                    </div>
+                                    <div class="editor-toolbar-group">
+                                        <div class="dropdown">
+                                            <button class="btn btn-ghost btn-sm dropdown-toggle">
+                                                文件操作
+                                            </button>
+                                            <div class="dropdown-menu">
+                                                <button class="dropdown-item" onclick="toggleConfigImportPanel()">导入配置</button>
+                                                <button class="dropdown-item" onclick="exportConfig()">导出配置</button>
+                                                <div class="dropdown-divider"></div>
+                                                <button class="dropdown-item" onclick="triggerFullBackupImport()">导入完整备份</button>
+                                                <button class="dropdown-item" onclick="exportFullBackup()">导出完整备份</button>
+                                            </div>
+                                        </div>
+                                        <button
+                                            class="btn btn-ghost btn-sm"
+                                            onclick="copyConfig()"
+                                        >
+                                            复制
+                                        </button>
+                                    </div>
+                                    <div class="editor-toolbar-group">
+                                        <button
+                                            class="btn btn-ghost btn-sm"
+                                            onclick="resetConfigToInitial()"
+                                        >
+                                            恢复原始
+                                        </button>
+                                        <button
+                                            class="btn btn-primary btn-sm"
+                                            onclick="saveConfig()"
+                                        >
+                                            保存配置
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="config-transfer-guide">

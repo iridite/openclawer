@@ -356,6 +356,86 @@ body {
     flex-wrap: wrap;
 }
 
+/* Editor toolbar with grouped buttons */
+.editor-toolbar {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.editor-toolbar-group {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-1) 0;
+    position: relative;
+}
+
+.editor-toolbar-group:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: calc(var(--space-3) / -2);
+    top: 20%;
+    bottom: 20%;
+    width: 1px;
+    background: var(--color-neutral-200);
+}
+
+/* Dropdown */
+.dropdown {
+    position: relative;
+}
+
+.dropdown-toggle::after {
+    content: '▾';
+    margin-left: var(--space-1);
+    font-size: 0.75em;
+    opacity: 0.7;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: calc(100% + var(--space-1));
+    left: 0;
+    min-width: 160px;
+    background: var(--bg-white);
+    border: 1px solid var(--color-neutral-200);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px var(--shadow);
+    padding: var(--space-1) 0;
+    z-index: 1000;
+    display: none;
+}
+
+.dropdown:hover .dropdown-menu,
+.dropdown:focus-within .dropdown-menu {
+    display: block;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: var(--text-sm);
+    color: var(--color-neutral-900);
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.dropdown-item:hover {
+    background: var(--color-neutral-50);
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: var(--color-neutral-200);
+    margin: var(--space-1) 0;
+}
+
 /* 信息网格 */
 .info-grid {
     display: grid;
@@ -870,6 +950,26 @@ body {
         justify-content: center;
     }
 
+    .editor-toolbar {
+        flex-direction: column;
+        gap: var(--space-2);
+    }
+
+    .editor-toolbar-group {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .editor-toolbar-group::after {
+        display: none;
+    }
+
+    .dropdown-menu {
+        left: 0;
+        right: 0;
+        width: 100%;
+    }
+
     .config-transfer-grid {
         grid-template-columns: 1fr;
     }
@@ -1183,23 +1283,23 @@ span[title] {
 
 .test-endpoint {
     padding: 12px 16px;
-    background: var(--bg-light);
+    background: var(--color-neutral-50);
     border: 1px solid var(--border);
     border-radius: 6px;
     font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
     font-size: 0.9rem;
-    color: var(--primary);
+    color: var(--color-primary-600);
     word-break: break-all;
 }
 
 .test-command {
     padding: 16px;
-    background: var(--bg-light);
+    background: var(--color-neutral-50);
     border: 1px solid var(--border);
     border-radius: 6px;
     font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
     font-size: 0.85rem;
-    color: var(--text-dark);
+    color: var(--color-neutral-900);
     white-space: pre-wrap;
     word-break: break-all;
     line-height: 1.6;
@@ -1207,12 +1307,12 @@ span[title] {
 
 .test-response {
     padding: 16px;
-    background: var(--bg-light);
+    background: var(--color-neutral-50);
     border: 1px solid var(--border);
     border-radius: 6px;
     font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
     font-size: 0.85rem;
-    color: var(--text-dark);
+    color: var(--color-neutral-900);
     white-space: pre-wrap;
     word-break: break-all;
     line-height: 1.6;
