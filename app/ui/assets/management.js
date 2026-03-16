@@ -2523,12 +2523,15 @@ async function testModelConnection() {
   document.body.appendChild(modal);
 
   try {
-    const result = await apiRequest("/api/models/test", "POST", {
-      providerName,
-      modelId,
-      baseUrl,
-      apiKey,
-      apiProtocol,
+    const result = await apiRequest("/models/test", {
+      method: "POST",
+      body: JSON.stringify({
+        providerName,
+        modelId,
+        baseUrl,
+        apiKey,
+        apiProtocol,
+      }),
     });
 
     // 显示协议类型和端点
@@ -2574,8 +2577,9 @@ async function testModelConnection() {
       showToast("模型连接测试失败", "error");
     }
 
-    }
   } catch (error) {
+    document.getElementById("test-endpoint").textContent = "请求失败";
+    document.getElementById("test-command").textContent = "无法构造请求";
     document.getElementById("test-response").className = "test-response error";
     document.getElementById("test-response").textContent = error.message || "请求失败";
     testBtn.className = "btn error";

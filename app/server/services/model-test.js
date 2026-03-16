@@ -86,7 +86,7 @@ function createModelTestService(deps) {
         success: false,
         endpoint,
         curlCommand: maskedCommand,
-        response: err.stderr || err.message || String(err),
+        response: err.stderr || err.error?.message || err.message || String(err),
       };
     }
   }
