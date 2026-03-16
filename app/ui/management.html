@@ -1889,6 +1889,23 @@ API 类型: openai-completions
                 <section class="tab-content" id="tab-version">
                     <div class="version-manager">
                         <div class="card">
+                            <h2>Agent 配置</h2>
+                            <div class="form-hint warning">
+                                Tool Profiles 控制 AI Agent 可使用的工具范围。Messaging 适合日常对话，Full 提供完整工具访问权限。
+                            </div>
+                            <div class="form-group" style="margin-top: 15px;">
+                                <label>
+                                    Tool Profiles
+                                    <span class="tooltip-icon" data-tooltip="控制 Agent 可用工具集。messaging: 仅消息相关工具（推荐）；full: 完整工具访问权限（高级用户）。">ⓘ</span>
+                                </label>
+                                <select id="tool-profiles" onchange="saveToolProfiles()">
+                                    <option value="messaging">Messaging（推荐）</option>
+                                    <option value="full">Full（完整权限）</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="card">
                             <h2>版本信息</h2>
                             <div class="info-grid">
                                 <div class="info-item">

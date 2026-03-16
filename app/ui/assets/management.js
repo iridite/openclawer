@@ -476,6 +476,7 @@ function loadTabData(tabName) {
       loadConfig();
       break;
     case "system":
+      loadToolProfiles();
       loadVersionInfo();
       loadConsoleInfo();
       break;
@@ -2547,6 +2548,34 @@ async function testModelConnection() {
 
 // ============================================================================
 // 版本管理
+// ============================================================================
+
+async function loadToolProfiles() {
+  try {
+    const config = await apiRequest("/config");
+    const toolProfiles = config?.agents?.defaults?.toolProfiles || "messaging";
+    document.getElementById("tool-profiles").value = toolProfiles;
+  } catch (error) {
+    console.error("加载 Tool Profiles 失败:", error);
+  }
+}
+
+async function saveToolProfiles() {
+  try {
+    const value = document.getElementById("tool-profiles").value;
+    const config = await apiRequest("/config");
+
+    config.agents = config.agents || {};
+    config.agents.defaults = config.agents.defaults || {};
+    config.agents.defaults.toolProfiles = value;
+
+    await apiRequest("/config", { method: "POST", body: JSON.stringify(config) });
+    showToast("Tool Profiles 已更新为: " + value, "success");
+  } catch (error) {
+    showToast("保存失败: " + error.message, "error");
+  }
+}
+
 // ============================================================================
 
 async function loadVersionInfo() {
