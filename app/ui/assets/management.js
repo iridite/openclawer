@@ -2394,7 +2394,7 @@ async function testModelConnection() {
 async function loadToolProfiles() {
   try {
     const config = await apiRequest("/config");
-    const toolProfiles = config?.agents?.defaults?.toolProfiles || "messaging";
+    const toolProfiles = config?.agents?.defaults?.toolProfiles || "full";
     document.getElementById("tool-profiles").value = toolProfiles;
   } catch (error) {
     console.error("加载 Tool Profiles 失败:", error);
