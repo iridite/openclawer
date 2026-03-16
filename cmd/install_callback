@@ -377,13 +377,13 @@ setup_environment_variables() {
         return 0
     fi
 
-    log_msg "Adding OpenClaw and Node.js to system PATH..."
+    log_msg "Adding OpenClaw, Node.js and Python to system PATH..."
 
     local PROFILE_FILE="/etc/profile.d/openclaw.sh"
 
     cat > "${PROFILE_FILE}" << ENVEOF
-# OpenClaw and Node.js environment variables
-export PATH="/var/apps/nodejs_v22/target/bin:${PKGVAR}/node_modules/.bin:\$PATH"
+# OpenClaw, Node.js and Python environment variables
+export PATH="/var/apps/nodejs_v22/target/bin:/var/apps/python312/target/bin:${PKGVAR}/node_modules/.bin:\$PATH"
 ENVEOF
 
     if [ $? -eq 0 ]; then
