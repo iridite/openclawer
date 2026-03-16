@@ -2809,6 +2809,8 @@ document.addEventListener("DOMContentLoaded", () => {
         searchTimeout = setTimeout(() => {
           searchSkills();
         }, 500);
+      } else {
+        document.getElementById("skills-search-results").innerHTML = "";
       }
     });
   }
