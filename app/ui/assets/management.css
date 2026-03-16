@@ -336,12 +336,14 @@ body {
 }
 
 .btn-secondary {
-    background: #f5f5f5;
+    background: var(--bg-light);
     color: var(--text-dark);
+    border: 1px solid var(--border);
 }
 
 .btn-secondary:hover {
-    background: #e0e0e0;
+    background: var(--bg-white);
+    border-color: var(--primary);
 }
 
 .btn-sm {
@@ -410,8 +412,8 @@ body {
     font-size: 0.9rem;
     line-height: 1.5;
     resize: vertical;
-    background: #f8f8f8;
-    color: #333;
+    background: var(--bg-light);
+    color: var(--text-dark);
 }
 
 /* YAML 语法高亮 */
@@ -481,7 +483,7 @@ body {
     padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
-    background: #fff;
+    background: var(--bg-white);
 }
 
 .config-transfer-item h4 {
@@ -512,8 +514,8 @@ body {
     padding: 8px 10px;
     border-left: 3px solid var(--warning);
     border-radius: 4px;
-    background: #fff8e6;
-    color: #6d4c00;
+    background: rgba(255, 152, 0, 0.15);
+    color: var(--text-dark);
     font-size: 0.82rem;
     line-height: 1.5;
 }
@@ -523,7 +525,7 @@ body {
     padding: 14px;
     border: 1px dashed var(--border);
     border-radius: 8px;
-    background: #fafafa;
+    background: var(--bg-light);
 }
 
 .import-panel-header h3 {
@@ -564,7 +566,8 @@ body {
     font-size: 0.85rem;
     line-height: 1.45;
     resize: vertical;
-    background: #fff;
+    background: var(--bg-white);
+    color: var(--text-dark);
 }
 
 #config-import-textarea:focus-visible {
@@ -591,7 +594,7 @@ body {
 
 /* 代码块 */
 .code-block {
-    background: #f8f8f8;
+    background: var(--bg-light);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 16px;
@@ -600,6 +603,7 @@ body {
     line-height: 1.5;
     overflow-x: auto;
     margin: 8px 0;
+    color: var(--text-dark);
 }
 
 /* 模板区域 */
@@ -633,7 +637,7 @@ body {
 .console-info {
     margin-top: 20px;
     padding: 16px;
-    background: #f8f8f8;
+    background: var(--bg-light);
     border-radius: 8px;
 }
 
@@ -643,11 +647,12 @@ body {
 }
 
 .console-info code {
-    background: white;
+    background: var(--bg-white);
     padding: 4px 8px;
     border-radius: 4px;
     font-family: "Monaco", "Menlo", "Consolas", monospace;
     font-size: 0.85rem;
+    color: var(--text-dark);
 }
 
 /* 日志查看器 */
@@ -659,7 +664,7 @@ body {
 
 .log-header {
     padding: 12px;
-    background: #f8f8f8;
+    background: var(--bg-light);
     border-bottom: 1px solid var(--border);
 }
 
@@ -1143,9 +1148,9 @@ span[title] {
 }
 
 .form-hint.warning {
-    background: #fff3cd;
+    background: rgba(255, 152, 0, 0.15);
     border-left: 4px solid var(--warning);
-    color: #856404;
+    color: var(--text-dark);
 }
 
 .form-hint-spaced {
@@ -1160,18 +1165,19 @@ span[title] {
 .form-section {
     margin: 24px 0;
     padding: 16px;
-    background: #f8f8f8;
+    background: var(--bg-light);
     border-radius: 8px;
+    border: 1px solid var(--border);
 }
 
 .form-section.recommended {
-    background: #fff5ee;
-    border: 1px solid rgba(244, 81, 30, 0.2);
+    background: rgba(244, 81, 30, 0.08);
+    border: 1px solid rgba(244, 81, 30, 0.25);
 }
 
 .form-section.advanced {
-    background: #f4f5f7;
-    border: 1px dashed rgba(0, 0, 0, 0.12);
+    background: var(--bg-light);
+    border: 1px dashed var(--border);
 }
 
 .form-section h3 {
@@ -1330,7 +1336,7 @@ span[title] {
 
 /* 消息渠道卡片样式 */
 .channel-card {
-    background: white;
+    background: var(--bg-white);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 16px;
@@ -1405,7 +1411,7 @@ span[title] {
 }
 
 .channel-guide-item {
-    background: #fff;
+    background: var(--bg-white);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 16px;
