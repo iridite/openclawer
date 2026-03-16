@@ -1613,7 +1613,7 @@ span[title] {
 .skill-card-meta {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     font-size: 0.85rem;
     color: var(--text-light);
 }
@@ -1622,17 +1622,60 @@ span[title] {
     font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
     font-size: 0.8rem;
     color: var(--text-light);
+    padding: 4px 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    width: fit-content;
 }
 
 .skill-card-description {
     font-size: 0.85rem;
     color: var(--text);
-    line-height: 1.4;
+    line-height: 1.5;
     margin: 0;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+.skill-card-stats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    color: var(--text-light);
+    padding-top: 4px;
+}
+
+.skill-card-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.skill-card-stat::before {
+    content: '';
+    width: 4px;
+    height: 4px;
+    background: var(--text-light);
+    border-radius: 50%;
+    opacity: 0.5;
+}
+
+.skill-relevance-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 2px;
+}
+
+.skill-relevance-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success) 0%, var(--primary) 100%);
+    transition: width 0.3s ease;
 }
 
 /* Card footer */

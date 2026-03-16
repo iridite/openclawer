@@ -2779,27 +2779,36 @@ async function searchSkills() {
       return;
     }
 
-    container.innerHTML = '<div class="skills-grid">' + result.skills.map(skill => `
+    container.innerHTML = '<div class="skills-grid">' + result.skills.map(skill => {
+      const displayName = skill.displayName || skill.name || skill.slug;
+      const summary = skill.summary || skill.description || '';
+      const version = skill.version || '';
+      const updatedAt = skill.updatedAt ? new Date(skill.updatedAt).toLocaleDateString('zh-CN') : '';
+      const score = skill.score ? Math.round(skill.score * 100) : 0;
+
+      return `
       <div class="skill-card">
         <div class="skill-card-header">
-          <h4 class="skill-card-title">${escapeHtml(skill.name || skill.slug)}</h4>
-          <div class="skill-badges">
-            ${skill.category ? `<span class="skill-badge" style="background: var(--primary); color: white;">${escapeHtml(skill.category)}</span>` : ''}
-          </div>
+          <h4 class="skill-card-title">${escapeHtml(displayName)}</h4>
+          ${score > 0 ? `<div class="skill-badges"><span class="skill-badge" style="background: var(--success); color: white;">${score}% 匹配</span></div>` : ''}
         </div>
 
         <div class="skill-card-meta">
           <div class="skill-card-slug">${escapeHtml(skill.slug)}</div>
-          ${skill.description ? `<p class="skill-card-description">${escapeHtml(skill.description)}</p>` : ''}
-          ${skill.author ? `<div style="font-size: 0.8rem; color: var(--text-light);">作者: ${escapeHtml(skill.author)}</div>` : ''}
-          ${skill.downloads ? `<div style="font-size: 0.8rem; color: var(--text-light);">下载量: ${escapeHtml(skill.downloads)}</div>` : ''}
+          ${summary ? `<p class="skill-card-description">${escapeHtml(summary)}</p>` : ''}
+          <div class="skill-card-stats">
+            ${version ? `<span class="skill-card-stat">v${escapeHtml(version)}</span>` : ''}
+            ${updatedAt ? `<span class="skill-card-stat">更新于 ${updatedAt}</span>` : ''}
+          </div>
+          ${score > 0 ? `<div class="skill-relevance-bar"><div class="skill-relevance-fill" style="width: ${score}%"></div></div>` : ''}
         </div>
 
         <div class="skill-card-footer">
           <button class="btn btn-primary btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="install" style="width: 100%;">安装</button>
         </div>
       </div>
-    `).join('') + '</div>';
+      `;
+    }).join('') + '</div>';
 
     // 事件委托：为安装按钮绑定事件
     container.querySelectorAll('button[data-action="install"]').forEach(btn => {
