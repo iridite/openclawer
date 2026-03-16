@@ -2773,22 +2773,33 @@ async function searchSkills() {
   try {
     const result = await apiRequest(`/skills/search?q=${encodeURIComponent(query)}`);
     const container = document.getElementById("skills-search-results");
-    
+
     if (!result.success || !result.skills || result.skills.length === 0) {
       container.innerHTML = '<p class="empty-state">未找到相关技能</p>';
       return;
     }
 
-    container.innerHTML = result.skills.map(skill => `
-      <div class="skill-item">
-        <div class="skill-info">
-          <strong>${escapeHtml(skill.name || skill.slug)}</strong>
-          <span class="skill-slug">${escapeHtml(skill.slug)}</span>
-          ${skill.description ? `<p>${escapeHtml(skill.description)}</p>` : ''}
+    container.innerHTML = '<div class="skills-grid">' + result.skills.map(skill => `
+      <div class="skill-card">
+        <div class="skill-card-header">
+          <h4 class="skill-card-title">${escapeHtml(skill.name || skill.slug)}</h4>
+          <div class="skill-badges">
+            ${skill.category ? `<span class="skill-badge" style="background: var(--primary); color: white;">${escapeHtml(skill.category)}</span>` : ''}
+          </div>
         </div>
-        <button class="btn btn-primary btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="install">安装</button>
+
+        <div class="skill-card-meta">
+          <div class="skill-card-slug">${escapeHtml(skill.slug)}</div>
+          ${skill.description ? `<p class="skill-card-description">${escapeHtml(skill.description)}</p>` : ''}
+          ${skill.author ? `<div style="font-size: 0.8rem; color: var(--text-light);">作者: ${escapeHtml(skill.author)}</div>` : ''}
+          ${skill.downloads ? `<div style="font-size: 0.8rem; color: var(--text-light);">下载量: ${escapeHtml(skill.downloads)}</div>` : ''}
+        </div>
+
+        <div class="skill-card-footer">
+          <button class="btn btn-primary btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="install" style="width: 100%;">安装</button>
+        </div>
       </div>
-    `).join('');
+    `).join('') + '</div>';
 
     // 事件委托：为安装按钮绑定事件
     container.querySelectorAll('button[data-action="install"]').forEach(btn => {
@@ -2817,34 +2828,106 @@ async function loadInstalledSkills() {
   try {
     const result = await apiRequest("/skills/list");
     const container = document.getElementById("skills-installed-list");
-    
+
     if (!result.success || !result.skills || result.skills.length === 0) {
       container.innerHTML = '<p class="empty-state">暂无已安装技能</p>';
       return;
     }
 
-    container.innerHTML = result.skills.map(skill => `
-      <div class="skill-item ${skill.exists ? '' : 'skill-missing'}">
-        <div class="skill-info">
-          <strong>${escapeHtml(skill.name)}</strong>
-          <span class="skill-slug">${escapeHtml(skill.slug)}</span>
-          ${skill.version ? `<span class="skill-version">v${escapeHtml(skill.version)}</span>` : ''}
-          ${skill.location === 'builtin' ? '<span class="badge badge-info">内置</span>' : ''}
-          ${!skill.exists ? '<span class="badge badge-warning">目录缺失</span>' : ''}
-        </div>
-        ${skill.location === 'user' ?
-          `<button class="btn btn-danger btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="uninstall">卸载</button>` :
-          `<button class="btn btn-secondary btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="disable" disabled>禁用（待实现）</button>`
-        }
-      </div>
-    `).join('');
+    // Separate user and builtin skills
+    const userSkills = result.skills.filter(s => s.location === 'user');
+    const builtinSkills = result.skills.filter(s => s.location === 'builtin');
 
-    // 事件委托：为卸载按钮绑定事件
-    container.querySelectorAll('button[data-action="uninstall"]').forEach(btn => {
-      btn.addEventListener('click', () => uninstallSkill(btn.dataset.slug));
-    });
+    let html = '';
+
+    // User skills section
+    if (userSkills.length > 0) {
+      html += '<h3>用户安装的技能</h3>';
+      html += '<div class="skills-grid">';
+      html += userSkills.map(skill => renderSkillCard(skill)).join('');
+      html += '</div>';
+    }
+
+    // Builtin skills section
+    if (builtinSkills.length > 0) {
+      html += '<h3 style="margin-top: 30px;">内置技能</h3>';
+      html += '<div class="skills-grid">';
+      html += builtinSkills.map(skill => renderSkillCard(skill)).join('');
+      html += '</div>';
+    }
+
+    container.innerHTML = html;
+
+    // Bind events
+    bindSkillCardEvents();
   } catch (err) {
     showToast(`加载失败: ${err.message}`, "error");
+  }
+}
+
+function renderSkillCard(skill) {
+  const isBuiltin = skill.location === 'builtin';
+  const requiresApi = skill.requiresApi || false;
+  const enabled = skill.enabled !== false;
+
+  return `
+    <div class="skill-card" data-slug="${escapeHtml(skill.slug)}">
+      <div class="skill-card-header">
+        <h4 class="skill-card-title">${escapeHtml(skill.name)}</h4>
+        <div class="skill-badges">
+          ${isBuiltin ? '<span class="skill-badge builtin">内置</span>' : '<span class="skill-badge user">用户</span>'}
+          ${requiresApi ? '<span class="skill-badge api-required">需要 API</span>' : ''}
+          ${!skill.exists ? '<span class="skill-badge" style="background: var(--danger); color: white;">缺失</span>' : ''}
+        </div>
+      </div>
+
+      <div class="skill-card-meta">
+        <div class="skill-card-slug">${escapeHtml(skill.slug)}</div>
+        ${skill.description ? `<p class="skill-card-description">${escapeHtml(skill.description)}</p>` : ''}
+        ${skill.version ? `<div style="font-size: 0.8rem; color: var(--text-light);">版本: ${escapeHtml(skill.version)}</div>` : ''}
+        ${skill.installed_at ? `<div style="font-size: 0.8rem; color: var(--text-light);">安装时间: ${new Date(skill.installed_at).toLocaleDateString('zh-CN')}</div>` : ''}
+      </div>
+
+      <div class="skill-card-footer">
+        ${isBuiltin ? `
+          <div class="skill-toggle">
+            <span style="font-size: 0.85rem; color: var(--text-light);">${enabled ? '已启用' : '已禁用'}</span>
+            <div class="toggle-switch ${enabled ? 'active' : ''}" data-action="toggle" data-slug="${escapeHtml(skill.slug)}"></div>
+          </div>
+        ` : `
+          <button class="btn btn-danger btn-sm" data-action="uninstall" data-slug="${escapeHtml(skill.slug)}">卸载</button>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+function bindSkillCardEvents() {
+  // Uninstall buttons
+  document.querySelectorAll('[data-action="uninstall"]').forEach(btn => {
+    btn.addEventListener('click', () => uninstallSkill(btn.dataset.slug));
+  });
+
+  // Toggle switches
+  document.querySelectorAll('[data-action="toggle"]').forEach(toggle => {
+    toggle.addEventListener('click', () => toggleSkill(toggle.dataset.slug, !toggle.classList.contains('active')));
+  });
+}
+
+async function toggleSkill(slug, enabled) {
+  try {
+    // TODO: Implement backend API for toggling skills
+    showToast(`技能 ${slug} ${enabled ? '启用' : '禁用'}功能待实现`, "info");
+
+    // For now, just update UI
+    const toggle = document.querySelector(`[data-action="toggle"][data-slug="${slug}"]`);
+    if (toggle) {
+      toggle.classList.toggle('active', enabled);
+      const label = toggle.previousElementSibling;
+      if (label) label.textContent = enabled ? '已启用' : '已禁用';
+    }
+  } catch (err) {
+    showToast(`操作失败: ${err.message}`, "error");
   }
 }
 

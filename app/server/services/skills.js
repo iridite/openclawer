@@ -101,10 +101,10 @@ function createSkillsService(options) {
   async function search(query, limit = 20) {
     try {
       const url = `${SEARCH_API}?q=${encodeURIComponent(query)}&limit=${limit}`;
-      const results = await fetchJSON(url);
+      const data = await fetchJSON(url);
       return {
         success: true,
-        skills: Array.isArray(results) ? results : [],
+        skills: Array.isArray(data.results) ? data.results : [],
       };
     } catch (err) {
       return {
@@ -221,6 +221,46 @@ function createSkillsService(options) {
     }
   }
 
+  function readSkillMetadata(skillDir) {
+    const skillMdPath = path.join(skillDir, "SKILL.md");
+    if (!fs.existsSync(skillMdPath)) {
+      return { description: "", requiresApi: false };
+    }
+
+    try {
+      const content = fs.readFileSync(skillMdPath, "utf-8");
+
+      // Extract first paragraph as description (skip frontmatter if present)
+      let description = "";
+      const lines = content.split("\n");
+      let inFrontmatter = false;
+      let foundFirstPara = false;
+
+      for (const line of lines) {
+        if (line.trim() === "---") {
+          inFrontmatter = !inFrontmatter;
+          continue;
+        }
+        if (inFrontmatter) continue;
+
+        if (line.trim() && !line.startsWith("#")) {
+          if (!foundFirstPara) {
+            description = line.trim();
+            foundFirstPara = true;
+            break;
+          }
+        }
+      }
+
+      // Detect API requirements
+      const requiresApi = /API[_\s]?key|authentication|credentials|token/i.test(content);
+
+      return { description, requiresApi };
+    } catch (err) {
+      return { description: "", requiresApi: false };
+    }
+  }
+
   function listBuiltinSkills() {
     if (!fs.existsSync(BUILTIN_SKILLS_DIR)) {
       return [];
@@ -230,15 +270,23 @@ function createSkillsService(options) {
       const entries = fs.readdirSync(BUILTIN_SKILLS_DIR, { withFileTypes: true });
       return entries
         .filter(e => e.isDirectory())
-        .map(e => ({
-          slug: e.name,
-          name: e.name,
-          version: "",
-          source: "builtin",
-          installed_at: "",
-          exists: true,
-          location: "builtin"
-        }));
+        .map(e => {
+          const skillDir = path.join(BUILTIN_SKILLS_DIR, e.name);
+          const metadata = readSkillMetadata(skillDir);
+
+          return {
+            slug: e.name,
+            name: e.name,
+            version: "",
+            source: "builtin",
+            installed_at: "",
+            exists: true,
+            location: "builtin",
+            description: metadata.description,
+            requiresApi: metadata.requiresApi,
+            enabled: true
+          };
+        });
     } catch (err) {
       return [];
     }
