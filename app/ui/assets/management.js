@@ -116,8 +116,26 @@ async function apiRequest(endpoint, options = {}) {
           ...options.headers,
         },
       });
-
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = {};
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseErr) {
+          const trimmed = responseText.trim();
+          if (!response.ok) {
+            const briefBody = trimmed
+              ? trimmed.slice(0, 240)
+              : "空响应体";
+            throw new Error(
+              `请求失败（HTTP ${response.status}），接口返回了非 JSON 内容: ${briefBody}`,
+            );
+          }
+          throw new Error(
+            `接口返回格式错误：预期 JSON，实际收到非 JSON 内容（${API_BASE + endpoint}）`,
+          );
+        }
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "请求失败");
@@ -126,7 +144,14 @@ async function apiRequest(endpoint, options = {}) {
       return data;
     } catch (error) {
       const isLastAttempt = attempt === maxRetries;
-      const isNetworkError = error.name === 'TypeError' || error.message.includes('fetch');
+      const errorMessage = String(error?.message || "");
+      const lowerMsg = errorMessage.toLowerCase();
+      const isNetworkError =
+        error?.name === "TypeError" ||
+        lowerMsg.includes("fetch") ||
+        lowerMsg.includes("load failed") ||
+        lowerMsg.includes("failed to fetch") ||
+        lowerMsg.includes("networkerror");
 
       if (!isLastAttempt && isNetworkError) {
         await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
@@ -134,6 +159,12 @@ async function apiRequest(endpoint, options = {}) {
       }
 
       console.error("API 请求失败:", error);
+      if (isNetworkError) {
+        const detail = errorMessage || "网络请求异常";
+        throw new Error(
+          `无法连接管理接口（${API_BASE + endpoint}）。请检查管理服务是否在线、浏览器网络/证书与反向代理配置。原始错误: ${detail}`,
+        );
+      }
       throw error;
     }
   }
@@ -2813,8 +2844,11 @@ async function testModelConnection() {
     }
 
   } catch (error) {
-    document.getElementById("test-response").className = "test-response error";
-    document.getElementById("test-response").textContent = error.message || "请求失败";
+    const responseEl = document.getElementById("test-response");
+    if (responseEl) {
+      responseEl.className = "test-response error";
+      responseEl.textContent = error.message || "请求失败";
+    }
     testBtn.className = "btn error";
     testBtn.textContent = "测试失败 ✗";
     showToast("测试请求失败: " + error.message, "error");
