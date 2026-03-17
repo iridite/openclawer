@@ -3622,6 +3622,13 @@ function normalizeSkillSlug(slug) {
   return String(slug || "").trim().toLowerCase();
 }
 
+function normalizeSkillLabel(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+}
+
 function isSkillInstalled(slug) {
   return installedSkillSlugs.has(normalizeSkillSlug(slug));
 }
@@ -3799,6 +3806,9 @@ function renderSkillCard(skill) {
   const enabled = skill.enabled !== false;
   const entryKey = skill.entryKey || skill.name || skill.slug;
   const showsEntryKey = entryKey && entryKey !== skill.slug;
+  const showsSlug =
+    !!skill.slug &&
+    normalizeSkillLabel(skill.slug) !== normalizeSkillLabel(skill.name);
 
   return `
     <div class="skill-card" data-slug="${escapeHtml(skill.slug)}">
@@ -3812,7 +3822,7 @@ function renderSkillCard(skill) {
       </div>
 
       <div class="skill-card-meta">
-        <div class="skill-card-slug">${escapeHtml(skill.slug)}</div>
+        ${showsSlug ? `<div class="skill-card-slug">${escapeHtml(skill.slug)}</div>` : ""}
         ${showsEntryKey ? `<div style="font-size: 0.8rem; color: var(--text-light);">skillKey: <code>${escapeHtml(entryKey)}</code></div>` : ""}
         ${skill.description ? `<p class="skill-card-description">${escapeHtml(skill.description)}</p>` : ''}
         ${skill.version ? `<div style="font-size: 0.8rem; color: var(--text-light);">版本: ${escapeHtml(skill.version)}</div>` : ''}
