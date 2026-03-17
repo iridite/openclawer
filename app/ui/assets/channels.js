@@ -21,6 +21,11 @@ const channelHandlers = {
     },
 
     validate() {
+      const token = document.getElementById("channel-token");
+      if (!token || !token.value.trim()) {
+        showToast("请输入 Telegram Bot Token", "error");
+        return false;
+      }
       return true;
     },
 
@@ -69,7 +74,7 @@ const channelHandlers = {
       document.getElementById("telegram-group-allow-from").value = (group?.allowFrom || []).join(", ");
     },
 
-    needsToken: false,
+    needsToken: true,
     hasAdvanced: true
   },
 
