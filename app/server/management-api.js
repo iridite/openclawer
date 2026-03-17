@@ -220,6 +220,7 @@ async function setApiKeyProtection(payload) {
 const modelTestService = createModelTestService({
   CONFIG_FILE,
   readJSON,
+  isApiKeyProtectionEnabled,
 });
 const { testModel } = modelTestService;
 

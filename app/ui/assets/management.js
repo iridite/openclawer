@@ -2677,6 +2677,7 @@ async function testModelConnection() {
   const baseUrl = document.getElementById("base-url").value.trim();
   const apiKey = document.getElementById("api-key").value.trim();
   const apiProtocol = document.getElementById("api-protocol").value;
+  const apiType = document.getElementById("api-type")?.value || "";
   const storageMode = document.getElementById("api-key-storage-mode")?.value || getDefaultApiKeyStorageMode();
   const apiKeyEnvVar = document.getElementById("api-key-env-var")?.value.trim() || "";
   const existingRefText = document.getElementById("existing-api-key-ref")?.value.trim() || "";
@@ -2723,11 +2724,11 @@ async function testModelConnection() {
   }
 
   // 验证格式
-  const modelIdPattern = /^[a-zA-Z0-9./:-]+$/;
+  const modelIdPattern = /^[a-zA-Z0-9._/:-]+$/;
   const providerPattern = /^[a-z-]+$/;
 
   if (!modelIdPattern.test(modelId)) {
-    showToast("模型 ID 格式不正确（仅支持字母、数字、. / : -）", "error");
+    showToast("模型 ID 格式不正确（仅支持字母、数字、. / : - _）", "error");
     return;
   }
   if (!providerPattern.test(providerName)) {
@@ -2739,6 +2740,9 @@ async function testModelConnection() {
   testBtn.disabled = true;
   testBtn.className = "btn";
   testBtn.textContent = "测试中...";
+
+  // 保持单一测试对话框，避免重复 ID 导致更新错位
+  document.querySelectorAll(".test-modal").forEach((node) => node.remove());
 
   // 创建测试对话框
   const modal = document.createElement("div");
@@ -2772,20 +2776,57 @@ async function testModelConnection() {
   `;
   document.body.appendChild(modal);
 
+  const methodEl = modal.querySelector("#test-method");
+  const endpointEl = modal.querySelector("#test-endpoint");
+  const commandEl = modal.querySelector("#test-command");
+
+  function normalizeTestBaseUrl(rawBaseUrl, protocol) {
+    let normalized = String(rawBaseUrl || "").trim().replace(/\/+$/, "");
+    if (protocol === "anthropic") {
+      normalized = normalized.replace(/\/v1\/messages$/i, "");
+      normalized = normalized.replace(/\/v1$/i, "");
+      return normalized;
+    }
+    normalized = normalized.replace(/\/chat\/completions$/i, "");
+    normalized = normalized.replace(/\/responses$/i, "");
+    return normalized;
+  }
+
+  function resolveOpenAiEndpointSuffix(type) {
+    const value = String(type || "").trim().toLowerCase();
+    if (value === "openai-responses" || value === "openai-codex-responses") {
+      return "/responses";
+    }
+    return "/chat/completions";
+  }
+
   // 立即显示协议类型和端点（不等待网络）
   const protocol = (apiProtocol || providerName).toLowerCase();
-  const protocolName = protocol === "anthropic" ? "Anthropic Messages API" : "OpenAI Chat Completions API";
-  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '').replace(/\/chat\/completions$/, '').replace(/\/v1$/, '');
-  const endpoint = protocol === "anthropic" ? `${normalizedBaseUrl}/v1/messages` : `${normalizedBaseUrl}/chat/completions`;
+  const endpointSuffix = protocol === "anthropic"
+    ? "/v1/messages"
+    : resolveOpenAiEndpointSuffix(apiType);
+  const protocolName = protocol === "anthropic"
+    ? "Anthropic Messages API"
+    : endpointSuffix === "/responses"
+      ? "OpenAI Responses API"
+      : "OpenAI Chat Completions API";
+  const normalizedBaseUrl = normalizeTestBaseUrl(baseUrl, protocol);
+  const endpoint = `${normalizedBaseUrl}${endpointSuffix}`;
 
-  document.getElementById("test-method").textContent = `POST (${protocolName})`;
-  document.getElementById("test-endpoint").textContent = endpoint;
+  if (methodEl) {
+    methodEl.textContent = `POST (${protocolName})`;
+  }
+  if (endpointEl) {
+    endpointEl.textContent = endpoint;
+  }
 
   // 立即显示基础 curl 命令（不含 API Key）
   const basicCurl = protocol === "anthropic"
     ? `curl -X POST ${endpoint} \\\n  -H "anthropic-version: 2023-06-01" \\\n  -H "content-type: application/json"`
     : `curl -X POST ${endpoint} \\\n  -H "content-type: application/json"`;
-  document.getElementById("test-command").textContent = basicCurl;
+  if (commandEl) {
+    commandEl.textContent = basicCurl;
+  }
 
   try {
     const result = await apiRequest("/models/test", {
@@ -2799,29 +2840,31 @@ async function testModelConnection() {
         apiKeyStorageMode: storageMode,
         apiKeyEnvVar,
         apiProtocol,
+        apiType,
       }),
     });
 
     // 更新完整 curl 命令（含脱敏 API Key）
-    if (result.curlCommand) {
-      document.getElementById("test-command").textContent = result.curlCommand;
+    if (result.curlCommand && commandEl) {
+      commandEl.textContent = result.curlCommand;
     }
-    const responseEl = document.getElementById("test-response");
+    const responseEl = modal.querySelector("#test-response");
 
     if (result.success) {
-      responseEl.className = "test-response success";
-      // 格式化 JSON 响应
-      try {
-        const json = JSON.parse(result.response);
-        responseEl.textContent = JSON.stringify(json, null, 2);
-      } catch (e) {
-        responseEl.textContent = result.response || "测试成功";
+      if (responseEl) {
+        responseEl.className = "test-response success";
+        // 格式化 JSON 响应
+        try {
+          const json = JSON.parse(result.response);
+          responseEl.textContent = JSON.stringify(json, null, 2);
+        } catch (e) {
+          responseEl.textContent = result.response || "测试成功";
+        }
       }
       testBtn.className = "btn success";
       testBtn.textContent = "测试成功 ✓";
       showToast("模型连接测试成功", "success");
     } else {
-      responseEl.className = "test-response error";
       // 尝试解析并格式化错误信息
       let errorMsg = result.response || "测试失败";
       try {
@@ -2837,14 +2880,17 @@ async function testModelConnection() {
       } catch (e) {
         // 保持原始错误信息
       }
-      responseEl.textContent = errorMsg;
+      if (responseEl) {
+        responseEl.className = "test-response error";
+        responseEl.textContent = errorMsg;
+      }
       testBtn.className = "btn error";
       testBtn.textContent = "测试失败 ✗";
       showToast("模型连接测试失败", "error");
     }
 
   } catch (error) {
-    const responseEl = document.getElementById("test-response");
+    const responseEl = modal.querySelector("#test-response");
     if (responseEl) {
       responseEl.className = "test-response error";
       responseEl.textContent = error.message || "请求失败";
