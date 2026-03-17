@@ -199,7 +199,7 @@
                                         style="
                                             margin: 8px 0 12px 0;
                                             font-size: 13px;
-                                            color: #666;
+                                            color: var(--text-gray);
                                         "
                                     >
                                         使用说明：当前仅一个模型作为主模型生效（边框高亮）。
@@ -287,7 +287,9 @@
                                             style="
                                                 margin: 8px 0 0 0;
                                                 padding: 10px 12px;
-                                                background: #f7f7f7;
+                                                background: var(--bg-light);
+                                                color: var(--text-dark);
+                                                border: 1px solid var(--border);
                                                 border-radius: 6px;
                                                 font-size: 12px;
                                                 line-height: 1.4;
@@ -1790,7 +1792,9 @@ API 类型: openai-completions
                                         font-family: monospace;
                                         font-size: 14px;
                                         padding: 10px;
-                                        border: 1px solid #ddd;
+                                        border: 1px solid var(--border);
+                                        background: var(--bg-white);
+                                        color: var(--text-dark);
                                         border-radius: 4px;
                                     "
                                 ></textarea>
@@ -1804,7 +1808,7 @@ API 类型: openai-completions
                                         left: 0;
                                         right: 0;
                                         bottom: 0;
-                                        background: rgba(255, 255, 255, 0.9);
+                                        background: var(--overlay-bg);
                                         z-index: 10;
                                         align-items: center;
                                         justify-content: center;
@@ -1812,7 +1816,7 @@ API 类型: openai-completions
                                         gap: 10px;
                                     "
                                 >
-                                    <div style="font-size: 14px; color: #666">
+                                    <div style="font-size: 14px; color: var(--text-gray)">
                                         正在加载高级编辑器...
                                     </div>
                                 </div>

@@ -33,14 +33,19 @@
     --success: var(--color-success);
     --warning: var(--color-warning);
     --error: var(--color-error);
+    --danger: var(--color-error);
     --info: var(--color-info);
     --bg-light: var(--color-neutral-50);
     --bg-white: #ffffff;
+    --bg: var(--bg-light);
+    --bg-secondary: var(--bg-white);
     --text-dark: var(--color-neutral-900);
+    --text: var(--text-dark);
     --text-gray: var(--color-neutral-600);
     --text-light: var(--color-neutral-400);
     --border: var(--color-neutral-200);
     --shadow: rgba(0, 0, 0, 0.1);
+    --overlay-bg: rgba(255, 255, 255, 0.9);
     --focus-ring: oklch(65% 0.18 40 / 0.35);
 
     /* Typography Scale */
@@ -89,6 +94,7 @@
         --text-light: #808080;
         --border: #404040;
         --shadow: rgba(0, 0, 0, 0.3);
+        --overlay-bg: rgba(18, 18, 18, 0.82);
     }
 }
 
@@ -111,28 +117,6 @@ body {
 @media (prefers-color-scheme: dark) {
     body {
         background: linear-gradient(135deg, oklch(15% 0.005 40) 0%, oklch(18% 0.008 40) 50%, oklch(20% 0.01 40) 100%);
-    }
-
-    .topbar-shell {
-        background:
-            radial-gradient(circle at top right, rgba(244, 81, 30, 0.2), transparent 52%),
-            linear-gradient(120deg, rgba(35, 35, 35, 0.92), rgba(28, 28, 28, 0.96));
-        border-color: rgba(244, 81, 30, 0.35);
-    }
-
-    .header {
-        border-color: rgba(255, 255, 255, 0.08);
-    }
-
-    .tabs {
-        background: rgba(24, 24, 24, 0.82);
-        border-color: rgba(255, 255, 255, 0.1);
-    }
-
-    .header-chip {
-        background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(255, 255, 255, 0.12);
-        color: var(--text-light);
     }
 }
 
@@ -367,6 +351,37 @@ body {
 .tab-btn.active {
     background: var(--primary);
     color: white;
+}
+
+@media (prefers-color-scheme: dark) {
+    .topbar-shell {
+        background:
+            radial-gradient(circle at top right, rgba(244, 81, 30, 0.2), transparent 52%),
+            linear-gradient(120deg, rgba(35, 35, 35, 0.92), rgba(28, 28, 28, 0.96));
+        border-color: rgba(244, 81, 30, 0.35);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    .header {
+        border-color: rgba(255, 255, 255, 0.08);
+        background: linear-gradient(
+            125deg,
+            rgba(255, 255, 255, 0.03),
+            rgba(255, 255, 255, 0.01)
+        );
+    }
+
+    .tabs {
+        background: rgba(24, 24, 24, 0.82);
+        border-color: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+    }
+
+    .header-chip {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.12);
+        color: var(--text-light);
+    }
 }
 
 .tab-btn:focus-visible {
@@ -1734,6 +1749,13 @@ span[title] {
     border-radius: 8px;
 }
 
+@media (prefers-color-scheme: dark) {
+    .form-section.recommended {
+        background: oklch(30% 0.045 40 / 0.35);
+        border-left-color: oklch(70% 0.16 40);
+    }
+}
+
 .form-section.advanced {
     background: var(--bg-light);
     border: 1px solid var(--color-neutral-200);
@@ -1874,6 +1896,22 @@ span[title] {
 @media (max-width: 768px) {
     .quick-add-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .quick-add-section {
+        background: linear-gradient(
+            135deg,
+            rgba(244, 81, 30, 0.12) 0%,
+            rgba(255, 112, 67, 0.08) 100%
+        );
+        border-color: rgba(244, 81, 30, 0.45);
+    }
+
+    .quick-add-btn:hover {
+        background: rgba(244, 81, 30, 0.14);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
     }
 }
 
