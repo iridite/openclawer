@@ -34,6 +34,18 @@ function createConfigService(deps) {
     return value === true || value === "true";
   }
 
+  function normalizeStorageMode(value) {
+    const raw = String(value || "").trim();
+    if (!raw) {
+      return "";
+    }
+    return raw === "file-direct" ? "managed-file" : raw;
+  }
+
+  function isSecretRefStorageMode(mode) {
+    return mode === "managed-file" || mode === "env";
+  }
+
   function isValidEnvVarName(name) {
     return /^[A-Z_][A-Z0-9_]*$/.test(String(name || "").trim());
   }
@@ -46,26 +58,67 @@ function createConfigService(deps) {
   }
 
   function buildProviderApiKeyForSave(config, providerName, modelData, existingApiKey) {
-    const requestedMode = String(modelData?.apiKeyStorageMode || "").trim();
+    const requestedMode = normalizeStorageMode(modelData?.apiKeyStorageMode);
     const hasExistingApiKey = existingApiKey !== undefined && existingApiKey !== null;
-    const policyDefaultMode =
+    const existingMode = hasExistingApiKey
+      ? normalizeStorageMode(inferApiKeyStorageMode(existingApiKey))
+      : "";
+    const apiKeyProtectionEnabled =
       typeof isApiKeyProtectionEnabled === "function" &&
-      isApiKeyProtectionEnabled()
+      isApiKeyProtectionEnabled() === true;
+    const policyDefaultMode =
+      apiKeyProtectionEnabled
         ? "managed-file"
         : "plaintext";
     const fallbackMode = hasExistingApiKey
-      ? inferApiKeyStorageMode(existingApiKey)
+      ? existingMode
       : policyDefaultMode;
     const resolvedMode = requestedMode || fallbackMode;
-    const normalizedMode = resolvedMode === "file-direct"
-      ? "managed-file"
-      : resolvedMode;
-    const mode = normalizedMode || "plaintext";
+    const mode = normalizeStorageMode(resolvedMode) || "plaintext";
     const rawApiKey = String(modelData?.apiKey || "").trim();
+    const rawEnvVar = String(modelData?.apiKeyEnvVar || "").trim();
     const keepExisting = normalizeBool(modelData?.keepExistingApiKeyRef);
 
+    if (mode !== "plaintext" && mode !== "managed-file" && mode !== "env") {
+      throw new Error(`不支持的 API Key 存储方式: ${mode}`);
+    }
+
+    if (!apiKeyProtectionEnabled && isSecretRefStorageMode(mode)) {
+      const existingEnvVar =
+        existingMode === "env" &&
+        existingApiKey &&
+        typeof existingApiKey === "object" &&
+        !Array.isArray(existingApiKey)
+          ? (
+              typeof existingApiKey.env === "string"
+                ? existingApiKey.env
+                : existingApiKey.id
+            ) || ""
+          : "";
+      const envVarUnchanged = !rawEnvVar || rawEnvVar === String(existingEnvVar).trim();
+      const canKeepLegacySecretRefUnchanged =
+        keepExisting &&
+        !rawApiKey &&
+        envVarUnchanged &&
+        isSecretRefStorageMode(existingMode) &&
+        existingApiKey &&
+        typeof existingApiKey === "object" &&
+        !Array.isArray(existingApiKey);
+
+      if (!canKeepLegacySecretRefUnchanged) {
+        throw new Error(
+          "当前未开启 API 防护，禁止将模型密钥配置为 SecretRef。请改用明文，或先到“系统”启用 API 防护。",
+        );
+      }
+
+      return {
+        value: existingApiKey,
+        storageMode: existingMode === "env" ? "env" : "managed-file",
+      };
+    }
+
     if (mode === "env") {
-      const envVar = String(modelData?.apiKeyEnvVar || "").trim();
+      const envVar = rawEnvVar;
       if (!isValidEnvVarName(envVar)) {
         throw new Error("环境变量名不合法（示例：OPENAI_API_KEY）");
       }

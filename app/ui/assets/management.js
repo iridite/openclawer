@@ -929,6 +929,68 @@ function getApiKeyStorageElements() {
   };
 }
 
+function isSecretRefStorageMode(mode) {
+  return mode === "managed-file" || mode === "env";
+}
+
+function parseExistingApiKeyRefFromForm(existingRefInput) {
+  const raw = String(existingRefInput?.value || "").trim();
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch (err) {
+    return null;
+  }
+  return null;
+}
+
+function canKeepLegacySecretRefInEditMode() {
+  if (apiKeyProtectionEnabled === true) {
+    return false;
+  }
+  const editModelKey = String(
+    document.getElementById("edit-model-key")?.value || "",
+  ).trim();
+  if (!editModelKey) {
+    return false;
+  }
+  const { existingRefInput } = getApiKeyStorageElements();
+  const existingRef = parseExistingApiKeyRefFromForm(existingRefInput);
+  if (!existingRef) {
+    return false;
+  }
+  const existingMode = inferApiKeyStorageState(existingRef).mode;
+  return isSecretRefStorageMode(existingMode);
+}
+
+function enforceApiKeyStorageModePolicy() {
+  const { storageSelect, keepExistingInput } = getApiKeyStorageElements();
+  if (!storageSelect) {
+    return;
+  }
+
+  const allowSecretRef =
+    apiKeyProtectionEnabled === true || canKeepLegacySecretRefInEditMode();
+  Array.from(storageSelect.options).forEach((option) => {
+    if (!option || !isSecretRefStorageMode(option.value)) {
+      return;
+    }
+    option.disabled = !allowSecretRef;
+  });
+
+  if (!allowSecretRef && isSecretRefStorageMode(storageSelect.value)) {
+    storageSelect.value = "plaintext";
+    if (keepExistingInput) {
+      keepExistingInput.value = "false";
+    }
+  }
+}
+
 function getDefaultApiKeyStorageMode() {
   return apiKeyProtectionEnabled ? "managed-file" : "plaintext";
 }
@@ -941,9 +1003,12 @@ function applyDefaultApiKeyStorageMode() {
 
   const editModelKey = document.getElementById("edit-model-key")?.value || "";
   if (editModelKey) {
+    enforceApiKeyStorageModePolicy();
+    handleApiKeyStorageModeChange();
     return;
   }
 
+  enforceApiKeyStorageModePolicy();
   storageSelect.value = getDefaultApiKeyStorageMode();
   if (keepExistingInput) {
     keepExistingInput.value = "false";
@@ -1019,6 +1084,7 @@ function handleApiKeyStorageModeChange() {
     return;
   }
 
+  enforceApiKeyStorageModePolicy();
   const mode = storageSelect.value || getDefaultApiKeyStorageMode();
   const hasExistingRef = !!(existingRefInput && existingRefInput.value.trim());
   const keepExisting = keepExistingInput?.value === "true";
@@ -1047,12 +1113,14 @@ function handleApiKeyStorageModeChange() {
   if (mode === "plaintext") {
     apiKeyInput.required = true;
     if (inputNote) {
-      inputNote.textContent =
-        "明文模式会直接写入 openclaw.json。可在系统页开启 API 防护改为 SecretRef 默认。";
+      inputNote.textContent = apiKeyProtectionEnabled
+        ? "你已手动选择明文模式，密钥会直接写入 openclaw.json。"
+        : "明文模式会直接写入 openclaw.json。开启 API 防护后才可切换为 SecretRef。";
     }
     if (storageNote) {
-      storageNote.innerHTML =
-        "密钥将以明文保存到配置文件。若需默认改为 SecretRef，请前往“系统 → API 防护”启用。";
+      storageNote.innerHTML = apiKeyProtectionEnabled
+        ? "已开启 API 防护，但你当前手动选择了明文存储。"
+        : "当前仅允许明文存储。若需使用 SecretRef，请先在“系统 → API 防护”中开启。";
     }
     if (keepExistingInput) {
       keepExistingInput.value = "false";
@@ -2362,10 +2430,12 @@ async function submitModelForm(event) {
       keepExistingInput,
       existingRefInput,
     } = getApiKeyStorageElements();
+    enforceApiKeyStorageModePolicy();
     const apiKeyStorageMode = storageSelect?.value || getDefaultApiKeyStorageMode();
     const apiKey = String(formData.get("apiKey") || "").trim();
     const apiKeyEnvVar = String(envInput?.value || "").trim();
     const envVarPattern = /^[A-Z_][A-Z0-9_]*$/;
+    const legacySecretRefAllowed = canKeepLegacySecretRefInEditMode();
     let keepExistingApiKeyRef = false;
 
     if (apiKeyInput) {
@@ -2373,6 +2443,19 @@ async function submitModelForm(event) {
     }
     if (envInput) {
       envInput.setCustomValidity("");
+    }
+
+    if (
+      !apiKeyProtectionEnabled &&
+      isSecretRefStorageMode(apiKeyStorageMode) &&
+      !legacySecretRefAllowed
+    ) {
+      if (storageSelect) {
+        storageSelect.value = "plaintext";
+        handleApiKeyStorageModeChange();
+      }
+      showToast("当前未开启 API 防护，仅允许明文存储", "error");
+      return;
     }
 
     if (apiKeyStorageMode === "env") {
@@ -2568,6 +2651,7 @@ async function testModelConnection() {
   const existingRefText = document.getElementById("existing-api-key-ref")?.value.trim() || "";
   const envVarPattern = /^[A-Z_][A-Z0-9_]*$/;
   const hasExistingRef = !!existingRefText;
+  const legacySecretRefAllowed = canKeepLegacySecretRefInEditMode();
   let apiKeyRef = null;
   if (storageMode === "env" && envVarPattern.test(apiKeyEnvVar)) {
     apiKeyRef = { source: "env", provider: "default", id: apiKeyEnvVar };
@@ -2582,6 +2666,15 @@ async function testModelConnection() {
   // 验证必填字段
   if (!modelId || !providerName || !baseUrl) {
     showToast("请先填写所有必填字段（模型ID、供应商、Base URL）", "error");
+    return;
+  }
+
+  if (
+    !apiKeyProtectionEnabled &&
+    isSecretRefStorageMode(storageMode) &&
+    !legacySecretRefAllowed
+  ) {
+    showToast("当前未开启 API 防护，不能使用 SecretRef 方式测试", "error");
     return;
   }
 

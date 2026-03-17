@@ -527,7 +527,7 @@ API 类型: openai-completions
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="默认会跟随系统页“API 防护”策略自动选择，也可在此手动覆盖。"
+                                                        data-tooltip="存储方式受“系统 → API 防护”策略约束：关闭时仅允许明文；开启后可使用 SecretRef。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -548,7 +548,7 @@ API 类型: openai-completions
                                                     </option>
                                                 </select>
                                                 <p class="help-text" id="api-key-storage-note">
-                                                    默认按系统策略自动选择；开启 API 防护后建议使用 SecretRef。
+                                                    关闭 API 防护时仅允许明文；开启后可选 SecretRef 存储方式。
                                                 </p>
                                             </div>
 
