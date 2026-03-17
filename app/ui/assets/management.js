@@ -2936,6 +2936,54 @@ async function refreshLogs() {
 // 技能管理
 // ============================================================================
 
+const installedSkillSlugs = new Set();
+
+function normalizeSkillSlug(slug) {
+  return String(slug || "").trim().toLowerCase();
+}
+
+function isSkillInstalled(slug) {
+  return installedSkillSlugs.has(normalizeSkillSlug(slug));
+}
+
+function syncInstalledSkillSlugs(skills = []) {
+  installedSkillSlugs.clear();
+  for (const skill of skills) {
+    if (skill?.location !== "user" || skill?.exists !== true) {
+      continue;
+    }
+    const normalized = normalizeSkillSlug(skill.slug);
+    if (normalized) {
+      installedSkillSlugs.add(normalized);
+    }
+  }
+}
+
+async function refreshInstalledSkillSlugs() {
+  try {
+    const result = await apiRequest("/skills/list");
+    if (result?.success && Array.isArray(result.skills)) {
+      syncInstalledSkillSlugs(result.skills);
+    }
+  } catch (err) {
+    console.warn("获取已安装技能列表失败:", err);
+  }
+}
+
+function updateSearchInstallButtons() {
+  const container = document.getElementById("skills-search-results");
+  if (!container) return;
+
+  container.querySelectorAll('button[data-action="install"]').forEach((btn) => {
+    const installed = isSkillInstalled(btn.dataset.slug);
+    btn.disabled = installed;
+    btn.textContent = installed ? "已安装" : "安装";
+    btn.classList.toggle("btn-primary", !installed);
+    btn.classList.toggle("btn-ghost", installed);
+    btn.setAttribute("aria-disabled", installed ? "true" : "false");
+  });
+}
+
 async function searchSkills() {
   const query = document.getElementById("skills-search-input").value.trim();
   if (!query) {
@@ -2944,7 +2992,10 @@ async function searchSkills() {
   }
 
   try {
-    const result = await apiRequest(`/skills/search?q=${encodeURIComponent(query)}`);
+    const [result] = await Promise.all([
+      apiRequest(`/skills/search?q=${encodeURIComponent(query)}`),
+      refreshInstalledSkillSlugs(),
+    ]);
     const container = document.getElementById("skills-search-results");
 
     if (!result.success || !result.skills || result.skills.length === 0) {
@@ -2958,6 +3009,7 @@ async function searchSkills() {
       const version = skill.version || '';
       const updatedAt = skill.updatedAt ? new Date(skill.updatedAt).toLocaleDateString('zh-CN') : '';
       const score = skill.score ? Math.min(100, Math.round(skill.score * 500)) : 0;
+      const installed = isSkillInstalled(skill.slug);
 
       return `
       <div class="skill-card">
@@ -2976,7 +3028,7 @@ async function searchSkills() {
         </div>
 
         <div class="skill-card-footer">
-          <button class="btn btn-primary btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="install" style="width: 100%;">安装</button>
+          <button class="btn ${installed ? "btn-ghost" : "btn-primary"} btn-sm" data-slug="${escapeHtml(skill.slug)}" data-action="install" style="width: 100%;" ${installed ? "disabled aria-disabled=\"true\"" : ""}>${installed ? "已安装" : "安装"}</button>
         </div>
       </div>
       `;
@@ -2995,9 +3047,15 @@ async function installSkill(slug, force = false) {
   try {
     const result = await apiRequest("/skills/install", { method: "POST", body: JSON.stringify({ slug, force }) });
     if (result.success) {
+      installedSkillSlugs.add(normalizeSkillSlug(slug));
+      updateSearchInstallButtons();
       showToast(result.message || `技能 ${slug} 安装成功`, "success");
       await loadInstalledSkills();
     } else {
+      if (String(result.error || "").includes("已安装")) {
+        installedSkillSlugs.add(normalizeSkillSlug(slug));
+        updateSearchInstallButtons();
+      }
       showToast(result.error || "安装失败", "error");
     }
   } catch (err) {
@@ -3009,14 +3067,17 @@ async function loadInstalledSkills() {
   try {
     const result = await apiRequest("/skills/list");
     const container = document.getElementById("skills-installed-list");
+    const skills = Array.isArray(result?.skills) ? result.skills : [];
+    syncInstalledSkillSlugs(skills);
+    updateSearchInstallButtons();
 
-    if (!result.success || !result.skills || result.skills.length === 0) {
+    if (!result.success || skills.length === 0) {
       container.innerHTML = '<p class="empty-state">暂无已安装技能</p>';
       return;
     }
 
-    const userSkills = result.skills.filter((s) => s.location === "user");
-    const builtinSkills = result.skills.filter((s) => s.location === "builtin");
+    const userSkills = skills.filter((s) => s.location === "user");
+    const builtinSkills = skills.filter((s) => s.location === "builtin");
 
     let html = "";
 
