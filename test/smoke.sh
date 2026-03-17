@@ -4,6 +4,10 @@ set -euo pipefail
 
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${TEST_DIR}/.." && pwd)"
+READY_MAX_ATTEMPTS="${SMOKE_READY_MAX_ATTEMPTS:-20}"
+READY_INTERVAL_SECONDS="${SMOKE_READY_INTERVAL_SECONDS:-0.1}"
+HTTP_CONNECT_TIMEOUT_SECONDS="${SMOKE_CONNECT_TIMEOUT_SECONDS:-0.5}"
+HTTP_MAX_TIME_SECONDS="${SMOKE_HTTP_MAX_TIME_SECONDS:-2}"
 
 find_free_port() {
   python - <<'PY'
@@ -35,6 +39,20 @@ export OPENCLAW_CONFIG_PATH="${TMP_DIR}/openclaw.json"
 
 API_LOG="${TMP_DIR}/management-api.log"
 
+curl_common=(
+  -fsS
+  --connect-timeout "${HTTP_CONNECT_TIMEOUT_SECONDS}"
+  --max-time "${HTTP_MAX_TIME_SECONDS}"
+)
+
+curl_status_only=(
+  -sS
+  -o /dev/null
+  -w "%{http_code}"
+  --connect-timeout "${HTTP_CONNECT_TIMEOUT_SECONDS}"
+  --max-time "${HTTP_MAX_TIME_SECONDS}"
+)
+
 cleanup() {
   if [ -n "${API_PID:-}" ]; then
     kill "${API_PID}" 2>/dev/null || true
@@ -47,12 +65,12 @@ node "${PROJECT_ROOT}/app/server/management-api.js" > "${API_LOG}" 2>&1 &
 API_PID=$!
 
 READY=0
-for _ in $(seq 1 30); do
-  if curl -fsS "http://127.0.0.1:${PORT}/api/status" >/dev/null 2>&1; then
+for _ in $(seq 1 "${READY_MAX_ATTEMPTS}"); do
+  if curl "${curl_common[@]}" "http://127.0.0.1:${PORT}/api/status" >/dev/null 2>&1; then
     READY=1
     break
   fi
-  sleep 0.2
+  sleep "${READY_INTERVAL_SECONDS}"
 done
 
 if [ "${READY}" -ne 1 ]; then
@@ -64,9 +82,9 @@ fi
 echo "[smoke] API ready on ${PORT}"
 
 # 静态入口与缓存协商
-curl -fsSI "http://127.0.0.1:${PORT}/" >/dev/null
+curl "${curl_common[@]}" -I "http://127.0.0.1:${PORT}/" >/dev/null
 
-ASSET_HEADERS="$(curl -fsSI "http://127.0.0.1:${PORT}/assets/management.js" | tr -d '\r')"
+ASSET_HEADERS="$(curl "${curl_common[@]}" -I "http://127.0.0.1:${PORT}/assets/management.js" | tr -d '\r')"
 ETAG="$(printf '%s\n' "${ASSET_HEADERS}" | awk 'BEGIN{IGNORECASE=1} /^ETag:/ {print $2; exit}')"
 
 if [ -z "${ETAG}" ]; then
@@ -75,7 +93,7 @@ if [ -z "${ETAG}" ]; then
 fi
 
 ASSET_REVALIDATE_STATUS="$(
-  curl -sS -o /dev/null -w "%{http_code}" \
+  curl "${curl_status_only[@]}" \
     -H "If-None-Match: ${ETAG}" \
     "http://127.0.0.1:${PORT}/assets/management.js"
 )"
@@ -87,7 +105,7 @@ fi
 
 # Dashboard 上游未启动时，应该返回可恢复的提示页，而不是挂死
 DASHBOARD_STATUS="$(
-  curl -sS -o "${TMP_DIR}/dashboard.html" -w "%{http_code}" \
+  curl -sS --connect-timeout "${HTTP_CONNECT_TIMEOUT_SECONDS}" --max-time "${HTTP_MAX_TIME_SECONDS}" -o "${TMP_DIR}/dashboard.html" -w "%{http_code}" \
     "http://127.0.0.1:${PORT}/dashboard/"
 )"
 
@@ -102,12 +120,17 @@ if ! grep -q "Dashboard" "${TMP_DIR}/dashboard.html"; then
 fi
 
 # 关键端点（仅验证 HTTP 200）
-curl -fsS "http://127.0.0.1:${PORT}/api/status" >/dev/null
-curl -fsS "http://127.0.0.1:${PORT}/api/config" >/dev/null
-curl -fsS "http://127.0.0.1:${PORT}/api/config/validate" \
+curl "${curl_common[@]}" "http://127.0.0.1:${PORT}/api/config/validate" \
   -H "Content-Type: application/json" \
   -d '{"models":{"mode":"merge","providers":{}},"channels":{}}' >/dev/null
-curl -fsS "http://127.0.0.1:${PORT}/api/console/url" >/dev/null
-curl -fsS "http://127.0.0.1:${PORT}/api/logs?lines=5" >/dev/null
+curl "${curl_common[@]}" "http://127.0.0.1:${PORT}/api/status" >/dev/null &
+pid_status=$!
+curl "${curl_common[@]}" "http://127.0.0.1:${PORT}/api/config" >/dev/null &
+pid_config=$!
+curl "${curl_common[@]}" "http://127.0.0.1:${PORT}/api/console/url" >/dev/null &
+pid_console=$!
+curl "${curl_common[@]}" "http://127.0.0.1:${PORT}/api/logs?lines=5" >/dev/null &
+pid_logs=$!
+wait "${pid_status}" "${pid_config}" "${pid_console}" "${pid_logs}"
 
 echo "[smoke] all checks passed"

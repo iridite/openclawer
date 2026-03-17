@@ -43,6 +43,12 @@ bash test/local-test.sh
 bash test/smoke.sh
 ```
 
+可选加速参数（在本机资源稳定时建议开启）：
+
+```bash
+SMOKE_READY_MAX_ATTEMPTS=10 SMOKE_READY_INTERVAL_SECONDS=0.05 SMOKE_HTTP_MAX_TIME_SECONDS=1 bash test/smoke.sh
+```
+
 检查项包含：
 - `/api/status`
 - `/api/config` 读写与 `/api/config/validate`
