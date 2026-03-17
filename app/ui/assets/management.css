@@ -1493,8 +1493,26 @@ span[title] {
 
 .model-card-info-item {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
     padding: 4px 0;
+}
+
+.model-card-info-label {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.model-card-info-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: right;
+}
+
+.model-card-info-value-nowrap {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .model-card-actions {

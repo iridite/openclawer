@@ -1365,6 +1365,7 @@ async function loadModelsList() {
               : apiKeyState.mode === "managed-file"
                 ? "受管文件"
                 : "明文";
+          const storageSummary = `${apiKeyState.hasValue ? "已配置" : "未配置"} ${storageModeLabel} ${apiKeyState.descriptor || ""}`.trim();
           const modelId = model.id || model.name || model.model;
           const modelKey = `${providerName}/${modelId}`;
 
@@ -1380,16 +1381,16 @@ async function loadModelsList() {
           </div>
             <div class="model-card-info">
               <div class="model-card-info-item">
-                <span>密钥存储:</span>
-                <span>
+                <span class="model-card-info-label">密钥存储:</span>
+                <span class="model-card-info-value model-card-info-value-nowrap" title="${escapeHtml(storageSummary)}">
                   ${apiKeyState.hasValue ? "已配置" : "未配置"}
                   <code style="margin-left: 8px; font-size: 0.85em;">${storageModeLabel}</code>
                   <span style="margin-left: 8px; font-size: 0.8em; color: var(--text-light);">${escapeHtml(apiKeyState.descriptor)}</span>
                 </span>
               </div>
               <div class="model-card-info-item">
-                <span>Base URL:</span>
-                <span style="font-size: 0.75rem; word-break: break-all;">${baseUrl}</span>
+                <span class="model-card-info-label">Base URL:</span>
+                <span class="model-card-info-value model-card-info-value-nowrap" title="${escapeHtml(baseUrl)}">${escapeHtml(baseUrl)}</span>
               </div>
             </div>
             <div class="model-card-actions">
