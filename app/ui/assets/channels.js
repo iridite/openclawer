@@ -131,12 +131,17 @@ const channelHandlers = {
     buildConfig() {
       const appId = document.getElementById("feishu-app-id").value.trim();
       const appSecret = document.getElementById("feishu-app-secret").value.trim();
+      const botName = document.getElementById("feishu-bot-name").value.trim();
       const dmPolicy = document.getElementById("feishu-dm-policy").value;
-      const allowFrom = document.getElementById("feishu-allow-from").value.split(",").map(s => s.trim()).filter(Boolean);
+      const allowFromInput = document.getElementById("feishu-allow-from");
+      const allowFrom = (allowFromInput?.value || "")
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
 
       return {
         accounts: {
-          main: { appId, appSecret }
+          main: { appId, appSecret, botName }
         },
         dmPolicy,
         allowFrom: allowFrom.length ? allowFrom : ["*"]
@@ -147,8 +152,12 @@ const channelHandlers = {
       const main = config.accounts?.main || {};
       document.getElementById("feishu-app-id").value = main.appId || "";
       document.getElementById("feishu-app-secret").value = main.appSecret || "";
+      document.getElementById("feishu-bot-name").value = main.botName || "";
       document.getElementById("feishu-dm-policy").value = config.dmPolicy || "open";
-      document.getElementById("feishu-allow-from").value = (config.allowFrom || ["*"]).join(", ");
+      const allowFromInput = document.getElementById("feishu-allow-from");
+      if (allowFromInput) {
+        allowFromInput.value = (config.allowFrom || ["*"]).join(", ");
+      }
     },
 
     needsToken: false,

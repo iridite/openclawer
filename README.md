@@ -213,9 +213,17 @@ GET  /api/config
 POST /api/config
 POST /api/config/reset
 POST /api/config/validate
+GET  /api/management/access
+POST /api/management/access
 GET  /api/logs?lines=100
 GET  /api/console/url
 ```
+
+管理访问说明：
+
+- 默认仅允许本机访问管理面板/API（更安全）
+- 如需远程维护，可在 WebUI 的「系统」->「管理访问」中开启远程访问
+- 该设置保存后立即生效，并持久化到 `/var/apps/oc-deploy/var/management-access.json`
 
 ### 模型与渠道
 
@@ -365,4 +373,3 @@ tail -n 100 /var/apps/oc-deploy/var/openclaw.log
 Made with ❤️ by the community
 
 </div>
-

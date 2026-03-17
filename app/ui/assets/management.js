@@ -482,6 +482,7 @@ function loadTabData(tabName) {
       break;
     case "system":
       loadToolProfiles();
+      loadManagementAccessSettings();
       loadVersionInfo();
       loadConsoleInfo();
       break;
@@ -1529,6 +1530,8 @@ function toggleChannelForm() {
   if (feishuVerificationTokenEl) feishuVerificationTokenEl.value = "";
   const feishuDmPolicyEl = document.getElementById("feishu-dm-policy");
   if (feishuDmPolicyEl) feishuDmPolicyEl.value = "open";
+  const feishuAllowFromEl = document.getElementById("feishu-allow-from");
+  if (feishuAllowFromEl) feishuAllowFromEl.value = "*";
 
   // 清空 QQ 特定字段
   const qqbotAppIdEl = document.getElementById("qqbot-app-id");
@@ -1971,6 +1974,14 @@ async function editChannel(channelId) {
 
       const dmPolicyEl = document.getElementById("feishu-dm-policy");
       if (dmPolicyEl) dmPolicyEl.value = channel.dmPolicy || "open";
+
+      const allowFromEl = document.getElementById("feishu-allow-from");
+      if (allowFromEl) {
+        const allowFrom = Array.isArray(channel.allowFrom)
+          ? channel.allowFrom
+          : [];
+        allowFromEl.value = allowFrom.length > 0 ? allowFrom.join(", ") : "*";
+      }
     }
 
     // 填充 QQ 特定字段
@@ -2098,9 +2109,8 @@ async function submitModelForm(event) {
     ).trim();
 
     // 与后端校验规则保持一致
-    const namePattern = /^[a-zA-Z0-9/_-]+$/;
-    const modelIdPattern = namePattern;
-    const providerPattern = namePattern;
+    const modelIdPattern = /^[a-zA-Z0-9._/:-]+$/;
+    const providerPattern = /^[a-z-]+$/;
 
     if (modelIdInput) {
       modelIdInput.setCustomValidity("");
@@ -2260,14 +2270,14 @@ async function testModelConnection() {
 
   // 验证格式
   const modelIdPattern = /^[a-zA-Z0-9./:-]+$/;
-  const providerPattern = /^[a-z]+$/;
+  const providerPattern = /^[a-z-]+$/;
 
   if (!modelIdPattern.test(modelId)) {
     showToast("模型 ID 格式不正确（仅支持字母、数字、. / : -）", "error");
     return;
   }
   if (!providerPattern.test(providerName)) {
-    showToast("供应商名称格式不正确（仅支持小写字母）", "error");
+    showToast("供应商名称格式不正确（仅支持小写字母和连字符）", "error");
     return;
   }
 
@@ -2390,6 +2400,94 @@ async function testModelConnection() {
 // ============================================================================
 // 版本管理
 // ============================================================================
+
+function getManagementAccessSourceLabel(source) {
+  switch (source) {
+    case "file":
+      return "WebUI 设置";
+    case "default":
+    default:
+      return "默认值（仅本机）";
+  }
+}
+
+async function loadManagementAccessSettings() {
+  try {
+    const result = await apiRequest("/management/access");
+    const checkbox = document.getElementById("management-allow-remote");
+    const saveBtn = document.getElementById("management-access-save-btn");
+    const sourceEl = document.getElementById("management-access-source");
+    const fileEl = document.getElementById("management-access-file");
+    const noteEl = document.getElementById("management-access-note");
+
+    if (checkbox) {
+      checkbox.checked = !!result.allowRemote;
+      checkbox.disabled = false;
+    }
+    if (saveBtn) {
+      saveBtn.disabled = false;
+    }
+    if (sourceEl) {
+      sourceEl.textContent = getManagementAccessSourceLabel(result.source);
+    }
+    if (fileEl) {
+      fileEl.textContent = result.file || "-";
+    }
+    if (noteEl) {
+      noteEl.textContent = result.allowRemote
+        ? "当前为远程可访问模式。请确认网络边界已加固。"
+        : "当前为仅本机访问模式（推荐）。";
+    }
+  } catch (error) {
+    console.error("加载管理访问设置失败:", error);
+  }
+}
+
+async function saveManagementAccessSettings() {
+  const checkbox = document.getElementById("management-allow-remote");
+  const noteEl = document.getElementById("management-access-note");
+  if (!checkbox) {
+    showToast("未找到访问设置控件", "error");
+    return;
+  }
+
+  const allowRemote = checkbox.checked === true;
+  if (allowRemote) {
+    const confirmed = confirm(
+      "开启远程访问后，局域网设备可能直接调用管理 API。\n请确认网络环境可信。\n\n确定继续吗？",
+    );
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  try {
+    const result = await apiRequest("/management/access", {
+      method: "POST",
+      body: JSON.stringify({ allowRemote }),
+    });
+    const sourceEl = document.getElementById("management-access-source");
+    if (sourceEl) {
+      sourceEl.textContent = getManagementAccessSourceLabel(result.source);
+    }
+    const fileEl = document.getElementById("management-access-file");
+    if (fileEl) {
+      fileEl.textContent = result.file || "-";
+    }
+    if (noteEl) {
+      noteEl.textContent = allowRemote
+        ? "当前为远程可访问模式。请确认网络边界已加固。"
+        : "当前为仅本机访问模式（推荐）。";
+    }
+    showToast(
+      allowRemote ? "已启用远程访问" : "已切换为仅本机访问",
+      "success",
+    );
+    await loadManagementAccessSettings();
+  } catch (error) {
+    showToast("保存访问设置失败: " + error.message, "error");
+  }
+}
 
 async function loadToolProfiles() {
   try {
@@ -2809,14 +2907,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 500);
       } else {
         document.getElementById("skills-search-results").innerHTML = "";
-      }
-    });
-  }
-
-  if (skillsSearchInput) {
-    skillsSearchInput.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
-        searchSkills();
       }
     });
   }
