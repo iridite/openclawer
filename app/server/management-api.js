@@ -14,6 +14,7 @@ const { readJSON, writeJSON, readText, readBody, execCommand } = require("./core
 const { createBackupService } = require("./services/backup");
 const { createPluginService } = require("./services/plugins");
 const { createSkillsService } = require("./services/skills");
+const { createManagementAccessService } = require("./services/management-access");
 const { createDashboardProxyService } = require("./http/dashboard-proxy");
 const { createGatewayService } = require("./services/gateway");
 const { createConfigService } = require("./services/config");
@@ -30,6 +31,7 @@ const {
   TRIM_APPDEST,
   CONFIG_FILE,
   INITIAL_CONFIG_FILE,
+  MANAGEMENT_ACCESS_FILE,
   OC_HOME,
   OC_BIN_PATH,
   OC_JS_PATH,
@@ -172,6 +174,17 @@ const {
   uninstall: uninstallSkill,
 } = skillsService;
 
+const managementAccessService = createManagementAccessService({
+  MANAGEMENT_ACCESS_FILE,
+  readJSON,
+  writeJSON,
+});
+const {
+  isRemoteAccessEnabled,
+  getManagementAccess,
+  setManagementAccess,
+} = managementAccessService;
+
 const dashboardProxy = createDashboardProxyService({
   CONFIG_FILE,
   GATEWAY_PORT,
@@ -209,6 +222,8 @@ const router = createRouter({
   installSkill,
   listSkills,
   uninstallSkill,
+  getManagementAccess,
+  setManagementAccess,
 });
 const { handleApiRoutes } = router;
 
@@ -217,19 +232,70 @@ const staticFileService = createStaticFileService({
 });
 const { handleStaticRequest } = staticFileService;
 
+function normalizeRemoteIp(ip) {
+  const raw = String(ip || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("::ffff:")) {
+    return raw.slice("::ffff:".length);
+  }
+  return raw;
+}
+
+function isLoopbackIp(ip) {
+  const normalized = normalizeRemoteIp(ip);
+  return normalized === "127.0.0.1" || normalized === "::1";
+}
+
+function getClientIp(req) {
+  return normalizeRemoteIp(req?.socket?.remoteAddress || "");
+}
+
+function isAccessAllowed(req) {
+  if (isLoopbackIp(getClientIp(req))) {
+    return true;
+  }
+  return isRemoteAccessEnabled();
+}
+
+function applyCorsHeaders(req, res) {
+  // Management UI is same-origin by design. Reflect only same-origin requests.
+  const origin = req.headers.origin;
+  const host = req.headers.host;
+  if (origin && host) {
+    const expectedHttp = `http://${host}`;
+    const expectedHttps = `https://${host}`;
+    if (origin === expectedHttp || origin === expectedHttps) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    }
+  }
+}
+
 // HTTP 请求处理
 function handleRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
   const method = req.method;
 
-  // CORS 头
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  applyCorsHeaders(req, res);
+
+  if (!isAccessAllowed(req)) {
+    const message =
+      "Forbidden: Management API is local-only. Enable remote access from System -> Management Access in WebUI.";
+    if (pathname.startsWith("/api/")) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: message }));
+      return;
+    }
+    res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end(message);
+    return;
+  }
 
   if (method === "OPTIONS") {
-    res.writeHead(200);
+    res.writeHead(204);
     res.end();
     return;
   }

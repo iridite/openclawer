@@ -1,75 +1,164 @@
-function createModelTestService(deps) {
-  const { execCommand } = deps;
+const http = require("http");
+const https = require("https");
+const { URL } = require("url");
 
+function createModelTestService() {
   function normalizeBaseUrl(baseUrl, protocol) {
+    const raw = String(baseUrl || "").trim();
+    if (!raw) return "";
+
     // Remove trailing slashes
-    let normalized = baseUrl.replace(/\/+$/, '');
+    let normalized = raw.replace(/\/+$/, "");
 
     // Remove common path suffixes to prevent duplication
-    if (protocol === 'anthropic') {
+    if (protocol === "anthropic") {
       // Remove /v1 if present
-      normalized = normalized.replace(/\/v1$/, '');
+      normalized = normalized.replace(/\/v1$/, "");
     } else {
       // For OpenAI-compatible APIs, remove /v1 or /chat/completions
-      normalized = normalized.replace(/\/chat\/completions$/, '');
-      normalized = normalized.replace(/\/v1$/, '');
+      normalized = normalized.replace(/\/chat\/completions$/, "");
+      normalized = normalized.replace(/\/v1$/, "");
     }
 
     return normalized;
   }
 
-  function buildCurlCommand(config) {
+  function buildRequest(config) {
     const { providerName, modelId, baseUrl, apiKey, apiProtocol } = config;
-    const protocol = (apiProtocol || providerName).toLowerCase();
+    const protocol = String(apiProtocol || providerName || "openai").toLowerCase();
     const normalizedBaseUrl = normalizeBaseUrl(baseUrl, protocol);
 
     if (protocol === "anthropic") {
-      const url = `${normalizedBaseUrl}/v1/messages`;
-      const data = JSON.stringify({
+      const endpoint = `${normalizedBaseUrl}/v1/messages`;
+      const payload = {
         model: modelId,
         max_tokens: 10,
         messages: [{ role: "user", content: "test" }],
-      });
-      return `curl -X POST '${url}' -H 'x-api-key: ${apiKey}' -H 'anthropic-version: 2023-06-01' -H 'Content-Type: application/json' -d '${data}' --max-time 5`;
-    } else {
-      const url = `${normalizedBaseUrl}/chat/completions`;
-      const data = JSON.stringify({
-        model: modelId,
-        max_tokens: 10,
-        messages: [{ role: "user", content: "test" }],
-      });
-      return `curl -X POST '${url}' -H 'Authorization: Bearer ${apiKey}' -H 'Content-Type: application/json' -d '${data}' --max-time 5`;
+      };
+      return {
+        endpoint,
+        protocol,
+        payload,
+        headers: {
+          "x-api-key": String(apiKey || ""),
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+      };
     }
+
+    const endpoint = `${normalizedBaseUrl}/chat/completions`;
+    const payload = {
+      model: modelId,
+      max_tokens: 10,
+      messages: [{ role: "user", content: "test" }],
+    };
+    return {
+      endpoint,
+      protocol,
+      payload,
+      headers: {
+        Authorization: `Bearer ${String(apiKey || "")}`,
+        "Content-Type": "application/json",
+      },
+    };
   }
 
-  function maskApiKey(curlCommand) {
-    return curlCommand.replace(
-      /(Bearer |x-api-key: )([a-zA-Z0-9_-]{8})[a-zA-Z0-9_-]*/g,
-      "$1$2..."
+  function maskApiKey(value) {
+    const raw = String(value || "");
+    if (!raw) return "";
+    if (raw.length <= 8) return "****";
+    return `${raw.slice(0, 8)}...`;
+  }
+
+  function buildMaskedCurlPreview(request) {
+    const { endpoint, protocol, headers, payload } = request;
+    const payloadText = JSON.stringify(payload);
+
+    if (protocol === "anthropic") {
+      return (
+        `curl -X POST '${endpoint}' ` +
+        `-H 'x-api-key: ${maskApiKey(headers["x-api-key"])}' ` +
+        `-H 'anthropic-version: 2023-06-01' ` +
+        `-H 'Content-Type: application/json' ` +
+        `-d '${payloadText}' --max-time 5`
+      );
+    }
+
+    return (
+      `curl -X POST '${endpoint}' ` +
+      `-H 'Authorization: Bearer ${maskApiKey(String(headers.Authorization || "").replace(/^Bearer\s+/i, ""))}' ` +
+      `-H 'Content-Type: application/json' ` +
+      `-d '${payloadText}' --max-time 5`
     );
   }
 
-  async function testModel(config) {
-    const curlCommand = buildCurlCommand(config);
-    const maskedCommand = maskApiKey(curlCommand);
+  function requestJson(endpoint, method, headers, payload, timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+      let target;
+      try {
+        target = new URL(endpoint);
+      } catch (err) {
+        reject(new Error(`无效的 URL: ${endpoint}`));
+        return;
+      }
 
-    // Extract actual endpoint URL from config
-    const protocol = (config.apiProtocol || config.providerName).toLowerCase();
-    const normalizedBaseUrl = normalizeBaseUrl(config.baseUrl, protocol);
-    const endpoint = protocol === "anthropic"
-      ? `${normalizedBaseUrl}/v1/messages`
-      : `${normalizedBaseUrl}/chat/completions`;
+      const client = target.protocol === "https:" ? https : http;
+      const body = JSON.stringify(payload);
+      const req = client.request(
+        {
+          protocol: target.protocol,
+          hostname: target.hostname,
+          port: target.port || (target.protocol === "https:" ? 443 : 80),
+          path: `${target.pathname}${target.search}`,
+          method,
+          headers: {
+            ...headers,
+            "Content-Length": Buffer.byteLength(body),
+          },
+        },
+        (res) => {
+          const chunks = [];
+          res.on("data", (chunk) => chunks.push(chunk));
+          res.on("end", () => {
+            const text = Buffer.concat(chunks).toString("utf8");
+            resolve({
+              statusCode: res.statusCode || 0,
+              body: text,
+              headers: res.headers || {},
+            });
+          });
+        },
+      );
+
+      req.setTimeout(timeoutMs, () => {
+        req.destroy(new Error("请求超时"));
+      });
+
+      req.on("error", (err) => {
+        reject(err);
+      });
+
+      req.write(body);
+      req.end();
+    });
+  }
+
+  async function testModel(config) {
+    const request = buildRequest(config);
+    const maskedCommand = buildMaskedCurlPreview(request);
+    const { endpoint, protocol, headers, payload } = request;
 
     try {
-      const response = await execCommand(curlCommand, { timeout: 5000 });
+      const result = await requestJson(endpoint, "POST", headers, payload, 5000);
 
       let success = false;
       try {
-        const json = JSON.parse(response);
+        const json = JSON.parse(result.body);
         if (protocol === "anthropic") {
-          success = json.content && Array.isArray(json.content);
+          success = !!(result.statusCode >= 200 && result.statusCode < 300 && json.content && Array.isArray(json.content));
         } else {
-          success = json.choices && Array.isArray(json.choices);
+          success = !!(result.statusCode >= 200 && result.statusCode < 300 && json.choices && Array.isArray(json.choices));
         }
       } catch (e) {
         success = false;
@@ -79,14 +168,14 @@ function createModelTestService(deps) {
         success,
         endpoint,
         curlCommand: maskedCommand,
-        response,
+        response: result.body,
       };
     } catch (err) {
       return {
         success: false,
         endpoint,
         curlCommand: maskedCommand,
-        response: err.stderr || err.error?.message || err.message || String(err),
+        response: err?.message || String(err),
       };
     }
   }

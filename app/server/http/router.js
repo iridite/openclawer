@@ -31,6 +31,8 @@ function createRouter(deps) {
     installSkill,
     listSkills,
     uninstallSkill,
+    getManagementAccess,
+    setManagementAccess,
   } = deps;
 
   async function parseJsonBody(req) {
@@ -148,6 +150,9 @@ function createRouter(deps) {
         const data = await parseJsonBody(req);
         return uninstallSkill(data.slug);
       },
+      "GET /api/management/access": getManagementAccess,
+      "POST /api/management/access": async () =>
+        setManagementAccess(await parseJsonBody(req)),
     };
 
     const routeKey = `${method} ${pathname}`;

@@ -1,7 +1,7 @@
 const path = require("path");
 
 const PORT = parseInt(process.env.MANAGEMENT_PORT || "18790", 10);
-const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
+const BIND_ADDR = process.env.BIND_ADDR || "127.0.0.1";
 
 const TRIM_PKGVAR = process.env.TRIM_PKGVAR || "/var/apps/oc-deploy/var";
 const TRIM_APPDEST = process.env.TRIM_APPDEST || "/var/apps/oc-deploy/target";
@@ -26,6 +26,7 @@ const OC_PKG_JSON_PATH = path.join(
   "openclaw",
   "package.json",
 );
+const MANAGEMENT_ACCESS_FILE = path.join(TRIM_PKGVAR, "management-access.json");
 const TOKEN_FILE = path.join(TRIM_PKGVAR, "gateway_token");
 const DASHBOARD_PID_FILE = path.join(TRIM_PKGVAR, "app.pid");
 const GATEWAY_PID_FILE = path.join(TRIM_PKGVAR, "gateway.pid");
@@ -69,6 +70,7 @@ module.exports = {
   TRIM_APPDEST,
   CONFIG_FILE,
   INITIAL_CONFIG_FILE,
+  MANAGEMENT_ACCESS_FILE,
   OC_HOME,
   OC_BIN_PATH,
   OC_JS_PATH,
