@@ -104,6 +104,7 @@ function createPluginService(options) {
     }
 
     function findManifestInfo(pluginDir) {
+      let firstInvalid = null;
       for (const relDir of MANIFEST_DIRS) {
         for (const fileName of MANIFEST_FILES) {
           const filePath = relDir
@@ -111,14 +112,23 @@ function createPluginService(options) {
             : path.join(pluginDir, fileName);
           if (!fs.existsSync(filePath)) continue;
           const manifest = readJsonFile(filePath);
-          return {
-            filePath,
-            manifest,
-            parsed: !!manifest,
-          };
+          if (manifest) {
+            return {
+              filePath,
+              manifest,
+              parsed: true,
+            };
+          }
+          if (!firstInvalid) {
+            firstInvalid = {
+              filePath,
+              manifest: null,
+              parsed: false,
+            };
+          }
         }
       }
-      return null;
+      return firstInvalid;
     }
 
     function extractManifestChannelIds(manifest) {
@@ -209,6 +219,18 @@ function createPluginService(options) {
       return channelIds.some((id) => expected.has(normalizeId(id)));
     }
 
+    function resolvePreferredAllowEntry(manifestId) {
+      const trimmedManifestId = String(manifestId || "").trim();
+      if (
+        trimmedManifestId &&
+        trimmedManifestId !== plugin.pkg &&
+        trimmedManifestId !== plugin.channelId
+      ) {
+        return trimmedManifestId;
+      }
+      return plugin.allowKey;
+    }
+
     function inspectInstalledPlugin() {
       const runtimeCandidates = getCandidateDirs(plugin.runtimeDirs || []);
       const nodeModuleCandidates = getCandidateDirs(plugin.nodeModuleDirs || []);
@@ -293,7 +315,7 @@ function createPluginService(options) {
         const first = weakHits[0];
         let message = `检测到 ${plugin.name} 插件目录，但未发现可用的渠道声明（期望 channel: ${plugin.channelId}）。`;
         if (!first.hasManifestFile) {
-          message += " 缺少 openclaw.plugin.json/plugin.json。";
+          message += " 缺少 openclaw.plugin.json/openclaw-plugin.json/plugin.json（含 dist 目录）。";
         } else if (!first.manifestParsed) {
           message += " 插件 manifest 解析失败。";
         } else if (!first.hasExpectedChannel) {
@@ -328,21 +350,27 @@ function createPluginService(options) {
     }
 
     function getCanonicalAllowEntries(manifestId) {
-      const entries = [plugin.pkg];
-      const trimmedManifestId = String(manifestId || "").trim();
-      if (trimmedManifestId && trimmedManifestId !== plugin.pkg) {
-        entries.push(trimmedManifestId);
-      }
-      return entries;
+      const preferredEntry = resolvePreferredAllowEntry(manifestId);
+      return Array.from(
+        new Set(
+          [preferredEntry, plugin.allowKey]
+            .map((item) => String(item || "").trim())
+            .filter(Boolean),
+        ),
+      );
     }
 
     function getLegacyAllowEntries(manifestId) {
-      const legacy = [plugin.allowKey, plugin.channelId];
+      const legacy = [plugin.pkg, plugin.channelId];
       const trimmedManifestId = String(manifestId || "").trim();
-      if (trimmedManifestId && trimmedManifestId !== plugin.pkg) {
-        return legacy.filter((item) => item && item !== trimmedManifestId);
+      const preferredEntry = resolvePreferredAllowEntry(manifestId);
+      if (
+        trimmedManifestId &&
+        trimmedManifestId !== preferredEntry
+      ) {
+        legacy.push(trimmedManifestId);
       }
-      return legacy;
+      return Array.from(new Set(legacy.filter((item) => String(item || "").trim())));
     }
 
     function inspectPluginAllowance(config, manifestId) {
@@ -481,6 +509,20 @@ function createPluginService(options) {
       throw lastError || new Error(`${plugin.name} 插件安装命令执行失败`);
     }
 
+    async function waitForInstalledState(maxAttempts = 5, delayMs = 600) {
+      let last = inspectInstalledPlugin();
+      for (let i = 0; i < maxAttempts; i += 1) {
+        if (last.state === "installed") {
+          return last;
+        }
+        if (i < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          last = inspectInstalledPlugin();
+        }
+      }
+      return last;
+    }
+
     async function getStatus() {
       const inspected = inspectInstalledPlugin();
       if (inspected.state !== "installed") {
@@ -554,7 +596,7 @@ function createPluginService(options) {
       installing[pluginKey] = true;
       try {
         const installMeta = await installPluginPackage();
-        const inspected = inspectInstalledPlugin();
+        const inspected = await waitForInstalledState(5, 600);
         if (inspected.state !== "installed") {
           const runtimeHint = inspected?.message ? ` 详情: ${inspected.message}` : "";
           throw new Error(
