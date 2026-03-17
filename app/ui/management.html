@@ -1990,63 +1990,90 @@ API 类型: openai-completions
                 <!-- 系统信息（版本） -->
                 <section class="tab-content" id="tab-version">
                     <div class="version-manager">
-                        <div class="card">
-                            <h2>Agent 配置</h2>
-                            <div class="form-hint warning">
-                                Tool Profiles 控制 AI Agent 可使用的工具范围。Messaging 适合日常对话，Full 提供完整工具访问权限。
+                        <div class="card system-control-card">
+                            <div class="system-control-header">
+                                <h2>系统策略与访问</h2>
+                                <p class="help-text">
+                                    Agent 工具权限与管理面板访问控制建议一起维护，避免“权限放大 + 暴露面扩大”的组合风险。
+                                </p>
                             </div>
-                            <div class="form-group" style="margin-top: 15px;">
-                                <label>
-                                    Tool Profiles
-                                    <span class="tooltip-icon" data-tooltip="控制 Agent 可用工具集。minimal: 最小工具集；messaging: 消息相关工具（推荐）；coding: 编程开发工具；full: 完整工具权限。">ⓘ</span>
-                                </label>
-                                <select id="tool-profiles" onchange="saveToolProfiles()">
-                                    <option value="minimal">Minimal（最小）</option>
-                                    <option value="messaging">Messaging（推荐）</option>
-                                    <option value="coding">Coding（编程）</option>
-                                    <option value="full">Full（完整）</option>
-                                </select>
-                            </div>
-                        </div>
 
-                        <div class="card">
-                            <h2>管理访问</h2>
-                            <div class="form-hint warning">
-                                默认仅允许本机访问管理面板。开启远程访问后，同网段设备可直接访问管理 API，请仅在受信任网络中使用。
+                            <div class="system-control-grid">
+                                <section class="system-control-panel">
+                                    <div class="system-control-panel-head">
+                                        <h3>Agent 配置</h3>
+                                        <span class="system-control-tag">行为策略</span>
+                                    </div>
+                                    <p class="system-control-desc">
+                                        Tool Profiles 控制 AI Agent 可使用的工具范围。Messaging 适合日常对话，Full 提供完整工具访问权限。
+                                    </p>
+                                    <div class="form-group">
+                                        <label>
+                                            Tool Profiles
+                                            <span class="tooltip-icon" data-tooltip="控制 Agent 可用工具集。minimal: 最小工具集；messaging: 消息相关工具（推荐）；coding: 编程开发工具；full: 完整工具权限。">ⓘ</span>
+                                        </label>
+                                        <select id="tool-profiles" onchange="saveToolProfiles()">
+                                            <option value="minimal">Minimal（最小）</option>
+                                            <option value="messaging">Messaging（推荐）</option>
+                                            <option value="coding">Coding（编程）</option>
+                                            <option value="full">Full（完整）</option>
+                                        </select>
+                                    </div>
+                                    <p class="help-text">
+                                        变更会直接写入配置并生效，无需额外点击保存按钮。
+                                    </p>
+                                </section>
+
+                                <section class="system-control-panel">
+                                    <div class="system-control-panel-head">
+                                        <h3>管理访问</h3>
+                                        <span id="management-access-state-badge" class="access-state-badge access-state-local">仅本机</span>
+                                    </div>
+                                    <p class="system-control-desc">
+                                        默认仅允许本机访问管理面板。开启远程访问后，同网段设备可直接访问管理 API，请仅在受信任网络中使用。
+                                    </p>
+                                    <div class="management-access-highlight">
+                                        <div class="management-access-toggle-row">
+                                            <div class="management-access-toggle-text">
+                                                <span class="management-access-toggle-title">允许远程访问管理面板/API</span>
+                                                <span class="management-access-toggle-subtitle">默认关闭。建议仅在远程维护窗口临时开启。</span>
+                                            </div>
+                                            <button
+                                                id="management-allow-remote-switch"
+                                                class="toggle-switch"
+                                                type="button"
+                                                role="switch"
+                                                aria-checked="false"
+                                                aria-label="切换管理面板远程访问"
+                                                data-enabled="false"
+                                            ></button>
+                                            <input
+                                                type="checkbox"
+                                                id="management-allow-remote"
+                                                class="management-access-hidden-input"
+                                            />
+                                        </div>
+                                        <button
+                                            class="btn btn-primary"
+                                            onclick="saveManagementAccessSettings()"
+                                            id="management-access-save-btn"
+                                        >
+                                            保存访问设置
+                                        </button>
+                                    </div>
+                                    <p class="help-text" id="management-access-note">
+                                        -
+                                    </p>
+                                    <div class="system-control-meta">
+                                        <p class="help-text">
+                                            当前生效来源：<code id="management-access-source">-</code>
+                                        </p>
+                                        <p class="help-text">
+                                            配置文件：<code id="management-access-file">-</code>
+                                        </p>
+                                    </div>
+                                </section>
                             </div>
-                            <p class="help-text" style="margin-top: 10px;">
-                                建议：仅在需要远程维护时开启，使用完成后及时关闭。若可行，请结合网关 ACL、反向代理鉴权或防火墙规则共同限制访问范围。
-                            </p>
-                            <p class="help-text">
-                                说明：该设置保存后立即生效，无需重启应用。
-                            </p>
-                            <div class="form-group" style="margin-top: 15px;">
-                                <label style="display:flex; align-items:center; gap:10px;">
-                                    <input
-                                        type="checkbox"
-                                        id="management-allow-remote"
-                                    />
-                                    允许远程访问管理面板/API
-                                </label>
-                            </div>
-                            <div class="action-buttons">
-                                <button
-                                    class="btn btn-primary"
-                                    onclick="saveManagementAccessSettings()"
-                                    id="management-access-save-btn"
-                                >
-                                    保存访问设置
-                                </button>
-                            </div>
-                            <p class="help-text" id="management-access-note" style="margin-top: 10px;">
-                                -
-                            </p>
-                            <p class="help-text" style="margin-top: 10px;">
-                                当前生效来源：<code id="management-access-source">-</code>
-                            </p>
-                            <p class="help-text">
-                                配置文件：<code id="management-access-file">-</code>
-                            </p>
                         </div>
 
                         <div class="card">

@@ -2706,19 +2706,77 @@ function getManagementAccessSourceLabel(source) {
   }
 }
 
+function updateManagementAccessBadge(allowRemote) {
+  const badge = document.getElementById("management-access-state-badge");
+  if (!badge) return;
+
+  badge.classList.remove("access-state-local", "access-state-remote");
+  if (allowRemote) {
+    badge.classList.add("access-state-remote");
+    badge.textContent = "远程可访问";
+  } else {
+    badge.classList.add("access-state-local");
+    badge.textContent = "仅本机";
+  }
+}
+
+function updateManagementAccessToggle(allowRemote) {
+  const checkbox = document.getElementById("management-allow-remote");
+  const toggleSwitch = document.getElementById("management-allow-remote-switch");
+
+  if (checkbox) {
+    checkbox.checked = allowRemote === true;
+  }
+  if (!toggleSwitch) {
+    return;
+  }
+
+  toggleSwitch.classList.toggle("active", allowRemote === true);
+  toggleSwitch.dataset.enabled = allowRemote === true ? "true" : "false";
+  toggleSwitch.setAttribute("aria-checked", allowRemote === true ? "true" : "false");
+  toggleSwitch.setAttribute("aria-pressed", allowRemote === true ? "true" : "false");
+  toggleSwitch.title = allowRemote === true
+    ? "当前已开启远程访问，点击切换为仅本机访问"
+    : "当前仅本机访问，点击切换为远程可访问";
+}
+
+function initManagementAccessToggleControl() {
+  const checkbox = document.getElementById("management-allow-remote");
+  const toggleSwitch = document.getElementById("management-allow-remote-switch");
+  if (!checkbox || !toggleSwitch) {
+    return;
+  }
+
+  const toggleHandler = () => {
+    if (toggleSwitch.disabled) {
+      return;
+    }
+    updateManagementAccessToggle(!checkbox.checked);
+  };
+
+  toggleSwitch.addEventListener("click", toggleHandler);
+  toggleSwitch.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") {
+      return;
+    }
+    e.preventDefault();
+    toggleHandler();
+  });
+}
+
 async function loadManagementAccessSettings() {
   try {
     const result = await apiRequest("/management/access");
     const checkbox = document.getElementById("management-allow-remote");
+    const toggleSwitch = document.getElementById("management-allow-remote-switch");
     const saveBtn = document.getElementById("management-access-save-btn");
     const sourceEl = document.getElementById("management-access-source");
     const fileEl = document.getElementById("management-access-file");
     const noteEl = document.getElementById("management-access-note");
 
-    if (checkbox) {
-      checkbox.checked = !!result.allowRemote;
-      checkbox.disabled = false;
-    }
+    if (checkbox) checkbox.disabled = false;
+    if (toggleSwitch) toggleSwitch.disabled = false;
+    updateManagementAccessToggle(!!result.allowRemote);
     if (saveBtn) {
       saveBtn.disabled = false;
     }
@@ -2733,6 +2791,7 @@ async function loadManagementAccessSettings() {
         ? "当前为远程可访问模式。请确认网络边界已加固。"
         : "当前为仅本机访问模式（推荐）。";
     }
+    updateManagementAccessBadge(!!result.allowRemote);
   } catch (error) {
     console.error("加载管理访问设置失败:", error);
   }
@@ -2774,6 +2833,7 @@ async function saveManagementAccessSettings() {
         ? "当前为远程可访问模式。请确认网络边界已加固。"
         : "当前为仅本机访问模式（推荐）。";
     }
+    updateManagementAccessBadge(allowRemote);
     showToast(
       allowRemote ? "已启用远程访问" : "已切换为仅本机访问",
       "success",
@@ -3330,6 +3390,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 初始化标签页
   initTabs();
   initTooltips();
+  initManagementAccessToggleControl();
 
   // Skills 事件绑定
   const skillsSearchBtn = refs?.skills.searchBtn || document.getElementById("skills-search-btn");
