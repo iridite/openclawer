@@ -748,7 +748,7 @@ function updateConfigSummary(config) {
       html +=
         '<div style="margin-top: 15px;"><strong>已配置模型：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
       for (const entry of modelEntries) {
-        const activeTag = entry.isPrimary ? ' <span class="primary-badge" style="margin-left: 8px;">主模型</span>' : "";
+        const activeTag = entry.isPrimary ? ' <span class="primary-badge primary-badge-inline">主模型</span>' : "";
         html += `<li><code>${entry.modelKey}</code>${entry.urlHint}${activeTag}</li>`;
       }
       html += "</ul></div>";
@@ -3795,7 +3795,7 @@ async function loadInstalledSkills() {
 
     if (builtinSkills.length > 0) {
       html += `
-        <div class="skills-section-header" style="margin-top: 30px;">
+        <div class="skills-section-header skills-section-header-spaced">
           <h3>内置技能</h3>
         </div>
       `;
@@ -3825,21 +3825,21 @@ function renderSkillCard(skill) {
 
   return `
     <div class="skill-card" data-slug="${escapeHtml(skill.slug)}">
-      <div class="skill-card-header">
-        <h4 class="skill-card-title">${escapeHtml(skill.name)}</h4>
-        <div class="skill-badges">
-          ${isBuiltin ? '<span class="skill-badge builtin">内置</span>' : '<span class="skill-badge user">用户</span>'}
-          ${requiresApi ? '<span class="skill-badge api-required">需要 API</span>' : ''}
-          ${!skill.exists ? '<span class="skill-badge" style="background: var(--danger); color: white;">缺失</span>' : ''}
+        <div class="skill-card-header">
+          <h4 class="skill-card-title">${escapeHtml(skill.name)}</h4>
+          <div class="skill-badges">
+            ${isBuiltin ? '<span class="skill-badge builtin">内置</span>' : '<span class="skill-badge user">用户</span>'}
+            ${requiresApi ? '<span class="skill-badge api-required">需要 API</span>' : ''}
+            ${!skill.exists ? '<span class="skill-badge missing">缺失</span>' : ''}
+          </div>
         </div>
-      </div>
 
       <div class="skill-card-meta">
         ${showsSlug ? `<div class="skill-card-slug">${escapeHtml(skill.slug)}</div>` : ""}
-        ${showsEntryKey ? `<div style="font-size: 0.8rem; color: var(--text-light);">skillKey: <code>${escapeHtml(entryKey)}</code></div>` : ""}
+        ${showsEntryKey ? `<div class="card-meta-line">skillKey: <code>${escapeHtml(entryKey)}</code></div>` : ""}
         ${skill.description ? `<p class="skill-card-description">${escapeHtml(skill.description)}</p>` : ''}
-        ${skill.version ? `<div style="font-size: 0.8rem; color: var(--text-light);">版本: ${escapeHtml(skill.version)}</div>` : ''}
-        ${skill.installed_at ? `<div style="font-size: 0.8rem; color: var(--text-light);">安装时间: ${new Date(skill.installed_at).toLocaleDateString('zh-CN')}</div>` : ''}
+        ${skill.version ? `<div class="card-meta-line">版本: ${escapeHtml(skill.version)}</div>` : ''}
+        ${skill.installed_at ? `<div class="card-meta-line">安装时间: ${new Date(skill.installed_at).toLocaleDateString('zh-CN')}</div>` : ''}
       </div>
 
       <div class="skill-card-footer">

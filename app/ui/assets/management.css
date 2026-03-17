@@ -1422,16 +1422,20 @@ span[title] {
     margin: 0;
 }
 
-.model-card {
+.model-card,
+.channel-card {
     background: var(--bg-white);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 16px;
     transition: all 0.3s;
-    position: relative;
     display: flex;
     flex-direction: column;
     height: 100%;
+}
+
+.model-card {
+    position: relative;
     cursor: default;
 }
 
@@ -1477,6 +1481,11 @@ span[title] {
     font-weight: 600;
     border-radius: 4px;
     white-space: nowrap;
+}
+
+.primary-badge-inline {
+    margin-left: 8px;
+    vertical-align: middle;
 }
 
 .model-card-title {
@@ -1527,15 +1536,19 @@ span[title] {
     text-overflow: ellipsis;
 }
 
-.model-card-actions {
+.model-card-actions,
+.channel-card-actions {
     display: flex;
     gap: 8px;
     margin-top: auto;
     padding-top: 12px;
+    width: 100%;
 }
 
-.model-card-actions .btn {
-    flex: 1;
+.model-card-actions .btn,
+.channel-card-actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
     padding: 6px 12px;
     font-size: 0.85rem;
 }
@@ -1999,18 +2012,6 @@ span[title] {
     font-size: 1rem;
 }
 
-/* 消息渠道卡片样式 */
-.channel-card {
-    background: var(--bg-white);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 16px;
-    transition: all 0.3s;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
 .channel-card:hover {
     box-shadow: 0 4px 12px var(--shadow);
     transform: translateY(-2px);
@@ -2049,21 +2050,6 @@ span[title] {
 .channel-card-info-item {
     padding: 4px 0;
     line-height: 1.5;
-}
-
-.channel-card-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: auto;
-    padding-top: 12px;
-    width: 100%;
-}
-
-.channel-card-actions .btn {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 6px 12px;
-    font-size: 0.85rem;
 }
 
 /* 渠道表单样式 */
@@ -2299,6 +2285,11 @@ span[title] {
     color: white;
 }
 
+.skill-badge.missing {
+    background: var(--danger);
+    color: white;
+}
+
 /* Card metadata */
 .skill-card-meta {
     display: flex;
@@ -2328,6 +2319,11 @@ span[title] {
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+.card-meta-line {
+    font-size: 0.8rem;
+    color: var(--text-light);
 }
 
 .skill-card-stats {
@@ -2374,6 +2370,10 @@ span[title] {
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+}
+
+.skills-section-header-spaced {
+    margin-top: 30px;
 }
 
 .skills-section-header h3 {
