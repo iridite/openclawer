@@ -959,6 +959,50 @@ body {
     margin-left: 20px;
 }
 
+/* Update guide */
+.update-guide {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.update-guide-block {
+    background: var(--bg-white);
+    border: 1px solid rgba(33, 150, 243, 0.22);
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+
+.update-guide-block h3 {
+    margin: 0 0 6px 0;
+    font-size: 1rem;
+}
+
+.update-guide-block p {
+    margin: 0 0 8px 0;
+    color: var(--text-dark);
+}
+
+.update-guide-block ol,
+.update-guide-block ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-dark);
+}
+
+.update-guide-block li {
+    margin-bottom: 6px;
+}
+
+.update-guide-block li:last-child {
+    margin-bottom: 0;
+}
+
+.update-guide-caution {
+    border-color: rgba(255, 152, 0, 0.35);
+    background: rgba(255, 152, 0, 0.08);
+}
+
 /* 控制台信息 */
 .console-info {
     margin-top: 20px;

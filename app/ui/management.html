@@ -220,13 +220,11 @@
                                         <h2>Base URL 与 API Key 说明</h2>
                                     </div>
                                     <div class="form-hint warning">
-                                        Base URL 是模型服务的 API 根地址，API
-                                        Key
-                                        是访问凭据。任意一项填写不正确都会导致请求失败。
+                                        Base URL 是 API 根地址，API Key 是访问凭据。两者任意一项错误都会导致请求失败。
                                     </div>
                                     <div style="margin-top: 12px">
                                         <p style="margin: 0 0 8px 0">
-                                            概念与填写建议：
+                                            填写原则：
                                         </p>
                                         <ul
                                             style="
@@ -235,49 +233,19 @@
                                             "
                                         >
                                             <li>
-                                                Base URL 通常是 API 根地址。对于
-                                                OpenAI 兼容服务，文档常要求以
-                                                <code>/v1</code>
-                                                结尾；部分厂商会要求带特定前缀路径。
-                                                请以各厂商文档为准。
+                                                Base URL 以供应商文档为准：有的要求域名根路径，有的要求带 <code>/v1</code> 或前缀路径。
                                             </li>
                                             <li>
-                                                有些厂商要求填写到“版本前缀路径”，有些只要求域名根路径。
-                                                只要与文档示例完全一致即可。
+                                                OpenClaw 会根据“API 协议/类型”拼接请求路径；请确保 Base URL 与协议/类型匹配。
                                             </li>
                                             <li>
-                                                如果使用代理或网关，请填写代理暴露的
-                                                API 根地址，并确保其协议与 “API
-                                                协议/类型”一致。
-                                            </li>
-                                            <li>
-                                                OpenClaw 会根据“API
-                                                协议/类型”选择具体调用路径；
-                                                Base URL
-                                                只需提供到厂商要求的根路径。
-                                            </li>
-                                            <li>
-                                                如果文档要求填写完整路径（包含前缀或版本），请按文档填写，
-                                                不要自行省略或合并。
-                                            </li>
-                                            <li>
-                                                建议使用
-                                                <code>https://</code
-                                                >，并确认是否需要末尾斜杠（通常不需要）。
-                                            </li>
-                                            <li>
-                                                API Key
-                                                属于私密凭据，请勿公开分享，建议定期轮换。
-                                            </li>
-                                            <li>
-                                                部分厂商需要先在控制台开通模型、绑定地域或创建应用后才能生成可用
-                                                Key。
+                                                API Key 请去除首尾空格与换行；建议使用 <code>https://</code>，并确认模型/权限/地域已开通。
                                             </li>
                                         </ul>
                                     </div>
                                     <div style="margin-top: 12px">
                                         <p style="margin: 0 0 8px 0">
-                                            常见排错点：
+                                            快速排查：
                                         </p>
                                         <ul
                                             style="
@@ -286,77 +254,23 @@
                                             "
                                         >
                                             <li>
-                                                Base URL 缺少
-                                                <code>https://</code>
-                                                或路径拼写错误
+                                                <code>404</code>：优先检查 Base URL 是否应包含 <code>/v1</code> 或特定前缀路径。
                                             </li>
                                             <li>
-                                                API Key 复制时夹带空格或换行
+                                                <code>401/403</code>：API Key 无效、权限不足、模型未开通。
                                             </li>
                                             <li>
-                                                供应商需要绑定地域或额外权限，请在控制台确认已开通
+                                                <code>400 no body</code>：常见于模型 ID、Base URL、API 协议/类型不匹配。
                                             </li>
                                             <li>
-                                                部分供应商有 IP
-                                                白名单或安全策略限制，请检查控制台是否已放行
+                                                <code>429</code>：配额不足或触发限流；<code>5xx/超时</code>：上游服务或网络链路异常。
                                             </li>
                                         </ul>
                                     </div>
                                     <div style="margin-top: 12px">
                                         <p style="margin: 0 0 8px 0">
-                                            返回码快速定位（常见情况）：
+                                            示例（OpenAI 兼容）：
                                         </p>
-                                        <ul
-                                            style="
-                                                margin: 0;
-                                                padding-left: 18px;
-                                            "
-                                        >
-                                            <li>
-                                                <code>401/403</code>：API Key
-                                                无效、权限不足、模型未开通
-                                            </li>
-                                            <li>
-                                                <code>404</code>：Base URL
-                                                或路径不匹配
-                                            </li>
-                                            <li>
-                                                <code>400 no body</code
-                                                >：常见于模型配置错误导致上游未返回有效响应体，优先检查模型
-                                                ID、Base URL、API
-                                                协议/类型是否与供应商文档一致
-                                            </li>
-                                            <li>
-                                                <code>429</code
-                                                >：配额不足或触发限流
-                                            </li>
-                                            <li>
-                                                <code>5xx</code
-                                                >：供应商服务异常或网络中间层问题
-                                            </li>
-                                            <li>
-                                                超时：网络不通、DNS/代理配置异常
-                                            </li>
-                                        </ul>
-                                    </div>
-                                    <div style="margin-top: 12px">
-                                        <p style="margin: 0 0 8px 0">
-                                            路径调整建议（Base URL）：
-                                        </p>
-                                        <ul
-                                            style="
-                                                margin: 0;
-                                                padding-left: 18px;
-                                            "
-                                        >
-                                            <li>
-                                                如果调用报 404
-                                                或提示路径不匹配，请先对照供应商文档确认正确
-                                                Base
-                                                URL，再按文档要求增减末尾路径（例如是否需要
-                                                <code>/v1</code>）。
-                                            </li>
-                                        </ul>
                                         <pre
                                             style="
                                                 margin: 8px 0 0 0;
@@ -372,9 +286,9 @@ Base URL: https://api.openai.com/v1
 API 类型: openai-completions
 实际请求: https://api.openai.com/v1/chat/completions
 
-如果报 404，请回到供应商文档核对 Base URL：
-示例：部分服务要求 https://api.openai.com/v1
-部分服务要求 https://api.openai.com</pre
+如遇 404，请回到供应商文档核对 Base URL：
+- 有的服务要求 https://api.openai.com/v1
+- 有的服务要求 https://api.openai.com</pre
                                         >
                                     </div>
                                     <div style="margin-top: 12px">
@@ -2114,51 +2028,38 @@ API 类型: openai-completions
 
                         <div class="card">
                             <h2>更新说明</h2>
-                            <div class="alert alert-info">
-                                <h3>OpenClaw 核心更新</h3>
-                                <p>
-                                    OpenClaw 核心通过 npm
-                                    包管理器安装，支持在线更新：
-                                </p>
-                                <ol>
-                                    <li>
-                                        点击上方“检查更新”按钮查看是否有新版本
-                                    </li>
-                                    <li>如有新版本，点击"更新版本"按钮</li>
-                                    <li>
-                                        系统将自动执行
-                                        <code>npm install openclaw@latest</code>
-                                    </li>
-                                    <li>
-                                        更新完成后需要重启 Gateway 使新版本生效
-                                    </li>
-                                </ol>
+                            <div class="alert alert-info update-guide">
+                                <div class="update-guide-block">
+                                    <h3>OpenClaw 核心更新</h3>
+                                    <p>OpenClaw 核心通过 npm 安装，支持在线更新。</p>
+                                    <ol>
+                                        <li>点击上方「检查更新」，确认是否有新版本。</li>
+                                        <li>有新版本时，点击「更新版本」。</li>
+                                        <li>系统自动执行：<code>npm install openclaw@latest</code>。</li>
+                                        <li>更新完成后，重启 Gateway 使新版本生效。</li>
+                                    </ol>
+                                </div>
 
-                                <h3>FPK 包更新</h3>
-                                <p>
-                                    如需更新整个 oc-deploy
-                                    应用（包括管理界面、脚本等）：
-                                </p>
-                                <ol>
-                                    <li>访问飞牛应用中心</li>
-                                    <li>检查 oc-deploy 应用是否有更新</li>
-                                    <li>下载并安装最新版本的 FPK</li>
-                                    <li>应用会自动重启并应用新版本</li>
-                                </ol>
+                                <div class="update-guide-block">
+                                    <h3>FPK 应用更新</h3>
+                                    <p>如需更新整个 OC-Deploy（管理界面、脚本、服务逻辑），请通过飞牛应用中心更新 FPK。</p>
+                                    <ol>
+                                        <li>打开飞牛应用中心。</li>
+                                        <li>检查 <code>oc-deploy</code> 是否有新版本。</li>
+                                        <li>下载并安装最新 FPK。</li>
+                                        <li>应用会自动重启并应用新版本。</li>
+                                    </ol>
+                                </div>
 
-                                <p><strong>注意事项：</strong></p>
-                                <ul>
-                                    <li>
-                                        更新前建议备份配置文件（系统会自动备份）
-                                    </li>
-                                    <li>更新过程中 Gateway 会短暂中断服务</li>
-                                    <li>更新后请检查配置文件是否需要调整</li>
-                                    <li>
-                                        如遇问题可查看日志：<code
-                                            >/var/apps/oc-deploy/var/openclaw.log</code
-                                        >
-                                    </li>
-                                </ul>
+                                <div class="update-guide-block update-guide-caution">
+                                    <h3>注意事项</h3>
+                                    <ul>
+                                        <li>更新前建议先导出备份（系统也会自动备份）。</li>
+                                        <li>更新期间 Gateway 会短暂中断服务。</li>
+                                        <li>更新完成后建议检查配置与运行状态是否正常。</li>
+                                        <li>故障排查日志：<code>/var/apps/oc-deploy/var/openclaw.log</code></li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
