@@ -173,7 +173,7 @@ function toggleConfigImportPanel(forceVisible) {
   const panel = document.getElementById("config-import-panel");
   const toggleBtn = document.getElementById("toggle-config-import-btn");
   const textarea = document.getElementById("config-import-textarea");
-  if (!panel || !toggleBtn) {
+  if (!panel) {
     return;
   }
 
@@ -184,11 +184,25 @@ function toggleConfigImportPanel(forceVisible) {
     typeof forceVisible === "boolean" ? forceVisible : !isVisible;
 
   panel.style.display = shouldShow ? "block" : "none";
-  toggleBtn.textContent = shouldShow ? "收起导入" : "导入配置";
+  if (toggleBtn) {
+    toggleBtn.textContent = shouldShow ? "收起导入" : "导入配置";
+  }
 
   if (shouldShow && textarea) {
     textarea.focus();
   }
+}
+
+function triggerConfigImport() {
+  const fileInput = document.getElementById("config-import-file");
+  if (!fileInput) {
+    showToast("未找到配置上传控件", "error");
+    return;
+  }
+
+  toggleConfigImportPanel(true);
+  fileInput.value = "";
+  fileInput.click();
 }
 
 function closeConfigImportPanel() {
