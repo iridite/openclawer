@@ -27,6 +27,7 @@ const OC_PKG_JSON_PATH = path.join(
   "package.json",
 );
 const MANAGEMENT_ACCESS_FILE = path.join(TRIM_PKGVAR, "management-access.json");
+const API_KEY_PROTECTION_FILE = path.join(TRIM_PKGVAR, "api-key-protection.json");
 const TOKEN_FILE = path.join(TRIM_PKGVAR, "gateway_token");
 const DASHBOARD_PID_FILE = path.join(TRIM_PKGVAR, "app.pid");
 const GATEWAY_PID_FILE = path.join(TRIM_PKGVAR, "gateway.pid");
@@ -71,6 +72,7 @@ module.exports = {
   CONFIG_FILE,
   INITIAL_CONFIG_FILE,
   MANAGEMENT_ACCESS_FILE,
+  API_KEY_PROTECTION_FILE,
   OC_HOME,
   OC_BIN_PATH,
   OC_JS_PATH,

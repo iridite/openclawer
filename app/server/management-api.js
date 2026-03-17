@@ -15,6 +15,7 @@ const { createBackupService } = require("./services/backup");
 const { createPluginService } = require("./services/plugins");
 const { createSkillsService } = require("./services/skills");
 const { createManagementAccessService } = require("./services/management-access");
+const { createApiKeyProtectionService } = require("./services/api-key-protection");
 const { createDashboardProxyService } = require("./http/dashboard-proxy");
 const { createGatewayService } = require("./services/gateway");
 const { createConfigService } = require("./services/config");
@@ -32,6 +33,7 @@ const {
   CONFIG_FILE,
   INITIAL_CONFIG_FILE,
   MANAGEMENT_ACCESS_FILE,
+  API_KEY_PROTECTION_FILE,
   OC_HOME,
   OC_BIN_PATH,
   OC_JS_PATH,
@@ -88,6 +90,7 @@ const gatewayService = createGatewayService({
   NPM_INSTALL_TIMEOUT,
   STATUS_CACHE_TTL,
   readJSON,
+  writeJSON,
   execCommand,
   isProcessRunning,
   getTokenFromConfig,
@@ -104,6 +107,17 @@ const {
   getLogs,
 } = gatewayService;
 
+const apiKeyProtectionService = createApiKeyProtectionService({
+  API_KEY_PROTECTION_FILE,
+  readJSON,
+  writeJSON,
+});
+const {
+  isApiKeyProtectionEnabled,
+  getApiKeyProtection,
+  setApiKeyProtection: persistApiKeyProtection,
+} = apiKeyProtectionService;
+
 const configService = createConfigService({
   CONFIG_FILE,
   INITIAL_CONFIG_FILE,
@@ -114,6 +128,7 @@ const configService = createConfigService({
   writeJSON,
   getTokenFromConfig,
   restartGateway,
+  isApiKeyProtectionEnabled,
 });
 const {
   getConfig,
@@ -122,8 +137,85 @@ const {
   validateConfig,
   addModel,
   deleteModel,
+  clearAllModelConfigs,
   analyzeConfigImpact,
 } = configService;
+
+async function setApiKeyProtection(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("请求体必须是 JSON 对象");
+  }
+  if (typeof payload.enabled !== "boolean") {
+    throw new Error("enabled 必须是布尔值");
+  }
+
+  const currentState = await getApiKeyProtection();
+  const currentEnabled = currentState.enabled === true;
+  const nextEnabled = payload.enabled === true;
+
+  if (currentEnabled === nextEnabled) {
+    return {
+      success: true,
+      unchanged: true,
+      ...currentState,
+      modelsReset: {
+        performed: false,
+      },
+    };
+  }
+
+  if (payload.confirmReset !== true) {
+    throw new Error("切换 API 防护前必须确认清空全部模型配置");
+  }
+
+  const reason = nextEnabled
+    ? "enable-api-key-protection"
+    : "disable-api-key-protection";
+  const resetResult = await clearAllModelConfigs({ reason });
+
+  try {
+    const persisted = await persistApiKeyProtection({ enabled: nextEnabled });
+    return {
+      ...persisted,
+      modelsReset: {
+        performed: true,
+        reason,
+        backupFile: resetResult.backupFile || null,
+        secretFilePath: resetResult.secretFilePath || null,
+        secretBackupFile: resetResult.secretBackupFile || null,
+        providersCleared: resetResult.providersCleared || 0,
+        modelsCleared: resetResult.modelsCleared || 0,
+        agentMappingsCleared: resetResult.agentMappingsCleared || 0,
+        secretCleanupErrors: resetResult.secretCleanupErrors || 0,
+      },
+    };
+  } catch (err) {
+    let rollbackError = "";
+    if (resetResult.backupFile && fs.existsSync(resetResult.backupFile)) {
+      try {
+        fs.copyFileSync(resetResult.backupFile, CONFIG_FILE);
+      } catch (restoreErr) {
+        rollbackError = `模型配置回滚失败: ${restoreErr.message}`;
+      }
+    }
+    if (resetResult.secretBackupFile && fs.existsSync(resetResult.secretBackupFile)) {
+      try {
+        const secretFilePath = String(resetResult.secretFilePath || "").trim();
+        if (secretFilePath) {
+          fs.copyFileSync(resetResult.secretBackupFile, secretFilePath);
+        }
+      } catch (restoreErr) {
+        rollbackError = rollbackError
+          ? `${rollbackError}；密钥文件回滚失败: ${restoreErr.message}`
+          : `密钥文件回滚失败: ${restoreErr.message}`;
+      }
+    }
+    if (rollbackError) {
+      throw new Error(`切换 API 防护失败，且${rollbackError}`);
+    }
+    throw err;
+  }
+}
 
 const modelTestService = createModelTestService({
   CONFIG_FILE,
@@ -234,6 +326,8 @@ const router = createRouter({
   updateAllSkills,
   getManagementAccess,
   setManagementAccess,
+  getApiKeyProtection,
+  setApiKeyProtection,
 });
 const { handleApiRoutes } = router;
 
@@ -333,16 +427,33 @@ server.on("upgrade", (req, socket, head) => {
   handleDashboardUpgrade(req, socket);
 });
 
-server.listen(PORT, BIND_ADDR, () => {
-  console.log(`[management-api] Listening on ${BIND_ADDR}:${PORT}`);
-  console.log(`[management-api] Config file: ${CONFIG_FILE}`);
-  console.log(
-    `[management-api] Token source: openclaw.json (gateway.auth.token)`,
-  );
-  console.log(
-    `[management-api] WebSocket upgrade enabled for /dashboard -> Gateway:${GATEWAY_PORT}`,
-  );
-});
+async function bootstrap() {
+  try {
+    await getConfig();
+    console.log("[management-api] Config migration preflight completed");
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : typeof err === "string"
+          ? err
+          : "unknown error";
+    console.warn(`[management-api] Config preflight failed: ${message}`);
+  }
+
+  server.listen(PORT, BIND_ADDR, () => {
+    console.log(`[management-api] Listening on ${BIND_ADDR}:${PORT}`);
+    console.log(`[management-api] Config file: ${CONFIG_FILE}`);
+    console.log(
+      `[management-api] Token source: openclaw.json (gateway.auth.token)`,
+    );
+    console.log(
+      `[management-api] WebSocket upgrade enabled for /dashboard -> Gateway:${GATEWAY_PORT}`,
+    );
+  });
+}
+
+bootstrap();
 
 // 优雅退出
 process.on("SIGTERM", () => {

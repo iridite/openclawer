@@ -483,6 +483,7 @@ function loadTabData(tabName) {
     case "system":
       loadToolProfiles();
       loadManagementAccessSettings();
+      loadApiKeyProtectionSettings();
       loadVersionInfo();
       loadConsoleInfo();
       break;
@@ -836,7 +837,7 @@ async function quickAddModel(modelId) {
     keepExistingInput,
     existingRefInput,
   } = getApiKeyStorageElements();
-  if (storageSelect) storageSelect.value = "managed-file";
+  if (storageSelect) storageSelect.value = getDefaultApiKeyStorageMode();
   if (envInput) envInput.value = "";
   if (keepExistingInput) keepExistingInput.value = "false";
   if (existingRefInput) existingRefInput.value = "";
@@ -928,6 +929,28 @@ function getApiKeyStorageElements() {
   };
 }
 
+function getDefaultApiKeyStorageMode() {
+  return apiKeyProtectionEnabled ? "managed-file" : "plaintext";
+}
+
+function applyDefaultApiKeyStorageMode() {
+  const { storageSelect, keepExistingInput } = getApiKeyStorageElements();
+  if (!storageSelect) {
+    return;
+  }
+
+  const editModelKey = document.getElementById("edit-model-key")?.value || "";
+  if (editModelKey) {
+    return;
+  }
+
+  storageSelect.value = getDefaultApiKeyStorageMode();
+  if (keepExistingInput) {
+    keepExistingInput.value = "false";
+  }
+  handleApiKeyStorageModeChange();
+}
+
 function inferApiKeyStorageState(apiKeyValue) {
   if (typeof apiKeyValue === "string") {
     const hasValue = apiKeyValue.trim().length > 0;
@@ -996,7 +1019,7 @@ function handleApiKeyStorageModeChange() {
     return;
   }
 
-  const mode = storageSelect.value || "managed-file";
+  const mode = storageSelect.value || getDefaultApiKeyStorageMode();
   const hasExistingRef = !!(existingRefInput && existingRefInput.value.trim());
   const keepExisting = keepExistingInput?.value === "true";
 
@@ -1024,11 +1047,12 @@ function handleApiKeyStorageModeChange() {
   if (mode === "plaintext") {
     apiKeyInput.required = true;
     if (inputNote) {
-      inputNote.textContent = "明文模式会直接写入 openclaw.json，不推荐。";
+      inputNote.textContent =
+        "明文模式会直接写入 openclaw.json。可在系统页开启 API 防护改为 SecretRef 默认。";
     }
     if (storageNote) {
       storageNote.innerHTML =
-        "兼容模式：密钥将以明文保存到配置文件，请谨慎使用。";
+        "密钥将以明文保存到配置文件。若需默认改为 SecretRef，请前往“系统 → API 防护”启用。";
     }
     if (keepExistingInput) {
       keepExistingInput.value = "false";
@@ -1049,7 +1073,7 @@ function handleApiKeyStorageModeChange() {
 
   if (inputNote) {
     inputNote.textContent =
-      "推荐：保存为受管文件 SecretRef，避免明文写入配置文件。";
+      "受管文件模式会把密钥写入独立文件，并在配置里保存 SecretRef。";
   }
   if (storageNote) {
     storageNote.innerHTML =
@@ -2324,7 +2348,7 @@ async function submitModelForm(event) {
       keepExistingInput,
       existingRefInput,
     } = getApiKeyStorageElements();
-    const apiKeyStorageMode = storageSelect?.value || "managed-file";
+    const apiKeyStorageMode = storageSelect?.value || getDefaultApiKeyStorageMode();
     const apiKey = String(formData.get("apiKey") || "").trim();
     const apiKeyEnvVar = String(envInput?.value || "").trim();
     const envVarPattern = /^[A-Z_][A-Z0-9_]*$/;
@@ -2503,7 +2527,7 @@ function resetModelForm() {
     apiKeyInput.placeholder = "输入 API Key";
   }
   if (storageSelect) {
-    storageSelect.value = "managed-file";
+    storageSelect.value = getDefaultApiKeyStorageMode();
   }
   if (envInput) {
     envInput.value = "";
@@ -2525,7 +2549,7 @@ async function testModelConnection() {
   const baseUrl = document.getElementById("base-url").value.trim();
   const apiKey = document.getElementById("api-key").value.trim();
   const apiProtocol = document.getElementById("api-protocol").value;
-  const storageMode = document.getElementById("api-key-storage-mode")?.value || "managed-file";
+  const storageMode = document.getElementById("api-key-storage-mode")?.value || getDefaultApiKeyStorageMode();
   const apiKeyEnvVar = document.getElementById("api-key-env-var")?.value.trim() || "";
   const existingRefText = document.getElementById("existing-api-key-ref")?.value.trim() || "";
   const envVarPattern = /^[A-Z_][A-Z0-9_]*$/;
@@ -2695,6 +2719,182 @@ async function testModelConnection() {
 // ============================================================================
 // 版本管理
 // ============================================================================
+
+function getApiKeyProtectionSourceLabel(source) {
+  switch (source) {
+    case "file":
+      return "WebUI 设置";
+    case "default":
+    default:
+      return "默认值（关闭）";
+  }
+}
+
+function getApiKeyProtectionNote(enabled) {
+  return enabled
+    ? "当前已开启 API 防护。新建模型默认写入 SecretRef（受管密钥文件）。再次切换策略会清空全部模型配置。"
+    : "当前为明文默认模式。新建模型默认会把 API Key 写入 openclaw.json。切换策略会清空全部模型配置。";
+}
+
+function updateApiKeyProtectionBadge(enabled) {
+  const badge = document.getElementById("api-protection-state-badge");
+  if (!badge) return;
+
+  badge.classList.remove("access-state-local", "access-state-remote");
+  if (enabled) {
+    badge.classList.add("access-state-remote");
+    badge.textContent = "防护开启";
+  } else {
+    badge.classList.add("access-state-local");
+    badge.textContent = "明文模式";
+  }
+}
+
+function updateApiKeyProtectionToggle(enabled) {
+  const checkbox = document.getElementById("api-protection-enabled");
+  const toggleSwitch = document.getElementById("api-protection-switch");
+
+  if (checkbox) {
+    checkbox.checked = enabled === true;
+  }
+  if (!toggleSwitch) {
+    return;
+  }
+
+  toggleSwitch.classList.toggle("active", enabled === true);
+  toggleSwitch.dataset.enabled = enabled === true ? "true" : "false";
+  toggleSwitch.setAttribute("aria-checked", enabled === true ? "true" : "false");
+  toggleSwitch.setAttribute("aria-pressed", enabled === true ? "true" : "false");
+  toggleSwitch.title = enabled === true
+    ? "当前已开启 API 防护，点击切换为明文默认"
+    : "当前为明文默认，点击切换为 SecretRef 默认";
+}
+
+function initApiKeyProtectionToggleControl() {
+  const checkbox = document.getElementById("api-protection-enabled");
+  const toggleSwitch = document.getElementById("api-protection-switch");
+  if (!checkbox || !toggleSwitch) {
+    return;
+  }
+
+  const toggleHandler = () => {
+    if (toggleSwitch.disabled) {
+      return;
+    }
+    updateApiKeyProtectionToggle(!checkbox.checked);
+  };
+
+  toggleSwitch.addEventListener("click", toggleHandler);
+  toggleSwitch.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") {
+      return;
+    }
+    e.preventDefault();
+    toggleHandler();
+  });
+}
+
+async function loadApiKeyProtectionSettings() {
+  try {
+    const result = await apiRequest("/security/api-key-protection");
+    const checkbox = document.getElementById("api-protection-enabled");
+    const toggleSwitch = document.getElementById("api-protection-switch");
+    const saveBtn = document.getElementById("api-protection-save-btn");
+    const sourceEl = document.getElementById("api-protection-source");
+    const fileEl = document.getElementById("api-protection-file");
+    const noteEl = document.getElementById("api-protection-note");
+
+    apiKeyProtectionEnabled = result.enabled === true;
+
+    if (checkbox) checkbox.disabled = false;
+    if (toggleSwitch) toggleSwitch.disabled = false;
+    if (saveBtn) saveBtn.disabled = false;
+
+    updateApiKeyProtectionToggle(apiKeyProtectionEnabled);
+    updateApiKeyProtectionBadge(apiKeyProtectionEnabled);
+
+    if (sourceEl) {
+      sourceEl.textContent = getApiKeyProtectionSourceLabel(result.source);
+    }
+    if (fileEl) {
+      fileEl.textContent = result.file || "-";
+    }
+    if (noteEl) {
+      noteEl.textContent = getApiKeyProtectionNote(apiKeyProtectionEnabled);
+    }
+
+    applyDefaultApiKeyStorageMode();
+  } catch (error) {
+    console.error("加载 API 防护设置失败:", error);
+  }
+}
+
+async function saveApiKeyProtectionSettings() {
+  const checkbox = document.getElementById("api-protection-enabled");
+  const noteEl = document.getElementById("api-protection-note");
+  if (!checkbox) {
+    showToast("未找到 API 防护控件", "error");
+    return;
+  }
+
+  const enabled = checkbox.checked === true;
+  const previousEnabled = apiKeyProtectionEnabled === true;
+  if (enabled === previousEnabled) {
+    showToast("API 防护状态未变化", "info");
+    return;
+  }
+
+  const confirmMessage = enabled
+    ? "开启 API 防护后会立即清空当前所有模型配置（包括供应商、模型列表和主模型绑定），并需要你重新配置模型。是否继续？"
+    : "关闭 API 防护并切回明文模式后，会立即清空当前所有模型配置，并需要你重新配置模型。是否继续？";
+  if (!confirm(confirmMessage)) {
+    updateApiKeyProtectionToggle(previousEnabled);
+    return;
+  }
+
+  try {
+    const result = await apiRequest("/security/api-key-protection", {
+      method: "POST",
+      body: JSON.stringify({
+        enabled,
+        confirmReset: true,
+      }),
+    });
+
+    apiKeyProtectionEnabled = result.enabled === true;
+    updateApiKeyProtectionToggle(apiKeyProtectionEnabled);
+    updateApiKeyProtectionBadge(apiKeyProtectionEnabled);
+
+    const sourceEl = document.getElementById("api-protection-source");
+    if (sourceEl) {
+      sourceEl.textContent = getApiKeyProtectionSourceLabel(result.source);
+    }
+    const fileEl = document.getElementById("api-protection-file");
+    if (fileEl) {
+      fileEl.textContent = result.file || "-";
+    }
+    if (noteEl) {
+      noteEl.textContent = getApiKeyProtectionNote(apiKeyProtectionEnabled);
+    }
+
+    applyDefaultApiKeyStorageMode();
+    await Promise.all([
+      loadModelsList(),
+      loadConfigSummary(),
+    ]);
+
+    const clearedModels = result?.modelsReset?.modelsCleared || 0;
+    showToast(
+      apiKeyProtectionEnabled
+        ? `已开启 API 防护，已清空 ${clearedModels} 个模型，请重新配置`
+        : `已切换为明文默认，已清空 ${clearedModels} 个模型，请重新配置`,
+      "success",
+    );
+  } catch (error) {
+    updateApiKeyProtectionToggle(previousEnabled);
+    showToast("保存 API 防护设置失败: " + error.message, "error");
+  }
+}
 
 function getManagementAccessSourceLabel(source) {
   switch (source) {
@@ -3391,6 +3591,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initTabs();
   initTooltips();
   initManagementAccessToggleControl();
+  initApiKeyProtectionToggleControl();
 
   // Skills 事件绑定
   const skillsSearchBtn = refs?.skills.searchBtn || document.getElementById("skills-search-btn");
@@ -3470,7 +3671,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (storageSelect) {
     storageSelect.addEventListener("change", handleApiKeyStorageModeChange);
   }
-  handleApiKeyStorageModeChange();
+  applyDefaultApiKeyStorageMode();
+  loadApiKeyProtectionSettings();
 
   console.log("初始化完成");
 });

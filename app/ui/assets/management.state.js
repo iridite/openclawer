@@ -14,6 +14,7 @@ let activeTooltipTarget = null;
 let currentTabName = "overview";
 let qqbotPluginInstalling = false;
 let wecomPluginInstalling = false;
+let apiKeyProtectionEnabled = false;
 
 // 快速添加模型预设
 const QUICK_ADD_MODELS = {

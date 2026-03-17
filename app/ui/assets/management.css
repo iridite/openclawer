@@ -710,6 +710,12 @@ body {
     margin-bottom: 8px;
 }
 
+.system-control-subhead {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
 .system-control-panel h3 {
     margin: 0;
     font-size: 1rem;
@@ -746,6 +752,11 @@ body {
     background: rgba(244, 81, 30, 0.06);
     margin-bottom: 12px;
     flex-wrap: wrap;
+}
+
+.api-protection-highlight {
+    border-color: rgba(25, 118, 210, 0.35);
+    background: rgba(25, 118, 210, 0.06);
 }
 
 .management-access-toggle-row {

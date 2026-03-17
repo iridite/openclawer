@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { migrateLegacyManagedFileProvider } = require("../core/secrets");
 
 function createGatewayService(options) {
   const {
@@ -16,6 +17,7 @@ function createGatewayService(options) {
     NPM_INSTALL_TIMEOUT,
     STATUS_CACHE_TTL,
     readJSON,
+    writeJSON,
     execCommand,
     isProcessRunning,
     getTokenFromConfig,
@@ -24,7 +26,40 @@ function createGatewayService(options) {
   let statusCache = null;
   let statusCacheTime = 0;
 
+  function migrateConfigBeforeGatewayStart() {
+    if (typeof readJSON !== "function") {
+      return;
+    }
+
+    const config = readJSON(CONFIG_FILE);
+    if (!config || typeof config !== "object" || Array.isArray(config)) {
+      return;
+    }
+
+    if (!migrateLegacyManagedFileProvider(config)) {
+      return;
+    }
+
+    let writeOk = false;
+    if (typeof writeJSON === "function") {
+      writeOk = writeJSON(CONFIG_FILE, config);
+    } else {
+      try {
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf8");
+        writeOk = true;
+      } catch (err) {
+        writeOk = false;
+      }
+    }
+
+    if (!writeOk) {
+      throw new Error("启动前配置迁移失败：无法写入配置文件");
+    }
+  }
+
   async function startGateway() {
+    migrateConfigBeforeGatewayStart();
+
     try {
       await execCommand('pkill -9 -f "openclaw.*gateway"');
     } catch (e) {

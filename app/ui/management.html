@@ -504,7 +504,7 @@ API 类型: openai-completions
                                                     API Key
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="推荐使用 SecretRef（环境变量或文件）保存 API Key，避免明文落盘。"
+                                                        data-tooltip="默认会按“系统 → API 防护”策略决定存储方式：关闭防护时写入明文，开启防护时写入 SecretRef。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -515,7 +515,7 @@ API 类型: openai-completions
                                                     placeholder="输入 API Key"
                                                 />
                                                 <p class="help-text" id="api-key-input-note">
-                                                    默认写入受管密钥文件并以 SecretRef 引用；保存后不再在配置中明文展示。
+                                                    默认按系统策略保存：关闭 API 防护时写入 openclaw.json 明文，开启后写入 SecretRef。
                                                 </p>
                                             </div>
 
@@ -527,7 +527,7 @@ API 类型: openai-completions
                                                     >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="受管文件和环境变量均使用 OpenClaw SecretRef 机制；仅在兼容场景下建议使用明文。"
+                                                        data-tooltip="默认会跟随系统页“API 防护”策略自动选择，也可在此手动覆盖。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -537,15 +537,18 @@ API 类型: openai-completions
                                                     required
                                                     onchange="handleApiKeyStorageModeChange()"
                                                 >
+                                                    <option value="plaintext">
+                                                        明文（写入配置文件）
+                                                    </option>
                                                     <option value="managed-file">
-                                                        受管密钥文件（推荐）
+                                                        受管密钥文件（SecretRef）
                                                     </option>
                                                     <option value="env">
                                                         环境变量（SecretRef）
                                                     </option>
                                                 </select>
                                                 <p class="help-text" id="api-key-storage-note">
-                                                    推荐：受管密钥文件（SecretRef），密钥将保存到 <code>/root/.openclaw/oc-deploy-secrets.json</code>。
+                                                    默认按系统策略自动选择；开启 API 防护后建议使用 SecretRef。
                                                 </p>
                                             </div>
 
@@ -1948,6 +1951,53 @@ API 类型: openai-completions
                                     <p class="help-text">
                                         变更会直接写入配置并生效，无需额外点击保存按钮。
                                     </p>
+                                    <div class="system-control-panel-head system-control-subhead">
+                                        <h3>API 防护</h3>
+                                        <span id="api-protection-state-badge" class="access-state-badge access-state-local">明文模式</span>
+                                    </div>
+                                    <p class="system-control-desc">
+                                        控制新模型 API Key 的默认存储方式。默认关闭并以明文写入 <code>openclaw.json</code>；开启后新建模型会改为 SecretRef（受管密钥文件）。
+                                    </p>
+                                    <div class="management-access-highlight api-protection-highlight">
+                                        <div class="management-access-toggle-row">
+                                            <div class="management-access-toggle-text">
+                                                <span class="management-access-toggle-title">启用 API 防护（默认使用 SecretRef）</span>
+                                                <span class="management-access-toggle-subtitle">切换开关会清空当前全部模型配置，并需要重新配置模型。</span>
+                                            </div>
+                                            <button
+                                                id="api-protection-switch"
+                                                class="toggle-switch"
+                                                type="button"
+                                                role="switch"
+                                                aria-checked="false"
+                                                aria-label="切换 API 防护"
+                                                data-enabled="false"
+                                            ></button>
+                                            <input
+                                                type="checkbox"
+                                                id="api-protection-enabled"
+                                                class="management-access-hidden-input"
+                                            />
+                                        </div>
+                                        <button
+                                            class="btn btn-primary"
+                                            onclick="saveApiKeyProtectionSettings()"
+                                            id="api-protection-save-btn"
+                                        >
+                                            应用防护策略（会清空模型）
+                                        </button>
+                                    </div>
+                                    <p class="help-text" id="api-protection-note">
+                                        -
+                                    </p>
+                                    <div class="system-control-meta">
+                                        <p class="help-text">
+                                            当前生效来源：<code id="api-protection-source">-</code>
+                                        </p>
+                                        <p class="help-text">
+                                            配置文件：<code id="api-protection-file">-</code>
+                                        </p>
+                                    </div>
                                 </section>
 
                                 <section class="system-control-panel">

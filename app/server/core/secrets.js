@@ -1,7 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 
-const OC_DEPLOY_SECRET_PROVIDER = "ocDeployFile";
+const OC_DEPLOY_SECRET_PROVIDER = "oc-deploy-file";
+const LEGACY_OC_DEPLOY_SECRET_PROVIDER = "ocDeployFile";
 const OC_DEPLOY_SECRETS_FILENAME = "oc-deploy-secrets.json";
 
 function isObjectLike(value) {
@@ -103,6 +104,81 @@ function ensureSecretsObject(config) {
   config.secrets.defaults = isObjectLike(config.secrets.defaults)
     ? config.secrets.defaults
     : {};
+}
+
+function rewriteLegacyFileSecretRefProvider(node, legacyProvider, nextProvider) {
+  if (!node || typeof node !== "object") {
+    return false;
+  }
+
+  let changed = false;
+
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      if (rewriteLegacyFileSecretRefProvider(item, legacyProvider, nextProvider)) {
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  if (
+    String(node.source || "").toLowerCase() === "file" &&
+    node.provider === legacyProvider
+  ) {
+    node.provider = nextProvider;
+    changed = true;
+  }
+
+  for (const value of Object.values(node)) {
+    if (rewriteLegacyFileSecretRefProvider(value, legacyProvider, nextProvider)) {
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+function migrateLegacyManagedFileProvider(config, options = {}) {
+  if (!isObjectLike(config)) {
+    return false;
+  }
+
+  const legacyProvider = String(
+    options.legacyProvider || LEGACY_OC_DEPLOY_SECRET_PROVIDER,
+  ).trim();
+  const nextProvider = String(
+    options.nextProvider || OC_DEPLOY_SECRET_PROVIDER,
+  ).trim();
+  if (!legacyProvider || !nextProvider || legacyProvider === nextProvider) {
+    return false;
+  }
+
+  let changed = false;
+  const providers = isObjectLike(config?.secrets?.providers)
+    ? config.secrets.providers
+    : null;
+  if (providers && Object.prototype.hasOwnProperty.call(providers, legacyProvider)) {
+    if (!Object.prototype.hasOwnProperty.call(providers, nextProvider)) {
+      providers[nextProvider] = providers[legacyProvider];
+    }
+    delete providers[legacyProvider];
+    changed = true;
+  }
+
+  const defaults = isObjectLike(config?.secrets?.defaults)
+    ? config.secrets.defaults
+    : null;
+  if (defaults && defaults.file === legacyProvider) {
+    defaults.file = nextProvider;
+    changed = true;
+  }
+
+  if (rewriteLegacyFileSecretRefProvider(config, legacyProvider, nextProvider)) {
+    changed = true;
+  }
+
+  return changed;
 }
 
 function ensureEnvSecretProvider(config, providerName = "default") {
@@ -282,6 +358,7 @@ module.exports = {
   isEnvSecretRef,
   isFileSecretRef,
   inferApiKeyStorageMode,
+  migrateLegacyManagedFileProvider,
   ensureEnvSecretProvider,
   ensureManagedFileSecretProvider,
   buildEnvSecretRef,

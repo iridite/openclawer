@@ -18,6 +18,136 @@ fi
 BACKUP_ROOT="${OC_DEPLOY_BACKUP_ROOT:-/root/oc-deploy}"
 MARKER_FILE="${BACKUP_ROOT}/.upgrade_backup_path"
 RESTORED_ITEMS=0
+NODE_PATH="${NODE_PATH:-/var/apps/nodejs_v22/target/bin/node}"
+
+migrate_legacy_config_file() {
+    local config_file="$1"
+    local node_bin="${NODE_PATH}"
+
+    if [ ! -f "${config_file}" ]; then
+        return 0
+    fi
+
+    if [ ! -x "${node_bin}" ]; then
+        node_bin="$(command -v node || true)"
+    fi
+
+    if [ -z "${node_bin}" ]; then
+        echo "[upgrade_callback] Skip migration for ${config_file}: node not found"
+        return 0
+    fi
+
+    if "${node_bin}" - "${config_file}" <<'NODE'
+const fs = require("fs");
+
+const filePath = process.argv[2];
+const LEGACY_PROVIDER = "ocDeployFile";
+const NEXT_PROVIDER = "oc-deploy-file";
+
+function isObjectLike(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
+}
+
+function rewriteLegacyProvider(node) {
+  if (!node || typeof node !== "object") {
+    return false;
+  }
+
+  let changed = false;
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      if (rewriteLegacyProvider(item)) {
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  if (
+    String(node.source || "").toLowerCase() === "file" &&
+    node.provider === LEGACY_PROVIDER
+  ) {
+    node.provider = NEXT_PROVIDER;
+    changed = true;
+  }
+
+  for (const value of Object.values(node)) {
+    if (rewriteLegacyProvider(value)) {
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+let config = null;
+try {
+  const raw = fs.readFileSync(filePath, "utf8");
+  config = JSON.parse(raw);
+} catch (err) {
+  console.error(`[upgrade_callback] Failed to parse ${filePath}: ${err.message}`);
+  process.exit(1);
+}
+
+if (!isObjectLike(config)) {
+  process.exit(0);
+}
+
+let changed = false;
+
+const providers = isObjectLike(config?.secrets?.providers)
+  ? config.secrets.providers
+  : null;
+if (providers && Object.prototype.hasOwnProperty.call(providers, LEGACY_PROVIDER)) {
+  if (!Object.prototype.hasOwnProperty.call(providers, NEXT_PROVIDER)) {
+    providers[NEXT_PROVIDER] = providers[LEGACY_PROVIDER];
+  }
+  delete providers[LEGACY_PROVIDER];
+  changed = true;
+}
+
+const defaults = isObjectLike(config?.secrets?.defaults)
+  ? config.secrets.defaults
+  : null;
+if (defaults && defaults.file === LEGACY_PROVIDER) {
+  defaults.file = NEXT_PROVIDER;
+  changed = true;
+}
+
+if (rewriteLegacyProvider(config)) {
+  changed = true;
+}
+
+if (!changed) {
+  process.exit(0);
+}
+
+try {
+  fs.writeFileSync(filePath, JSON.stringify(config, null, 2), "utf8");
+} catch (err) {
+  console.error(`[upgrade_callback] Failed to write ${filePath}: ${err.message}`);
+  process.exit(1);
+}
+NODE
+    then
+        echo "[upgrade_callback] Migrated legacy secret provider in ${config_file}"
+    else
+        echo "[upgrade_callback] Warning: config migration failed for ${config_file}"
+    fi
+}
+
+migrate_restored_configs() {
+    local candidates=(
+        "${SRC_DIR}/openclaw.json"
+        "/root/.openclaw/openclaw.json"
+        "/var/apps/${APP_NAME}/var/.openclaw/openclaw.json"
+    )
+
+    local cfg=""
+    for cfg in "${candidates[@]}"; do
+        migrate_legacy_config_file "${cfg}"
+    done
+}
 
 restore_entry() {
     local target="$1"
@@ -76,6 +206,8 @@ if [ "${RESTORED_ITEMS}" -eq 0 ]; then
     echo "[upgrade_callback] No restorable items found in ${BACKUP_DIR}"
     exit 0
 fi
+
+migrate_restored_configs
 
 rm -f "${MARKER_FILE}" || true
 echo "[upgrade_callback] Restored from ${BACKUP_DIR} (items=${RESTORED_ITEMS})"

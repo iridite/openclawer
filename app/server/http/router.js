@@ -36,6 +36,8 @@ function createRouter(deps) {
     updateAllSkills,
     getManagementAccess,
     setManagementAccess,
+    getApiKeyProtection,
+    setApiKeyProtection,
   } = deps;
 
   async function parseJsonBody(req) {
@@ -176,6 +178,9 @@ function createRouter(deps) {
       "GET /api/management/access": getManagementAccess,
       "POST /api/management/access": async () =>
         setManagementAccess(await parseJsonBody(req)),
+      "GET /api/security/api-key-protection": getApiKeyProtection,
+      "POST /api/security/api-key-protection": async () =>
+        setApiKeyProtection(await parseJsonBody(req)),
     };
 
     const routeKey = `${method} ${pathname}`;

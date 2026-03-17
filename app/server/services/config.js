@@ -5,6 +5,7 @@ const { findPrimaryModelFallback, cleanupEmptyProvider } = require("../core/conf
 const {
   OC_DEPLOY_SECRETS_FILENAME,
   inferApiKeyStorageMode,
+  migrateLegacyManagedFileProvider,
   ensureEnvSecretProvider,
   buildEnvSecretRef,
   setManagedProviderApiKey,
@@ -22,6 +23,7 @@ function createConfigService(deps) {
     writeJSON,
     getTokenFromConfig,
     restartGateway,
+    isApiKeyProtectionEnabled,
   } = deps;
   const SECRET_FILE_PATH = path.join(
     path.dirname(CONFIG_FILE),
@@ -43,48 +45,22 @@ function createConfigService(deps) {
     });
   }
 
-  function maybeMigratePlaintextProviderKeys(config) {
-    const providers = config?.models?.providers;
-    if (!providers || typeof providers !== "object") {
-      return { changed: false, migrated: 0 };
-    }
-
-    let changed = false;
-    let migrated = 0;
-
-    for (const [providerName, provider] of Object.entries(providers)) {
-      if (!provider || typeof provider !== "object" || Array.isArray(provider)) {
-        continue;
-      }
-      if (typeof provider.apiKey !== "string") {
-        continue;
-      }
-      const raw = provider.apiKey.trim();
-      if (!raw) {
-        continue;
-      }
-
-      provider.apiKey = setManagedProviderApiKey({
-        config,
-        providerName,
-        apiKey: raw,
-        secretFilePath: SECRET_FILE_PATH,
-      });
-      changed = true;
-      migrated += 1;
-    }
-
-    return { changed, migrated };
-  }
-
   function buildProviderApiKeyForSave(config, providerName, modelData, existingApiKey) {
-    const requestedMode = String(
-      modelData?.apiKeyStorageMode || inferApiKeyStorageMode(existingApiKey),
-    ).trim();
-    const normalizedMode = requestedMode === "file-direct"
+    const requestedMode = String(modelData?.apiKeyStorageMode || "").trim();
+    const hasExistingApiKey = existingApiKey !== undefined && existingApiKey !== null;
+    const policyDefaultMode =
+      typeof isApiKeyProtectionEnabled === "function" &&
+      isApiKeyProtectionEnabled()
+        ? "managed-file"
+        : "plaintext";
+    const fallbackMode = hasExistingApiKey
+      ? inferApiKeyStorageMode(existingApiKey)
+      : policyDefaultMode;
+    const resolvedMode = requestedMode || fallbackMode;
+    const normalizedMode = resolvedMode === "file-direct"
       ? "managed-file"
-      : requestedMode;
-    const mode = normalizedMode || "managed-file";
+      : resolvedMode;
+    const mode = normalizedMode || "plaintext";
     const rawApiKey = String(modelData?.apiKey || "").trim();
     const keepExisting = normalizeBool(modelData?.keepExistingApiKeyRef);
 
@@ -218,11 +194,11 @@ function createConfigService(deps) {
       };
     }
 
-    const migration = maybeMigratePlaintextProviderKeys(config);
-    if (migration.changed) {
+    const providerMigrationChanged = migrateLegacyManagedFileProvider(config);
+    if (providerMigrationChanged) {
       const writeOk = writeJSON(CONFIG_FILE, config);
       if (!writeOk) {
-        throw new Error("明文 API Key 自动迁移失败：无法写入配置文件");
+        throw new Error("配置自动迁移失败：无法写入配置文件");
       }
     }
 
@@ -234,8 +210,7 @@ function createConfigService(deps) {
       throw new Error("无效的配置格式");
     }
 
-    // 自动将明文 API Key 转换为 SecretRef（托管文件）
-    maybeMigratePlaintextProviderKeys(newConfig);
+    migrateLegacyManagedFileProvider(newConfig);
 
     const validation = await validateConfig(newConfig);
     if (!validation.valid) {
@@ -446,6 +421,7 @@ function createConfigService(deps) {
       config.agents = config.agents || {};
       config.agents.defaults = config.agents.defaults || {};
       config.agents.defaults.models = config.agents.defaults.models || {};
+      migrateLegacyManagedFileProvider(config);
 
       const {
         providerName,
@@ -525,6 +501,7 @@ function createConfigService(deps) {
       if (!config || !config.models) {
         throw new Error("配置文件不存在或格式错误");
       }
+      migrateLegacyManagedFileProvider(config);
 
       const [providerName, ...modelIdParts] = modelKey.split("/");
       const modelId = modelIdParts.join("/");
@@ -614,6 +591,105 @@ function createConfigService(deps) {
     } catch (err) {
       throw new Error("删除模型失败: " + err.message);
     }
+  }
+
+  async function clearAllModelConfigs(options = {}) {
+    const reason = String(options?.reason || "").trim() || "manual-reset";
+
+    const config = readJSON(CONFIG_FILE);
+    if (!config || typeof config !== "object" || Array.isArray(config)) {
+      throw new Error("配置文件不存在或格式错误");
+    }
+    migrateLegacyManagedFileProvider(config);
+
+    let backupFile = null;
+    if (fs.existsSync(CONFIG_FILE)) {
+      backupFile = `${CONFIG_FILE}.backup.models-reset.${Date.now()}`;
+      fs.copyFileSync(CONFIG_FILE, backupFile);
+      if (!fs.existsSync(backupFile) || fs.statSync(backupFile).size === 0) {
+        throw new Error("清空模型前创建备份失败");
+      }
+    }
+    let secretBackupFile = null;
+    if (fs.existsSync(SECRET_FILE_PATH)) {
+      secretBackupFile = `${SECRET_FILE_PATH}.backup.models-reset.${Date.now()}`;
+      fs.copyFileSync(SECRET_FILE_PATH, secretBackupFile);
+      if (
+        !fs.existsSync(secretBackupFile) ||
+        fs.statSync(secretBackupFile).size === 0
+      ) {
+        throw new Error("清空模型前创建密钥备份失败");
+      }
+    }
+
+    const providers =
+      config.models?.providers &&
+      typeof config.models.providers === "object" &&
+      !Array.isArray(config.models.providers)
+        ? config.models.providers
+        : {};
+    const providerNames = Object.keys(providers);
+
+    let modelsCleared = 0;
+    providerNames.forEach((providerName) => {
+      const provider = providers[providerName];
+      if (Array.isArray(provider?.models)) {
+        modelsCleared += provider.models.length;
+      }
+    });
+
+    const existingMode =
+      typeof config.models?.mode === "string" && config.models.mode.trim()
+        ? config.models.mode
+        : "merge";
+    config.models = {
+      mode: existingMode,
+      providers: {},
+    };
+
+    config.agents = config.agents || {};
+    config.agents.defaults = config.agents.defaults || {};
+    const existingAgentModels =
+      config.agents.defaults.models &&
+      typeof config.agents.defaults.models === "object" &&
+      !Array.isArray(config.agents.defaults.models)
+        ? config.agents.defaults.models
+        : {};
+    const agentMappingsCleared = Object.keys(existingAgentModels).length;
+    config.agents.defaults.models = {};
+    if (
+      config.agents.defaults.model &&
+      typeof config.agents.defaults.model === "object" &&
+      !Array.isArray(config.agents.defaults.model)
+    ) {
+      delete config.agents.defaults.model.primary;
+    }
+
+    const success = writeJSON(CONFIG_FILE, config);
+    if (!success) {
+      throw new Error("清空模型配置失败");
+    }
+
+    let secretCleanupErrors = 0;
+    providerNames.forEach((providerName) => {
+      try {
+        cleanupManagedProviderSecretIfNeeded(providerName);
+      } catch (err) {
+        secretCleanupErrors += 1;
+      }
+    });
+
+    return {
+      success: true,
+      reason,
+      backupFile,
+      secretFilePath: SECRET_FILE_PATH,
+      secretBackupFile,
+      providersCleared: providerNames.length,
+      modelsCleared,
+      agentMappingsCleared,
+      secretCleanupErrors,
+    };
   }
 
   function validateModels(config, errors) {
@@ -714,6 +790,7 @@ function createConfigService(deps) {
     resetConfig,
     addModel,
     deleteModel,
+    clearAllModelConfigs,
     validateConfig,
     analyzeConfigImpact: (newConfig) => {
       const oldConfig = readJSON(CONFIG_FILE) || {};
