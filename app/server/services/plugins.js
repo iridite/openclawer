@@ -22,9 +22,11 @@ function createPluginService(options) {
       name: "QQ Bot",
       channelId: "qqbot",
       allowKey: "openclaw-qqbot",
+      channelAliases: ["qqbot"],
       runtimeDirs: [
         ["plugins", "@tencent-connect", "openclaw-qqbot"],
         ["plugins", "openclaw-qqbot"],
+        ["extensions", "@tencent-connect", "openclaw-qqbot"],
         ["extensions", "openclaw-qqbot"],
       ],
       nodeModuleDirs: [
@@ -36,9 +38,11 @@ function createPluginService(options) {
       name: "企业微信",
       channelId: "wecom",
       allowKey: "wecom-openclaw-plugin",
+      channelAliases: ["wecom", "wecom-bot", "workwechat"],
       runtimeDirs: [
         ["plugins", "@wecom", "wecom-openclaw-plugin"],
         ["plugins", "wecom-openclaw-plugin"],
+        ["extensions", "@wecom", "wecom-openclaw-plugin"],
         ["extensions", "wecom-openclaw-plugin"],
       ],
       nodeModuleDirs: [
@@ -51,7 +55,8 @@ function createPluginService(options) {
 
   function createPluginHandler(pluginKey) {
     const plugin = PLUGINS[pluginKey];
-    const MANIFEST_FILES = ["openclaw.plugin.json", "plugin.json"];
+    const MANIFEST_FILES = ["openclaw.plugin.json", "openclaw-plugin.json", "plugin.json"];
+    const MANIFEST_DIRS = ["", "dist"];
 
     function normalizeStringList(value) {
       if (!Array.isArray(value)) return [];
@@ -99,15 +104,19 @@ function createPluginService(options) {
     }
 
     function findManifestInfo(pluginDir) {
-      for (const fileName of MANIFEST_FILES) {
-        const filePath = path.join(pluginDir, fileName);
-        if (!fs.existsSync(filePath)) continue;
-        const manifest = readJsonFile(filePath);
-        return {
-          filePath,
-          manifest,
-          parsed: !!manifest,
-        };
+      for (const relDir of MANIFEST_DIRS) {
+        for (const fileName of MANIFEST_FILES) {
+          const filePath = relDir
+            ? path.join(pluginDir, relDir, fileName)
+            : path.join(pluginDir, fileName);
+          if (!fs.existsSync(filePath)) continue;
+          const manifest = readJsonFile(filePath);
+          return {
+            filePath,
+            manifest,
+            parsed: !!manifest,
+          };
+        }
       }
       return null;
     }
@@ -150,6 +159,56 @@ function createPluginService(options) {
       return Array.from(ids);
     }
 
+    function extractPackageChannelIds(pkg) {
+      if (!pkg || typeof pkg !== "object" || Array.isArray(pkg)) {
+        return [];
+      }
+      const ids = new Set();
+      const openclawMeta = pkg.openclaw;
+      const pluginMeta = pkg.openclawPlugin;
+
+      function collectChannels(raw) {
+        if (Array.isArray(raw)) {
+          for (const item of raw) {
+            const id = String(item || "").trim();
+            if (id) ids.add(id);
+          }
+        } else if (raw && typeof raw === "object") {
+          for (const key of Object.keys(raw)) {
+            const id = String(key || "").trim();
+            if (id) ids.add(id);
+          }
+        } else if (typeof raw === "string") {
+          const id = raw.trim();
+          if (id) ids.add(id);
+        }
+      }
+
+      if (openclawMeta && typeof openclawMeta === "object" && !Array.isArray(openclawMeta)) {
+        collectChannels(openclawMeta.channels);
+      }
+      if (pluginMeta && typeof pluginMeta === "object" && !Array.isArray(pluginMeta)) {
+        collectChannels(pluginMeta.channels);
+      }
+      return Array.from(ids);
+    }
+
+    function normalizeId(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function hasExpectedChannelId(channelIds) {
+      const expected = new Set(
+        [plugin.channelId, ...(plugin.channelAliases || [])]
+          .map(normalizeId)
+          .filter(Boolean),
+      );
+      if (expected.size === 0) {
+        return false;
+      }
+      return channelIds.some((id) => expected.has(normalizeId(id)));
+    }
+
     function inspectInstalledPlugin() {
       const runtimeCandidates = getCandidateDirs(plugin.runtimeDirs || []);
       const nodeModuleCandidates = getCandidateDirs(plugin.nodeModuleDirs || []);
@@ -167,10 +226,12 @@ function createPluginService(options) {
         const manifest = manifestInfo?.manifest || null;
         const manifestParsed = manifestInfo?.parsed === true;
         const manifestChannelIds = extractManifestChannelIds(manifest);
-        const hasExpectedChannel = manifestChannelIds.includes(plugin.channelId);
+        const packageChannelIds = extractPackageChannelIds(pkg);
+        const allChannelIds = Array.from(new Set([...manifestChannelIds, ...packageChannelIds]));
+        const hasExpectedChannel = hasExpectedChannelId(allChannelIds);
 
-        if (hasManifestFile && manifestParsed && hasExpectedChannel) {
-          const manifestId = String(manifest?.id || "").trim();
+        if (hasExpectedChannel) {
+          const manifestId = String(manifest?.id || pkg?.name || "").trim();
           return {
             installed: true,
             verified: true,
@@ -179,7 +240,7 @@ function createPluginService(options) {
             package: plugin.pkg,
             pluginDir,
             manifestId,
-            manifestPath: manifestInfo.filePath,
+            manifestPath: manifestInfo?.filePath || "",
           };
         }
 
@@ -192,7 +253,7 @@ function createPluginService(options) {
           manifestParsed,
           hasExpectedChannel,
           manifestPath: manifestInfo?.filePath || "",
-          manifestChannelIds,
+          manifestChannelIds: allChannelIds,
         };
       }
 
@@ -495,9 +556,10 @@ function createPluginService(options) {
         const installMeta = await installPluginPackage();
         const inspected = inspectInstalledPlugin();
         if (inspected.state !== "installed") {
+          const runtimeHint = inspected?.message ? ` 详情: ${inspected.message}` : "";
           throw new Error(
             `${plugin.name}插件安装后仍未通过运行时校验。` +
-              "请检查 openclaw 插件安装路径与日志。",
+              `请在 NAS 运行环境检查 openclaw 插件安装路径与日志。${runtimeHint}`,
           );
         }
         ensurePluginEnabled(inspected.manifestId || "");
