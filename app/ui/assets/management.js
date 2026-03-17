@@ -2159,8 +2159,10 @@ async function ensureQqbotPluginInstalled() {
     }
     if (status && status.state === "unverified") {
       setQqbotPluginButtonState("unverified");
-      showToast(status.message || "QQ 插件目录异常，请清理后重试", "error");
-      return false;
+      showToast(
+        status.message || "检测到 QQ 插件异常，正在尝试重新安装",
+        "info",
+      );
     }
   } catch (error) {
     setQqbotPluginButtonState("error");
@@ -2187,7 +2189,10 @@ async function installQqbotPlugin() {
     });
     const version = result?.version || "";
     setQqbotPluginButtonState("installed", version);
-    showToast(result?.message || "QQ 插件安装成功", "success");
+    const strategyText = result?.installStrategy
+      ? `（${result.installStrategy}）`
+      : "";
+    showToast((result?.message || "QQ 插件安装成功") + strategyText, "success");
     qqbotPluginInstalling = false;
     return true;
   } catch (error) {
@@ -2271,10 +2276,9 @@ async function ensureWecomPluginInstalled() {
     if (status && status.state === "unverified") {
       setWecomPluginButtonState("unverified");
       showToast(
-        status.message || "企业微信插件目录异常，请清理后重试",
-        "error",
+        status.message || "检测到企业微信插件异常，正在尝试重新安装",
+        "info",
       );
-      return false;
     }
   } catch (error) {
     setWecomPluginButtonState("error");
@@ -2301,7 +2305,13 @@ async function installWecomPlugin() {
     });
     const version = result?.version || "";
     setWecomPluginButtonState("installed", version);
-    showToast(result?.message || "企业微信插件安装成功", "success");
+    const strategyText = result?.installStrategy
+      ? `（${result.installStrategy}）`
+      : "";
+    showToast(
+      (result?.message || "企业微信插件安装成功") + strategyText,
+      "success",
+    );
     wecomPluginInstalling = false;
     return true;
   } catch (error) {

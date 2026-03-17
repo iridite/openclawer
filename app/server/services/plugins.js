@@ -13,6 +13,7 @@ function createPluginService(options) {
     readJSON,
     writeJSON,
     execCommand,
+    restartGateway,
   } = options;
 
   const PLUGINS = {
@@ -21,10 +22,13 @@ function createPluginService(options) {
       name: "QQ Bot",
       channelId: "qqbot",
       allowKey: "openclaw-qqbot",
-      dirs: [
-        ["node_modules", "@tencent-connect", "openclaw-qqbot"],
+      runtimeDirs: [
         ["plugins", "@tencent-connect", "openclaw-qqbot"],
+        ["plugins", "openclaw-qqbot"],
         ["extensions", "openclaw-qqbot"],
+      ],
+      nodeModuleDirs: [
+        ["node_modules", "@tencent-connect", "openclaw-qqbot"],
       ],
     },
     wecom: {
@@ -32,10 +36,13 @@ function createPluginService(options) {
       name: "企业微信",
       channelId: "wecom",
       allowKey: "wecom-openclaw-plugin",
-      dirs: [
-        ["node_modules", "@wecom", "wecom-openclaw-plugin"],
+      runtimeDirs: [
         ["plugins", "@wecom", "wecom-openclaw-plugin"],
+        ["plugins", "wecom-openclaw-plugin"],
         ["extensions", "wecom-openclaw-plugin"],
+      ],
+      nodeModuleDirs: [
+        ["node_modules", "@wecom", "wecom-openclaw-plugin"],
       ],
     },
   };
@@ -54,19 +61,19 @@ function createPluginService(options) {
     }
 
     function collectSearchRoots(scopeDirName) {
-      if (scopeDirName === "node_modules") {
-        return [TRIM_PKGVAR, OC_HOME];
-      }
       if (scopeDirName === "plugins" || scopeDirName === "extensions") {
         return [OC_HOME, TRIM_PKGVAR];
+      }
+      if (scopeDirName === "node_modules") {
+        return [TRIM_PKGVAR, OC_HOME];
       }
       return [OC_HOME, TRIM_PKGVAR];
     }
 
-    function getCandidateDirs() {
+    function getCandidateDirs(dirGroups) {
       const dirs = [];
       const seen = new Set();
-      for (const dirParts of plugin.dirs) {
+      for (const dirParts of dirGroups) {
         const scopeDirName = String(dirParts[0] || "");
         const roots = collectSearchRoots(scopeDirName);
         for (const root of roots) {
@@ -144,12 +151,13 @@ function createPluginService(options) {
     }
 
     function inspectInstalledPlugin() {
-      const candidates = getCandidateDirs();
+      const runtimeCandidates = getCandidateDirs(plugin.runtimeDirs || []);
+      const nodeModuleCandidates = getCandidateDirs(plugin.nodeModuleDirs || []);
       const weakHits = [];
 
-      for (const pluginDir of candidates) {
+      function inspectCandidate(pluginDir) {
         if (!fs.existsSync(pluginDir) || !fs.statSync(pluginDir).isDirectory()) {
-          continue;
+          return null;
         }
 
         const pkgPath = path.join(pluginDir, "package.json");
@@ -175,14 +183,49 @@ function createPluginService(options) {
           };
         }
 
-        weakHits.push({
+        return {
+          installed: false,
+          verified: false,
+          weak: true,
           pluginDir,
           hasManifestFile,
           manifestParsed,
           hasExpectedChannel,
           manifestPath: manifestInfo?.filePath || "",
           manifestChannelIds,
-        });
+        };
+      }
+
+      for (const pluginDir of runtimeCandidates) {
+        const inspected = inspectCandidate(pluginDir);
+        if (!inspected) {
+          continue;
+        }
+        if (inspected.installed) {
+          return inspected;
+        }
+        weakHits.push(inspected);
+      }
+
+      // 仅存在于 node_modules 的插件不能视为运行时“已安装可用”。
+      for (const pluginDir of nodeModuleCandidates) {
+        const inspected = inspectCandidate(pluginDir);
+        if (!inspected) {
+          continue;
+        }
+        if (inspected.installed) {
+          return {
+            installed: false,
+            verified: false,
+            state: "unverified",
+            version: inspected.version || "",
+            package: plugin.pkg,
+            message:
+              `${plugin.name} 仅检测到 node_modules 安装（${pluginDir}），` +
+              "运行时可能无法加载。请点击安装按钮执行插件安装流程。",
+          };
+        }
+        weakHits.push(inspected);
       }
 
       if (weakHits.length > 0) {
@@ -219,30 +262,64 @@ function createPluginService(options) {
     }
 
     function isPluginEnabled(config, manifestId) {
+      const allowance = inspectPluginAllowance(config, manifestId);
+      return allowance.enabled;
+    }
+
+    function getCanonicalAllowEntries(manifestId) {
+      const entries = [plugin.pkg];
+      const trimmedManifestId = String(manifestId || "").trim();
+      if (trimmedManifestId && trimmedManifestId !== plugin.pkg) {
+        entries.push(trimmedManifestId);
+      }
+      return entries;
+    }
+
+    function getLegacyAllowEntries(manifestId) {
+      const legacy = [plugin.allowKey, plugin.channelId];
+      const trimmedManifestId = String(manifestId || "").trim();
+      if (trimmedManifestId && trimmedManifestId !== plugin.pkg) {
+        return legacy.filter((item) => item && item !== trimmedManifestId);
+      }
+      return legacy;
+    }
+
+    function inspectPluginAllowance(config, manifestId) {
       const pluginsConfig =
         config && typeof config === "object" && !Array.isArray(config)
           ? config.plugins
           : null;
       if (pluginsConfig && pluginsConfig.enabled === false) {
-        return false;
+        return {
+          enabled: false,
+          requiresMigration: false,
+        };
       }
 
       if (!pluginsConfig || pluginsConfig.allow === undefined) {
-        return true;
+        return {
+          enabled: true,
+          requiresMigration: false,
+        };
       }
 
       const allowList = normalizeStringList(pluginsConfig.allow);
       if (allowList.includes("*")) {
-        return true;
+        return {
+          enabled: true,
+          requiresMigration: false,
+        };
       }
 
-      const acceptedKeys = new Set([plugin.allowKey, plugin.pkg, plugin.channelId]);
-      const trimmedManifestId = String(manifestId || "").trim();
-      if (trimmedManifestId) {
-        acceptedKeys.add(trimmedManifestId);
-      }
+      const canonicalEntries = new Set(getCanonicalAllowEntries(manifestId));
+      const legacyEntries = new Set(getLegacyAllowEntries(manifestId));
+      const hasCanonicalEntry = allowList.some((item) => canonicalEntries.has(item));
+      const hasLegacyEntry = allowList.some((item) => legacyEntries.has(item));
 
-      return allowList.some((item) => acceptedKeys.has(item));
+      return {
+        enabled: hasCanonicalEntry,
+        requiresMigration: !hasCanonicalEntry && hasLegacyEntry,
+      };
     }
 
     function ensurePluginEnabled(manifestId) {
@@ -265,14 +342,16 @@ function createPluginService(options) {
       }
       const allowList = normalizeStringList(config.plugins.allow);
       const allowSet = new Set(allowList);
-
-      const entries = [plugin.allowKey];
-      const trimmedManifestId = String(manifestId || "").trim();
-      if (trimmedManifestId) {
-        entries.push(trimmedManifestId);
-      }
+      const entries = getCanonicalAllowEntries(manifestId);
+      const legacyEntries = new Set(getLegacyAllowEntries(manifestId));
 
       let changed = false;
+      for (const legacyEntry of legacyEntries) {
+        if (allowSet.delete(legacyEntry)) {
+          changed = true;
+        }
+      }
+
       for (const entry of entries) {
         if (!entry || allowSet.has(entry)) continue;
         allowSet.add(entry);
@@ -291,6 +370,56 @@ function createPluginService(options) {
       return { changed: true };
     }
 
+    function shQuote(value) {
+      return `'${String(value || "").replace(/'/g, `'\\''`)}'`;
+    }
+
+    function buildInstallCommands() {
+      const commands = [];
+      const envPrefix =
+        `env OPENCLAW_CONFIG_PATH=${shQuote(CONFIG_FILE)} ` +
+        `HOME=${shQuote(path.dirname(OC_HOME))}`;
+      if (OC_BIN_PATH) {
+        commands.push(
+          {
+            strategy: "oc-bin-path",
+            command:
+              `cd ${shQuote(TRIM_PKGVAR)} && ${envPrefix} ${shQuote(OC_BIN_PATH)} plugins install ${shQuote(plugin.pkg)}`,
+          },
+        );
+      }
+      commands.push(
+        {
+          strategy: "openclaw-cli",
+          command:
+            `cd ${shQuote(TRIM_PKGVAR)} && ${envPrefix} openclaw plugins install ${shQuote(plugin.pkg)}`,
+        },
+      );
+      commands.push(
+        {
+          strategy: "npm-fallback",
+          command: `cd ${shQuote(TRIM_PKGVAR)} && npm install ${shQuote(plugin.pkg)}`,
+        },
+      );
+      return commands;
+    }
+
+    async function installPluginPackage() {
+      const installCommands = buildInstallCommands();
+      let lastError = null;
+      for (const candidate of installCommands) {
+        try {
+          await execCommand(candidate.command, { timeout: 180000 });
+          return {
+            strategy: candidate.strategy,
+          };
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw lastError || new Error(`${plugin.name} 插件安装命令执行失败`);
+    }
+
     async function getStatus() {
       const inspected = inspectInstalledPlugin();
       if (inspected.state !== "installed") {
@@ -301,7 +430,8 @@ function createPluginService(options) {
       }
 
       const config = typeof readJSON === "function" ? (readJSON(CONFIG_FILE) || {}) : {};
-      const enabled = isPluginEnabled(config, inspected.manifestId);
+      const allowance = inspectPluginAllowance(config, inspected.manifestId);
+      const enabled = allowance.enabled;
       if (!enabled) {
         return {
           success: true,
@@ -311,7 +441,9 @@ function createPluginService(options) {
           state: "disabled",
           version: inspected.version,
           package: plugin.pkg,
-          message: `${plugin.name} 插件已安装但未启用，点击安装按钮将自动启用。`,
+          message: allowance.requiresMigration
+            ? `${plugin.name} 插件已安装，但当前配置仍使用旧插件键。点击安装按钮将自动修复并重启 Gateway。`
+            : `${plugin.name} 插件已安装但未启用，点击安装按钮将自动启用并重启 Gateway。`,
         };
       }
 
@@ -339,38 +471,49 @@ function createPluginService(options) {
           package: preStatus.package,
         };
       }
-      if (preStatus.state === "unverified") {
-        throw new Error(preStatus.message || `${plugin.name}插件目录异常，请清理后重试`);
-      }
       if (preStatus.state === "disabled") {
         const inspected = inspectInstalledPlugin();
         const enabledResult = ensurePluginEnabled(inspected.manifestId || "");
+        let restarted = false;
+        if (typeof restartGateway === "function") {
+          const restartResult = await restartGateway();
+          restarted = restartResult?.success === true;
+        }
         const refreshed = await getStatus();
         return {
           success: true,
           message: enabledResult.changed
-            ? `${plugin.name}插件已启用`
-            : `${plugin.name}插件已处于启用状态`,
+            ? `${plugin.name}插件已启用${restarted ? "，并已重启 Gateway" : ""}`
+            : `${plugin.name}插件已处于启用状态${restarted ? "，并已重启 Gateway" : ""}`,
           version: refreshed.version || preStatus.version || "unknown",
           package: preStatus.package || plugin.pkg,
+          restarted,
         };
       }
       installing[pluginKey] = true;
       try {
-        await execCommand(`cd ${TRIM_PKGVAR} && npm install ${plugin.pkg}`, {
-          timeout: 120000,
-        });
+        const installMeta = await installPluginPackage();
         const inspected = inspectInstalledPlugin();
         if (inspected.state !== "installed") {
-          throw new Error(`${plugin.name}插件安装后校验失败，请重试或检查安装日志`);
+          throw new Error(
+            `${plugin.name}插件安装后仍未通过运行时校验。` +
+              "请检查 openclaw 插件安装路径与日志。",
+          );
         }
         ensurePluginEnabled(inspected.manifestId || "");
+        let restarted = false;
+        if (typeof restartGateway === "function") {
+          const restartResult = await restartGateway();
+          restarted = restartResult?.success === true;
+        }
         const postStatus = await getStatus();
         return {
           success: true,
-          message: `${plugin.name}插件安装成功`,
+          message: `${plugin.name}插件安装成功${restarted ? "，并已重启 Gateway" : ""}`,
           version: postStatus.version,
           package: postStatus.package,
+          restarted,
+          installStrategy: installMeta?.strategy || "",
         };
       } finally {
         installing[pluginKey] = false;

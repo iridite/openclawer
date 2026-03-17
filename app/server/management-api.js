@@ -250,6 +250,7 @@ const pluginService = createPluginService({
   readJSON,
   writeJSON,
   execCommand,
+  restartGateway,
 });
 const {
   getQqbotPluginStatus,
