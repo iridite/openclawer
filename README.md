@@ -66,7 +66,7 @@ OC-Deploy 将 OpenClaw Gateway 封装为 fnOS FPK 应用，并提供 Web 管理�
 
 - 模型与渠道表单均分为“推荐配置 / 高级配置”
 - 渠道配置引导卡片集中展示关键字段与最小示例
-- JSON 校验异常会提示，但不强制阻断保存
+- JSON 校验异常会阻断保存/导入，并显示具体错误
 - 一键恢复原始配置后自动重启 Gateway
 - QQ 渠道支持插件状态检测与一键安装
 
@@ -90,6 +90,7 @@ OC-Deploy 将 OpenClaw Gateway 封装为 fnOS FPK 应用，并提供 Web 管理�
 - 40% / 55% 卡住通常是在线安装 npm 依赖
 - 安装时长依赖网络环境
 - 安装向导包含用户条款摘要，继续安装视为同意
+- 安装向导支持选择配置位置：`/root/.openclaw`（推荐）或应用目录 `.../var/.openclaw`
 
 ### ⚙️ 首次配置
 
@@ -213,8 +214,11 @@ GET  /api/config
 POST /api/config
 POST /api/config/reset
 POST /api/config/validate
+POST /api/config/analyze-impact
 GET  /api/management/access
 POST /api/management/access
+GET  /api/security/api-key-protection
+POST /api/security/api-key-protection
 GET  /api/logs?lines=100
 GET  /api/console/url
 ```
@@ -230,6 +234,7 @@ GET  /api/console/url
 ```text
 POST /api/models/add
 POST /api/models/delete
+POST /api/models/test
 ```
 
 ### 网关控制
@@ -248,11 +253,26 @@ GET  /api/version/latest
 POST /api/version/update
 GET  /api/plugins/qqbot/status
 POST /api/plugins/qqbot/install
+GET  /api/plugins/wecom/status
+POST /api/plugins/wecom/install
+```
+
+### 备份与技能
+
+```text
+GET  /api/backup/export
+POST /api/backup/import
+GET  /api/skills/search?q=xxx
+GET  /api/skills/list
+POST /api/skills/install
+POST /api/skills/uninstall
+POST /api/skills/toggle
+POST /api/skills/update
 ```
 
 注意：
 
-- `/api/version/update` 当前为占位实现，返回 `success: false`（尚未完成在线升级逻辑）
+- `/api/version/update` 已实现基础升级流程（停止 Gateway -> npm 安装最新 OpenClaw -> 重启 Gateway）
 
 ## 🛠️ 开发指南
 
@@ -355,9 +375,9 @@ tail -n 100 /var/apps/oc-deploy/var/openclaw.log
 
 ## 📊 项目信息
 
-- **Manifest 版本**: `1.0.0`
-- **Release 标签**: `v1.1.0`
-- **最后更新**: `2026-03-15`
+- **Manifest 版本**: `1.2.1`
+- **Release 标签**: `v1.2.1`
+- **最后更新**: `2026-03-17`
 - **维护者**: [@iridite](https://github.com/iridite)
 
 ---

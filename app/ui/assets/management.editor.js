@@ -130,18 +130,13 @@ async function saveConfig() {
       body: JSON.stringify(config),
     });
 
-    let hasValidationWarning = false;
-    let validationWarningText = "";
     if (!validation.valid) {
-      hasValidationWarning = true;
-      const warnings = Array.isArray(validation.errors)
+      const errors = Array.isArray(validation.errors)
         ? validation.errors
         : [];
-      validationWarningText = warnings.join(", ");
-      showToast(
-        "配置校验警告（仍将保存）: " +
-          (validationWarningText || "存在未知校验问题"),
-        "warning",
+      throw new Error(
+        "配置校验失败，请先修正后再保存：\n" +
+          (errors.length > 0 ? errors.join("\n") : "存在未知校验问题"),
       );
     }
 
@@ -152,14 +147,7 @@ async function saveConfig() {
     });
 
     currentConfig = config;
-    if (hasValidationWarning) {
-      showToast(
-        "配置已保存，但存在校验警告。请检查配置后重启 Gateway。",
-        "warning",
-      );
-    } else {
-      showToast("配置保存成功！请重启 Gateway 使配置生效。", "success");
-    }
+    showToast("配置保存成功！请重启 Gateway 使配置生效。", "success");
   } catch (error) {
     if (error instanceof SyntaxError) {
       showToast("JSON 格式错误: " + error.message, "error");
@@ -314,10 +302,13 @@ async function applyImportedConfig() {
       body: JSON.stringify(parsed.data),
     });
     if (!validation.valid) {
-      const warnings = Array.isArray(validation.errors)
-        ? validation.errors.join(", ")
-        : "存在未知校验问题";
-      showToast("配置校验警告（仍将导入）: " + warnings, "warning");
+      const errors = Array.isArray(validation.errors)
+        ? validation.errors
+        : [];
+      throw new Error(
+        "配置校验失败，导入已中止：\n" +
+          (errors.length > 0 ? errors.join("\n") : "存在未知校验问题"),
+      );
     }
 
     await apiRequest("/config", {

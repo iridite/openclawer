@@ -28,7 +28,7 @@ Core responsibility split:
 oc-deploy/
 ├── app/
 │   ├── server/
-│   │   ├── management-api.js      # Main entry point (249 lines after refactor)
+│   │   ├── management-api.js      # Main entry point
 │   │   ├── core/
 │   │   │   ├── env.js            # Environment variables and paths
 │   │   │   └── io.js             # File I/O and command execution utilities
@@ -46,8 +46,8 @@ oc-deploy/
 │       ├── management.html        # Main UI
 │       ├── assets/
 │       │   ├── management.js      # Frontend logic (main UI controller)
-│       │   ├── state.js          # State management (modularized)
-│       │   ├── editor.js         # Config editor (modularized)
+│       │   ├── management.state.js   # Shared state/constants
+│       │   ├── management.editor.js  # Config editor logic
 │       │   └── management.css     # Frontend styles
 │       ├── config                 # fnOS desktop launch config (JSON)
 │       └── images/                # UI images/icons
@@ -69,11 +69,11 @@ oc-deploy/
 │   └── README.md                 # test documentation
 ├── wizard/
 │   └── install                   # install wizard tips + TOS summary
-├── docs/                          # design documents
-│   ├── CLAWHUB_INTEGRATION.md    # ClawHub skill integration design
-│   ├── SECURE_API_KEY_STORAGE.md # SecretRef implementation plan
-│   └── *.md                      # other design docs
-├── manifest                       # fnOS package metadata (v1.1.1)
+├── docs/                          # design and optimization notes
+│   ├── FRONTEND_DESIGN_OPTIMIZATION.md
+│   ├── OPTIMIZATION_RECOMMENDATIONS.md
+│   └── beta/
+├── manifest                       # fnOS package metadata (v1.2.1)
 ├── README.md
 ├── CLAUDE.md
 └── TODO.md
@@ -150,8 +150,10 @@ GET  /api/config
 POST /api/config
 POST /api/config/reset
 POST /api/config/validate
+POST /api/config/analyze-impact
 POST /api/models/add
 POST /api/models/delete
+POST /api/models/test
 POST /api/gateway/start
 POST /api/gateway/stop
 POST /api/gateway/restart
@@ -160,13 +162,27 @@ GET  /api/version/latest
 POST /api/version/update
 GET  /api/plugins/qqbot/status
 POST /api/plugins/qqbot/install
+GET  /api/plugins/wecom/status
+POST /api/plugins/wecom/install
+GET  /api/backup/export
+POST /api/backup/import
+GET  /api/skills/search
+GET  /api/skills/list
+POST /api/skills/install
+POST /api/skills/uninstall
+POST /api/skills/toggle
+POST /api/skills/update
+GET  /api/management/access
+POST /api/management/access
+GET  /api/security/api-key-protection
+POST /api/security/api-key-protection
 GET  /api/console/url
 GET  /api/logs?lines=100
 ```
 
 Notes:
 
-- `/api/version/update` currently returns a placeholder (`success: false`, `"还没做"`).
+- `/api/version/update` performs stop -> npm install latest -> start flow for OpenClaw.
 - `/api/config/reset` restores from `.initial` when present, otherwise uses built-in fallback template, then restarts gateway.
 
 ## Notable UI Behaviors
@@ -187,20 +203,28 @@ Notes:
 
 ```js
 {
-  success: true,
-  data: {
-    gateway: "running" | "offline",
-    gatewayPid: number | null,
-    system: { cpu: number, memory: number }
-  }
+  gateway: "running" | "offline",
+  gatewayPid: number | null,
+  proxy: "running",
+  proxyPid: number,
+  system: {
+    cpuUsage: number,
+    memoryMB: number,
+    memoryPercent: number,
+    totalMemoryMB: number
+  },
+  version: string,
+  configExists: boolean,
+  token: string,
+  uptime: number | null
 }
 ```
 
-Always read metrics from `status.system.cpu` and `status.system.memory`.
+Always read metrics from `status.system.cpuUsage` and `status.system.memoryPercent`.
 
 ### Config Validation Behavior
 
-- `/api/config/validate` returns warnings/errors; frontend warns but does not force-block save.
+- `/api/config/validate` returns hard validation errors; frontend blocks save/import when invalid.
 
 ### Model Rules
 
@@ -303,7 +327,7 @@ Include:
 
 ### Backend
 
-- Return structured `{ success, ... }` responses
+- Return JSON responses and throw explicit errors from service layer
 - Use `readJSON()` / `writeJSON()` helpers
 - Use `execCommand()` for shell invocation and centralized timeout handling
 
@@ -311,17 +335,14 @@ Include:
 
 Key design docs in `docs/`:
 
-- `CLAWHUB_INTEGRATION.md`: ClawHub skill management WebUI integration plan
-- `SECURE_API_KEY_STORAGE.md`: SecretRef implementation for secure API key storage
+- `FRONTEND_DESIGN_OPTIMIZATION.md`: Frontend visual/UX optimization notes
+- `OPTIMIZATION_RECOMMENDATIONS.md`: Performance and maintainability follow-ups
 
 ## Current Focus (from TODO)
 
 Open items:
 
-- ClawHub WebUI integration (skill search/install/list)
 - Realtime update mechanism beyond polling
-- Offline/online install option strategy
-- API Key secure storage (SecretRef support)
 
 ## Backend Architecture
 
@@ -345,7 +366,7 @@ The backend was refactored from a single 2199-line file into focused modules:
 
 **Key patterns**:
 - Services export factory functions: `createXxxService(deps)`
-- All services return `{ success, data?, error? }` responses
+- Router maps endpoint handlers to service methods
 - Use `execCommand()` from `core/io.js` for shell invocation with timeout handling
 - Use `readJSON()` / `writeJSON()` from `core/io.js` for config file operations
 
@@ -353,8 +374,8 @@ The backend was refactored from a single 2199-line file into focused modules:
 
 Partially modularized from a monolithic file:
 
-- `state.js`: Centralized state management (gateway status, config, UI state)
-- `editor.js`: Config editor logic (Ace integration, import/export, validation)
+- `management.state.js`: Shared constants and UI state
+- `management.editor.js`: Config editor logic (Ace integration, import/export, validation)
 - `management.js`: Main UI controller (still large, further modularization pending)
 
 ## Skills vs Plugins (Critical Distinction)
@@ -375,12 +396,12 @@ Partially modularized from a monolithic file:
 - Example: `openclaw plugins install @tencent-connect/openclaw-qqbot`
 
 **WebUI Integration**:
-- Current: QQ plugin detection and installation via `/api/plugins/qqbot/*`
-- Planned: ClawHub skill management (see `docs/CLAWHUB_INTEGRATION.md`)
+- Current: QQ/WeCom plugin detection and installation via `/api/plugins/*`
+- Current: Skills search/install/list/toggle/update via `/api/skills/*`
 
 ## Skills Management (New Feature)
 
-**IMPORTANT**: Skills are now manageable via WebUI (implemented in v1.2).
+**IMPORTANT**: Skills are now manageable via WebUI (implemented in v1.2.x).
 
 **Skills Service** (`app/server/services/skills.js`):
 - Search skills via ClawHub API: `https://lightmake.site/api/v1/search`
@@ -394,6 +415,8 @@ GET  /api/skills/search?q=query&limit=20
 POST /api/skills/install (body: { slug, force })
 GET  /api/skills/list
 POST /api/skills/uninstall (body: { slug })
+POST /api/skills/toggle (body: { slug, enabled, entryKey, location })
+POST /api/skills/update (body: { slug } or { all: true })
 ```
 
 **Installation Flow**:
@@ -404,13 +427,12 @@ POST /api/skills/uninstall (body: { slug })
 5. Concurrent installs blocked per slug
 
 **Key Implementation Details**:
-- Slug validation: `^[a-z0-9-]+$`
+- Slug validation: `^[a-z0-9][a-z0-9._-]*$` (case-insensitive)
 - 30s timeout for downloads and API calls
 - Automatic redirect following for downloads
 - Lockfile format: `{ version: 1, skills: { [slug]: { name, zip_url, source, version, installed_at } } }`
 
 ## Version Notes
 
-- `manifest` version: `1.2`
-- GitHub release tag: `v1.1.0` (skills feature added post-release)
-
+- `manifest` version: `1.2.1`
+- Keep release tag aligned with `manifest` before publishing

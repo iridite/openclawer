@@ -46,6 +46,23 @@
             },
             {
                 "type": "radio",
+                "field": "config_location",
+                "label": "配置文件位置",
+                "helpText": "选择 OpenClaw 配置文件存储位置。推荐使用 root 目录（/root/.openclaw），兼容性最好；如需随应用一起迁移，可选择 appdir（/var/apps/oc-deploy/var/.openclaw）。",
+                "initValue": "root",
+                "options": [
+                    {
+                        "label": "root 目录（推荐）",
+                        "value": "root"
+                    },
+                    {
+                        "label": "appdir 目录",
+                        "value": "appdir"
+                    }
+                ]
+            },
+            {
+                "type": "radio",
                 "field": "add_to_path",
                 "label": "环境变量配置",
                 "helpText": "是否将 OpenClaw、Node.js（v22）和 Python（3.12） 添加到系统 PATH 环境变量？",

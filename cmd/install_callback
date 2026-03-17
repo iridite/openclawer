@@ -21,14 +21,24 @@ log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
 }
 
-# 根据用户选择设置配置路径
-if [ "${TRIM_WIZARD_config_location}" = "appdir" ]; then
-    export HOME="${PKGVAR}"
-    export OPENCLAW_CONFIG_PATH="${PKGVAR}/.openclaw/openclaw.json"
-else
-    export HOME="/root"
-    export OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json"
-fi
+# 根据用户选择设置配置路径（兼容缺省值）
+case "${TRIM_WIZARD_config_location:-root}" in
+    appdir)
+        export HOME="${PKGVAR}"
+        export OPENCLAW_CONFIG_PATH="${PKGVAR}/.openclaw/openclaw.json"
+        log_msg "Config location selected: appdir (${OPENCLAW_CONFIG_PATH})"
+        ;;
+    root)
+        export HOME="/root"
+        export OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json"
+        log_msg "Config location selected: root (${OPENCLAW_CONFIG_PATH})"
+        ;;
+    *)
+        export HOME="/root"
+        export OPENCLAW_CONFIG_PATH="/root/.openclaw/openclaw.json"
+        log_msg "Unknown config location '${TRIM_WIZARD_config_location}', fallback to root (${OPENCLAW_CONFIG_PATH})"
+        ;;
+esac
 export PATH="/var/apps/nodejs_v22/target/bin:${PKGVAR}/node_modules/.bin:$PATH"
 
 # 安装 openclaw 最新版本
