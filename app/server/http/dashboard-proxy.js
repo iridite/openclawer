@@ -1,5 +1,17 @@
 const http = require("http");
 
+const DASHBOARD_PROXY_TIMEOUT_MS = 15000;
+const HOP_BY_HOP_HEADERS = new Set([
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+]);
+
 function createDashboardProxyService(options) {
   const { CONFIG_FILE, GATEWAY_PORT, readJSON } = options;
 
@@ -61,7 +73,7 @@ function createDashboardProxyService(options) {
   }
 
   function fixResponseHeaders(headers) {
-    const fixed = Object.assign({}, headers);
+    const fixed = stripHopByHopHeaders(headers);
     delete fixed["x-frame-options"];
     if (fixed["content-security-policy"]) {
       fixed["content-security-policy"] = fixed["content-security-policy"]
@@ -86,6 +98,182 @@ function createDashboardProxyService(options) {
     }
   }
 
+  function stripHopByHopHeaders(headers) {
+    const normalized = Object.assign({}, headers);
+    Object.keys(normalized).forEach((key) => {
+      if (HOP_BY_HOP_HEADERS.has(String(key).toLowerCase())) {
+        delete normalized[key];
+      }
+    });
+    return normalized;
+  }
+
+  function escapeHtml(text) {
+    return String(text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function buildProxyErrorHtml(title, message, detail) {
+    const safeTitle = escapeHtml(title || "OpenClaw");
+    const safeMessage = escapeHtml(message || "页面暂时不可用");
+    const safeDetail = escapeHtml(String(detail || "").trim());
+    const detailMarkup = safeDetail
+      ? `<p class="detail">${safeDetail}</p>`
+      : "";
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${safeTitle}</title>
+<style>
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: system-ui, sans-serif;
+  background: linear-gradient(180deg, #fff7ed 0%, #fff 100%);
+  color: #2f1c0f;
+}
+.card {
+  width: min(560px, 100%);
+  background: rgba(255,255,255,0.96);
+  border: 1px solid #fed7aa;
+  border-radius: 18px;
+  box-shadow: 0 18px 48px rgba(194, 65, 12, 0.12);
+  padding: 28px;
+}
+.badge {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #ffedd5;
+  color: #9a3412;
+  font-size: 13px;
+  font-weight: 700;
+}
+h1 {
+  margin: 0 0 10px;
+  font-size: 24px;
+}
+p {
+  margin: 0 0 10px;
+  line-height: 1.6;
+}
+.detail {
+  color: #7c2d12;
+  font-size: 14px;
+  word-break: break-word;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+a,
+button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+.primary {
+  background: #ea580c;
+  color: white;
+}
+.secondary {
+  background: #fff;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+</style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">Dashboard Proxy</span>
+    <h1>${safeTitle}</h1>
+    <p>${safeMessage}</p>
+    ${detailMarkup}
+    <div class="actions">
+      <button class="primary" onclick="location.reload()">立即重试</button>
+      <a class="secondary" href="/">返回管理面板</a>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  function sendProxyError(req, res, statusCode, title, message, detail) {
+    if (res.headersSent || res.writableEnded) {
+      res.destroy();
+      return;
+    }
+
+    const content = buildProxyErrorHtml(title, message, detail);
+    const body = Buffer.from(content, "utf8");
+    res.writeHead(statusCode, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Length": String(body.length),
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+
+    if (req.method === "HEAD") {
+      res.end();
+      return;
+    }
+
+    res.end(body);
+  }
+
+  function buildProxyErrorContext(err) {
+    const code = String(err?.code || "").trim();
+    const message = String(err?.message || "").trim();
+    const detail = code ? `${code}: ${message}` : message;
+
+    if (code === "ECONNREFUSED") {
+      return {
+        statusCode: 503,
+        title: "OpenClaw Gateway 尚未就绪",
+        message: "Dashboard 上游服务还没有接受连接，请稍后重试。",
+        detail,
+      };
+    }
+
+    if (
+      code === "ETIMEDOUT" ||
+      code === "ESOCKETTIMEDOUT" ||
+      /timed?\s*out/i.test(message)
+    ) {
+      return {
+        statusCode: 504,
+        title: "Dashboard 连接超时",
+        message: "已连到管理服务，但 Gateway 上游响应过慢，请检查网关状态或稍后重试。",
+        detail,
+      };
+    }
+
+    return {
+      statusCode: 503,
+      title: "Dashboard 暂时不可用",
+      message: "管理服务无法稳定连接到 Gateway 上游，页面暂时无法显示。",
+      detail,
+    };
+  }
+
   function handleDashboardHttp(req, res, url, pathname) {
     if (!pathname.startsWith("/dashboard")) {
       return false;
@@ -102,12 +290,13 @@ function createDashboardProxyService(options) {
     }
 
     // 构建代理请求头（伪装为 localhost）
-    const proxyHeaders = Object.assign({}, req.headers);
+    const proxyHeaders = stripHopByHopHeaders(req.headers);
     proxyHeaders.host = `127.0.0.1:${GATEWAY_PORT}`;
     proxyHeaders.origin = `http://127.0.0.1:${GATEWAY_PORT}`;
     proxyHeaders.referer = `http://127.0.0.1:${GATEWAY_PORT}/`;
     delete proxyHeaders["accept-encoding"]; // 禁用 gzip，方便修改 HTML
 
+    let activeProxyRes = null;
     const proxyReq = http.request(
       {
         hostname: "127.0.0.1",
@@ -117,12 +306,50 @@ function createDashboardProxyService(options) {
         headers: proxyHeaders,
       },
       (proxyRes) => {
+        activeProxyRes = proxyRes;
         const headers = fixResponseHeaders(proxyRes.headers);
+        headers["Cache-Control"] = "no-store";
+        headers["X-Content-Type-Options"] = "nosniff";
+
+        proxyRes.on("aborted", () => {
+          if (!res.headersSent) {
+            sendProxyError(
+              req,
+              res,
+              502,
+              "Dashboard 响应中断",
+              "Gateway 上游在返回页面时提前断开，页面未能完整加载。",
+              "",
+            );
+            return;
+          }
+          res.destroy();
+        });
+
+        proxyRes.on("error", (err) => {
+          console.error(`[Dashboard Proxy Upstream Error] ${err.message}`);
+          if (!res.headersSent) {
+            const context = buildProxyErrorContext(err);
+            sendProxyError(
+              req,
+              res,
+              context.statusCode,
+              context.title,
+              context.message,
+              context.detail,
+            );
+            return;
+          }
+          res.destroy(err);
+        });
 
         if (isHtmlResponse(proxyRes.headers)) {
           const chunks = [];
           proxyRes.on("data", (chunk) => chunks.push(chunk));
           proxyRes.on("end", () => {
+            if (res.writableEnded) {
+              return;
+            }
             let body = Buffer.concat(chunks).toString("utf8");
 
             const injection = getInjectionScript(gatewayToken);
@@ -141,29 +368,58 @@ function createDashboardProxyService(options) {
             delete headers["content-encoding"];
 
             res.writeHead(proxyRes.statusCode, headers);
+            if (req.method === "HEAD") {
+              res.end();
+              return;
+            }
             res.end(buf);
           });
         } else {
           res.writeHead(proxyRes.statusCode, headers);
+          if (req.method === "HEAD") {
+            proxyRes.resume();
+            res.end();
+            return;
+          }
           proxyRes.pipe(res, { end: true });
         }
       },
     );
 
-    proxyReq.on("error", (err) => {
-      console.error(`[Dashboard Proxy Error] ${err.message}`);
-      res.writeHead(503, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(`<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>OpenClaw</title>
-<style>body{display:flex;align-items:center;justify-content:center;min-height:100vh;
-font-family:system-ui,sans-serif;background:#fff5f0;color:#666;}
-.c{text-align:center;}.s{font-size:3rem;margin-bottom:1rem;}
-</style><meta http-equiv="refresh" content="3">
-</head><body><div class="c"><div class="s">🦀</div>
-<h2>OpenClaw Gateway 启动中...</h2><p>页面将自动刷新</p></div></body></html>`);
+    proxyReq.setTimeout(DASHBOARD_PROXY_TIMEOUT_MS, () => {
+      proxyReq.destroy(new Error("Dashboard upstream timed out"));
     });
 
-    req.pipe(proxyReq, { end: true });
+    proxyReq.on("error", (err) => {
+      console.error(`[Dashboard Proxy Error] ${err.message}`);
+      const context = buildProxyErrorContext(err);
+      sendProxyError(
+        req,
+        res,
+        context.statusCode,
+        context.title,
+        context.message,
+        context.detail,
+      );
+    });
+
+    const abortProxy = () => {
+      if (!proxyReq.destroyed) {
+        proxyReq.destroy();
+      }
+      if (activeProxyRes && !activeProxyRes.destroyed) {
+        activeProxyRes.destroy();
+      }
+    };
+
+    req.on("aborted", abortProxy);
+    res.on("close", abortProxy);
+
+    if (req.method === "GET" || req.method === "HEAD") {
+      proxyReq.end();
+    } else {
+      req.pipe(proxyReq, { end: true });
+    }
     return true;
   }
 
@@ -194,7 +450,7 @@ font-family:system-ui,sans-serif;background:#fff5f0;color:#666;}
       proxyPath += sep + "token=" + gatewayToken;
     }
 
-    const proxyHeaders = Object.assign({}, req.headers);
+    const proxyHeaders = stripHopByHopHeaders(req.headers);
     proxyHeaders.host = `127.0.0.1:${GATEWAY_PORT}`;
     proxyHeaders.origin = `http://127.0.0.1:${GATEWAY_PORT}`;
     proxyHeaders.referer = `http://127.0.0.1:${GATEWAY_PORT}/`;
@@ -209,6 +465,20 @@ font-family:system-ui,sans-serif;background:#fff5f0;color:#666;}
       path: proxyPath,
       method: "GET",
       headers: proxyHeaders,
+    });
+
+    proxyReq.setTimeout(DASHBOARD_PROXY_TIMEOUT_MS, () => {
+      proxyReq.destroy(new Error("Dashboard websocket upstream timed out"));
+    });
+
+    proxyReq.on("response", (proxyRes) => {
+      const statusCode = proxyRes.statusCode || 502;
+      const statusMessage = proxyRes.statusMessage || "Bad Gateway";
+      socket.write(
+        `HTTP/1.1 ${statusCode} ${statusMessage}\r\nConnection: close\r\n\r\n`,
+      );
+      proxyRes.resume();
+      socket.destroy();
     });
 
     proxyReq.on("upgrade", (proxyRes, proxySocket, proxyHead) => {
@@ -238,7 +508,18 @@ font-family:system-ui,sans-serif;background:#fff5f0;color:#666;}
 
     proxyReq.on("error", (err) => {
       console.error("[WebSocket] Proxy request error:", err.message);
+      try {
+        socket.write("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
+      } catch (writeErr) {
+        // Ignore write failures on a dead socket.
+      }
       socket.destroy();
+    });
+
+    socket.on("close", () => {
+      if (!proxyReq.destroyed) {
+        proxyReq.destroy();
+      }
     });
 
     proxyReq.end();

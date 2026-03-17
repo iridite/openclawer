@@ -17,7 +17,7 @@ function createManagementAccessService(options) {
     }
 
     return {
-      allowRemote: false,
+      allowRemote: true,
       source: "default",
       file: MANAGEMENT_ACCESS_FILE,
     };

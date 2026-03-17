@@ -418,7 +418,7 @@ function handleRequest(req, res) {
   }
 
   // 静态文件处理
-  handleStaticRequest(pathname, res);
+  handleStaticRequest(req, pathname, res);
 }
 
 // 启动服务器

@@ -2003,30 +2003,31 @@ API 类型: openai-completions
                                 <section class="system-control-panel">
                                     <div class="system-control-panel-head">
                                         <h3>管理访问</h3>
-                                        <span id="management-access-state-badge" class="access-state-badge access-state-local">仅本机</span>
+                                        <span id="management-access-state-badge" class="access-state-badge access-state-remote">远程可访问</span>
                                     </div>
                                     <p class="system-control-desc">
-                                        默认仅允许本机访问管理面板。开启远程访问后，同网段设备可直接访问管理 API，请仅在受信任网络中使用。
+                                        默认允许远程访问管理面板/API。请仅在受信任网络中使用，并确认网络边界已加固。
                                     </p>
                                     <div class="management-access-highlight">
                                         <div class="management-access-toggle-row">
                                             <div class="management-access-toggle-text">
                                                 <span class="management-access-toggle-title">允许远程访问管理面板/API</span>
-                                                <span class="management-access-toggle-subtitle">默认关闭。建议仅在远程维护窗口临时开启。</span>
+                                                <span class="management-access-toggle-subtitle">默认开启。若需收敛暴露面，可手动切换为仅本机访问。</span>
                                             </div>
                                             <button
                                                 id="management-allow-remote-switch"
-                                                class="toggle-switch"
+                                                class="toggle-switch active"
                                                 type="button"
                                                 role="switch"
-                                                aria-checked="false"
+                                                aria-checked="true"
                                                 aria-label="切换管理面板远程访问"
-                                                data-enabled="false"
+                                                data-enabled="true"
                                             ></button>
                                             <input
                                                 type="checkbox"
                                                 id="management-allow-remote"
                                                 class="management-access-hidden-input"
+                                                checked
                                             />
                                         </div>
                                         <button

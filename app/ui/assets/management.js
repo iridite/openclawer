@@ -4,6 +4,8 @@
 // Ace Editor 动态加载
 // ============================================================================
 
+const ACE_SCRIPT_TIMEOUT_MS = 4000;
+
 // 动态加载 Ace Editor
 async function loadAceEditor() {
   if (aceEditorLoaded) {
@@ -25,15 +27,22 @@ async function loadAceEditor() {
   aceEditorLoading = true;
 
   try {
-    // 加载 Ace Editor 核心库
-    await loadScript("https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/ace.js");
+    // 优先尝试本地资源；本地不存在时再退回 CDN。
+    await loadScriptCandidates([
+      "assets/vendor/ace/ace.js",
+      "https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/ace.js",
+    ]);
 
     // 加载 JSON 模式和主题
     await Promise.all([
-      loadScript("https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/mode-json.js"),
-      loadScript(
+      loadScriptCandidates([
+        "assets/vendor/ace/mode-json.js",
+        "https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/mode-json.js",
+      ]),
+      loadScriptCandidates([
+        "assets/vendor/ace/theme-monokai.js",
         "https://cdn.bootcdn.net/ajax/libs/ace/1.32.2/theme-monokai.js",
-      ),
+      ]),
     ]);
 
     aceEditorLoaded = true;
@@ -48,13 +57,57 @@ async function loadAceEditor() {
   }
 }
 
+async function loadScriptCandidates(candidates) {
+  let lastError = null;
+  for (const src of candidates) {
+    try {
+      await loadScript(src);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error("脚本加载失败");
+}
+
 // 加载单个脚本
-function loadScript(src) {
+function loadScript(src, timeoutMs = ACE_SCRIPT_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing && existing.dataset.loaded === "true") {
+      resolve();
+      return;
+    }
+
     const script = document.createElement("script");
     script.src = src;
-    script.onload = resolve;
-    script.onerror = reject;
+    let timeoutId = null;
+
+    const cleanup = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      script.onload = null;
+      script.onerror = null;
+    };
+
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      cleanup();
+      resolve();
+    };
+    script.onerror = () => {
+      cleanup();
+      script.remove();
+      reject(new Error(`脚本加载失败: ${src}`));
+    };
+
+    timeoutId = setTimeout(() => {
+      cleanup();
+      script.remove();
+      reject(new Error(`脚本加载超时: ${src}`));
+    }, timeoutMs);
+
     document.head.appendChild(script);
   });
 }
@@ -102,6 +155,60 @@ function showToast(message, type = "info") {
   }, 3500);
 }
 
+function isLikelyPolicyBlock(text) {
+  const raw = String(text || "").trim().toLowerCase();
+  if (!raw) return false;
+  return (
+    raw.includes("policy") ||
+    raw.includes("blocked") ||
+    raw.includes("block") ||
+    raw.includes("forbidden") ||
+    raw.includes("access denied") ||
+    raw.includes("denied by") ||
+    raw.includes("security rule") ||
+    raw.includes("waf") ||
+    raw.includes("拦截") ||
+    raw.includes("策略") ||
+    raw.includes("阻断") ||
+    raw.includes("禁止") ||
+    raw.includes("拒绝")
+  );
+}
+
+function build502ErrorMessage(endpoint, detail = "") {
+  const apiPath = API_BASE + endpoint;
+  const normalizedDetail = String(detail || "").trim();
+  const shortDetail = normalizedDetail
+    ? normalizedDetail.replace(/\s+/g, " ").slice(0, 240)
+    : "";
+
+  if (isLikelyPolicyBlock(shortDetail)) {
+    return [
+      `接口请求被策略拦截（HTTP 502）：${apiPath}`,
+      "这通常不是参数格式问题，而是回源链路中的安全策略/WAF 拒绝了请求。",
+      "排查建议：",
+      "1. 检查 fnOS/反向代理安全策略，确认未拦截 /api 路径",
+      "2. 在 WebUI「系统 -> 管理访问」确认当前访问来源被允许",
+      "3. 检查反向代理是否正确回源到 18790（含 Host/Origin 转发）",
+      shortDetail ? `上游返回：${shortDetail}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  return [
+    `管理接口返回 502（Bad Gateway）：${apiPath}`,
+    "这通常表示管理 API 未就绪，或反向代理到 18790 的回源异常。",
+    "排查建议：",
+    "1. 确认 oc-deploy 服务正在运行，且 18790 端口可达",
+    "2. 检查反向代理 upstream 配置与健康检查",
+    "3. 查看日志 /var/apps/oc-deploy/var/info.log",
+    shortDetail ? `上游返回：${shortDetail}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 // API 请求封装
 async function apiRequest(endpoint, options = {}) {
   const maxRetries = options.retries || 2;
@@ -124,6 +231,9 @@ async function apiRequest(endpoint, options = {}) {
         } catch (parseErr) {
           const trimmed = responseText.trim();
           if (!response.ok) {
+            if (response.status === 502) {
+              throw new Error(build502ErrorMessage(endpoint, trimmed));
+            }
             const briefBody = trimmed
               ? trimmed.slice(0, 240)
               : "空响应体";
@@ -138,6 +248,10 @@ async function apiRequest(endpoint, options = {}) {
       }
 
       if (!response.ok) {
+        if (response.status === 502) {
+          const detail = data?.error || data?.message || "";
+          throw new Error(build502ErrorMessage(endpoint, detail));
+        }
         throw new Error(data.error || "请求失败");
       }
 
@@ -3089,7 +3203,7 @@ function getManagementAccessSourceLabel(source) {
       return "WebUI 设置";
     case "default":
     default:
-      return "默认值（仅本机）";
+      return "默认值（远程可访问）";
   }
 }
 
@@ -3176,7 +3290,7 @@ async function loadManagementAccessSettings() {
     if (noteEl) {
       noteEl.textContent = result.allowRemote
         ? "当前为远程可访问模式。请确认网络边界已加固。"
-        : "当前为仅本机访问模式（推荐）。";
+        : "当前为仅本机访问模式。";
     }
     updateManagementAccessBadge(!!result.allowRemote);
   } catch (error) {
@@ -3218,7 +3332,7 @@ async function saveManagementAccessSettings() {
     if (noteEl) {
       noteEl.textContent = allowRemote
         ? "当前为远程可访问模式。请确认网络边界已加固。"
-        : "当前为仅本机访问模式（推荐）。";
+        : "当前为仅本机访问模式。";
     }
     updateManagementAccessBadge(allowRemote);
     showToast(
