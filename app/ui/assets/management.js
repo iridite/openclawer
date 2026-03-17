@@ -2892,6 +2892,10 @@ async function testModelConnection() {
           <div class="test-command" id="test-command">正在构造请求...</div>
         </div>
         <div class="test-section">
+          <div class="test-label">底层执行</div>
+          <div class="test-command" id="test-runtime">等待服务端返回底层请求信息...</div>
+        </div>
+        <div class="test-section">
           <div class="test-label">响应结果</div>
           <div class="test-response" id="test-response">等待响应...</div>
         </div>
@@ -2903,6 +2907,7 @@ async function testModelConnection() {
   const methodEl = modal.querySelector("#test-method");
   const endpointEl = modal.querySelector("#test-endpoint");
   const commandEl = modal.querySelector("#test-command");
+  const runtimeEl = modal.querySelector("#test-runtime");
 
   function normalizeTestBaseUrl(rawBaseUrl, protocol) {
     let normalized = String(rawBaseUrl || "").trim().replace(/\/+$/, "");
@@ -2922,6 +2927,96 @@ async function testModelConnection() {
       return "/responses";
     }
     return "/chat/completions";
+  }
+
+  function maskTestApiKey(value) {
+    const raw = String(value || "").trim();
+    if (!raw) {
+      return "";
+    }
+    if (raw.length <= 8) {
+      return "****";
+    }
+    return `${raw.slice(0, 8)}...`;
+  }
+
+  function buildLocalTestPayload(protocol, suffix, targetModelId) {
+    if (protocol === "anthropic") {
+      return {
+        model: targetModelId,
+        max_tokens: 10,
+        messages: [{ role: "user", content: "test" }],
+      };
+    }
+    if (suffix === "/responses") {
+      return {
+        model: targetModelId,
+        input: "test",
+        max_output_tokens: 10,
+      };
+    }
+    return {
+      model: targetModelId,
+      max_tokens: 10,
+      messages: [{ role: "user", content: "test" }],
+    };
+  }
+
+  function resolveMaskedAuthHint() {
+    if (apiKey) {
+      return maskTestApiKey(apiKey);
+    }
+    if (storageMode === "env" && apiKeyEnvVar) {
+      return `<from env:${apiKeyEnvVar}>`;
+    }
+    if (apiKeyRef && typeof apiKeyRef === "object") {
+      return "<from SecretRef>";
+    }
+    if (storageMode === "managed-file") {
+      return "<from managed secret>";
+    }
+    return "<resolved on server>";
+  }
+
+  function formatRuntimeDebug(runtime) {
+    if (!runtime || typeof runtime !== "object") {
+      return "服务端未返回底层调试信息";
+    }
+    const lines = [];
+    if (runtime.transport) {
+      lines.push(`transport: ${runtime.transport}`);
+    }
+    if (runtime.endpoint) {
+      lines.push(`endpoint: ${runtime.endpoint}`);
+    }
+    if (runtime.statusCode !== undefined && runtime.statusCode !== null) {
+      lines.push(`statusCode: ${runtime.statusCode}`);
+    }
+    if (runtime.durationMs !== undefined && runtime.durationMs !== null) {
+      lines.push(`durationMs: ${runtime.durationMs}`);
+    }
+    if (runtime.responseBytes !== undefined && runtime.responseBytes !== null) {
+      lines.push(`responseBytes: ${runtime.responseBytes}`);
+    }
+    if (runtime.errorCode) {
+      lines.push(`errorCode: ${runtime.errorCode}`);
+    }
+    if (runtime.requestOptions && typeof runtime.requestOptions === "object") {
+      lines.push("requestOptions:");
+      lines.push(JSON.stringify(runtime.requestOptions, null, 2));
+    }
+    if (runtime.headers && typeof runtime.headers === "object") {
+      lines.push("headers(masked):");
+      lines.push(JSON.stringify(runtime.headers, null, 2));
+    }
+    if (typeof runtime.bodyPreview === "string" && runtime.bodyPreview) {
+      lines.push("body:");
+      lines.push(runtime.bodyPreview);
+    }
+    if (lines.length === 0) {
+      return "服务端未返回底层调试信息";
+    }
+    return lines.join("\n");
   }
 
   // 立即显示协议类型和端点（不等待网络）
@@ -2944,12 +3039,19 @@ async function testModelConnection() {
     endpointEl.textContent = endpoint;
   }
 
-  // 立即显示基础 curl 命令（不含 API Key）
+  // 立即显示完整请求预览（敏感信息脱敏，不等待网络响应）
+  const payload = buildLocalTestPayload(protocol, endpointSuffix, modelId);
+  const payloadText = JSON.stringify(payload);
+  const authHint = resolveMaskedAuthHint();
   const basicCurl = protocol === "anthropic"
-    ? `curl -X POST ${endpoint} \\\n  -H "anthropic-version: 2023-06-01" \\\n  -H "content-type: application/json"`
-    : `curl -X POST ${endpoint} \\\n  -H "content-type: application/json"`;
+    ? `curl -X POST '${endpoint}' \\\n  -H 'x-api-key: ${authHint}' \\\n  -H 'anthropic-version: 2023-06-01' \\\n  -H 'Content-Type: application/json' \\\n  -d '${payloadText}' --max-time 5`
+    : `curl -X POST '${endpoint}' \\\n  -H 'Authorization: Bearer ${authHint}' \\\n  -H 'Content-Type: application/json' \\\n  -d '${payloadText}' --max-time 5`;
   if (commandEl) {
     commandEl.textContent = basicCurl;
+  }
+  if (runtimeEl) {
+    runtimeEl.textContent =
+      "transport: Node.js http(s).request\nstatus: pending";
   }
 
   try {
@@ -2971,6 +3073,9 @@ async function testModelConnection() {
     // 更新完整 curl 命令（含脱敏 API Key）
     if (result.curlCommand && commandEl) {
       commandEl.textContent = result.curlCommand;
+    }
+    if (runtimeEl) {
+      runtimeEl.textContent = formatRuntimeDebug(result.runtime);
     }
     const responseEl = modal.querySelector("#test-response");
 
@@ -3015,6 +3120,10 @@ async function testModelConnection() {
 
   } catch (error) {
     const responseEl = modal.querySelector("#test-response");
+    if (runtimeEl) {
+      runtimeEl.textContent =
+        "transport: Node.js http(s).request\nstatus: failed before runtime data returned";
+    }
     if (responseEl) {
       responseEl.className = "test-response error";
       responseEl.textContent = error.message || "请求失败";

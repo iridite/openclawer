@@ -309,8 +309,63 @@ function createModelTestService(options = {}) {
     );
   }
 
+  function buildMaskedRuntimeHeaders(headers = {}) {
+    const masked = { ...headers };
+    if (typeof masked.Authorization === "string") {
+      const token = masked.Authorization.replace(/^Bearer\s+/i, "");
+      masked.Authorization = `Bearer ${maskApiKey(token)}`;
+    }
+    if (typeof masked["x-api-key"] === "string") {
+      masked["x-api-key"] = maskApiKey(masked["x-api-key"]);
+    }
+    return masked;
+  }
+
+  function buildRuntimeRequestDebug(request, timeoutMs = 5000) {
+    const endpoint = String(request?.endpoint || "").trim();
+    if (!endpoint) {
+      return {};
+    }
+
+    let target;
+    try {
+      target = new URL(endpoint);
+    } catch (err) {
+      return {
+        endpoint,
+        note: "endpoint parse failed",
+      };
+    }
+
+    const method = "POST";
+    const payloadText = JSON.stringify(request.payload || {});
+    const defaultPort = target.protocol === "https:" ? 443 : 80;
+    const port = target.port ? parseInt(target.port, 10) : defaultPort;
+    const requestHeaders = {
+      ...request.headers,
+      "Content-Length": Buffer.byteLength(payloadText),
+    };
+
+    return {
+      transport: target.protocol === "https:" ? "https.request" : "http.request",
+      endpoint,
+      requestOptions: {
+        protocol: target.protocol,
+        hostname: target.hostname,
+        port,
+        path: `${target.pathname}${target.search}`,
+        method,
+        timeoutMs,
+      },
+      headers: buildMaskedRuntimeHeaders(requestHeaders),
+      bodyBytes: Buffer.byteLength(payloadText),
+      bodyPreview: payloadText,
+    };
+  }
+
   function requestJson(endpoint, method, headers, payload, timeoutMs = 5000) {
     return new Promise((resolve, reject) => {
+      const startedAt = Date.now();
       let target;
       try {
         target = new URL(endpoint);
@@ -342,16 +397,23 @@ function createModelTestService(options = {}) {
               statusCode: res.statusCode || 0,
               body: text,
               headers: res.headers || {},
+              durationMs: Date.now() - startedAt,
             });
           });
         },
       );
 
       req.setTimeout(timeoutMs, () => {
-        req.destroy(new Error("请求超时"));
+        const timeoutErr = new Error("请求超时");
+        timeoutErr.code = "ETIMEDOUT";
+        timeoutErr.durationMs = Date.now() - startedAt;
+        req.destroy(timeoutErr);
       });
 
       req.on("error", (err) => {
+        if (typeof err.durationMs !== "number") {
+          err.durationMs = Date.now() - startedAt;
+        }
         reject(err);
       });
 
@@ -364,6 +426,7 @@ function createModelTestService(options = {}) {
     const validation = validateTestConfig(config);
     const request = buildRequest(config, validation.currentConfig);
     const maskedCommand = buildMaskedCurlPreview(request);
+    const runtimeDebug = buildRuntimeRequestDebug(request, 5000);
     const { endpoint, protocol, endpointSuffix, headers, payload } = request;
 
     try {
@@ -396,6 +459,12 @@ function createModelTestService(options = {}) {
         endpoint,
         curlCommand: maskedCommand,
         response: result.body,
+        runtime: {
+          ...runtimeDebug,
+          statusCode: result.statusCode,
+          durationMs: result.durationMs,
+          responseBytes: Buffer.byteLength(String(result.body || ""), "utf8"),
+        },
       };
     } catch (err) {
       return {
@@ -403,6 +472,13 @@ function createModelTestService(options = {}) {
         endpoint,
         curlCommand: maskedCommand,
         response: err?.message || String(err),
+        runtime: {
+          ...runtimeDebug,
+          statusCode: 0,
+          durationMs: typeof err?.durationMs === "number" ? err.durationMs : null,
+          responseBytes: 0,
+          errorCode: String(err?.code || "").trim(),
+        },
       };
     }
   }
