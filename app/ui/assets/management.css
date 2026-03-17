@@ -1993,6 +1993,9 @@ span[title] {
     border-radius: 8px;
     padding: 16px;
     transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .channel-card:hover {
@@ -2037,12 +2040,14 @@ span[title] {
 
 .channel-card-actions {
     display: flex;
+    justify-content: center;
     gap: 8px;
-    margin-top: 12px;
+    margin-top: auto;
+    padding-top: 12px;
 }
 
 .channel-card-actions .btn {
-    flex: 1;
+    flex: 0 1 120px;
     padding: 6px 12px;
     font-size: 0.85rem;
 }
