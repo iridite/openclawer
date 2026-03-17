@@ -1429,12 +1429,24 @@ span[title] {
     padding: 16px;
     transition: all 0.3s;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    cursor: default;
+}
+
+.model-card-selectable {
     cursor: pointer;
 }
 
 .model-card:hover {
     box-shadow: 0 4px 12px var(--shadow);
     transform: translateY(-2px);
+}
+
+.model-card-selectable:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
 }
 
 /* Primary 模型高亮样式 */
@@ -1518,7 +1530,8 @@ span[title] {
 .model-card-actions {
     display: flex;
     gap: 8px;
-    margin-top: 12px;
+    margin-top: auto;
+    padding-top: 12px;
 }
 
 .model-card-actions .btn {

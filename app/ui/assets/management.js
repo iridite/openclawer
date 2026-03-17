@@ -1372,9 +1372,13 @@ async function loadModelsList() {
           // 判断是否为 primary 模型
           const isPrimary = modelKey === primaryModel;
           const primaryClass = isPrimary ? " model-card-primary" : "";
+          const selectableClass = isPrimary ? "" : " model-card-selectable";
+          const selectionAttrs = isPrimary
+            ? ""
+            : ' tabindex="0" title="点击设为主模型" aria-label="点击设为主模型"';
 
           html += `
-          <div class="model-card${primaryClass}" data-model-key="${modelKey}">
+          <div class="model-card${primaryClass}${selectableClass}" data-model-key="${modelKey}"${selectionAttrs}>
           <div class="model-card-header">
             <h3 class="model-card-title">${modelKey}</h3>
             ${isPrimary ? '<span class="primary-badge">主模型</span>' : ''}
@@ -1394,7 +1398,6 @@ async function loadModelsList() {
               </div>
             </div>
             <div class="model-card-actions">
-              ${!isPrimary ? `<button class="btn btn-primary btn-sm set-primary-btn" data-model-key="${modelKey}">设为主模型</button>` : ''}
               <button class="btn btn-secondary btn-sm edit-model-btn" data-provider="${providerName}" data-model="${modelId}">
                 编辑
               </button>
@@ -1410,11 +1413,20 @@ async function loadModelsList() {
 
     modelsListEl.innerHTML = html;
 
-    // 为"设为主模型"按钮添加点击事件
-    modelsListEl.querySelectorAll(".set-primary-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const modelKey = btn.dataset.modelKey;
+    modelsListEl.querySelectorAll(".model-card-selectable").forEach((card) => {
+      card.addEventListener("click", () => {
+        const modelKey = card.dataset.modelKey;
+        if (modelKey) {
+          setPrimaryModel(modelKey);
+        }
+      });
+
+      card.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") {
+          return;
+        }
+        e.preventDefault();
+        const modelKey = card.dataset.modelKey;
         if (modelKey) {
           setPrimaryModel(modelKey);
         }
