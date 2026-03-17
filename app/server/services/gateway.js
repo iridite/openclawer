@@ -268,7 +268,7 @@ function createGatewayService(options) {
     return { url, token };
   }
 
-  async function getLogs(lines = 100) {
+  async function getLogs(lines = 1000) {
     try {
       if (!fs.existsSync(LOG_FILE)) {
         return { logs: "(日志文件尚不存在，请先启动 Gateway)" };

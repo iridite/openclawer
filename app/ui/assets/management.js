@@ -3601,7 +3601,7 @@ async function openConsole() {
 
 async function refreshLogs() {
   try {
-    const result = await apiRequest("/logs?lines=100");
+    const result = await apiRequest("/logs?lines=1000");
     const logContent = document.getElementById("log-content");
     logContent.textContent = result.logs || "(暂无日志)";
 

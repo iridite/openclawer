@@ -140,7 +140,7 @@ function createRouter(deps) {
       "GET /api/plugins/wecom/status": getWecomPluginStatus,
       "POST /api/plugins/wecom/install": installWecomPlugin,
       "GET /api/console/url": () => getConsoleUrl(req),
-      "GET /api/logs": () => getLogs(parseInt(url.searchParams.get("lines") || "100", 10)),
+      "GET /api/logs": () => getLogs(parseInt(url.searchParams.get("lines") || "1000", 10)),
       "GET /api/skills/search": () => {
         const query = url.searchParams.get("q") || "";
         const limit = parseInt(url.searchParams.get("limit") || "20", 10);
