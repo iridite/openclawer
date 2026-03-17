@@ -112,6 +112,28 @@ body {
     body {
         background: linear-gradient(135deg, oklch(15% 0.005 40) 0%, oklch(18% 0.008 40) 50%, oklch(20% 0.01 40) 100%);
     }
+
+    .topbar-shell {
+        background:
+            radial-gradient(circle at top right, rgba(244, 81, 30, 0.2), transparent 52%),
+            linear-gradient(120deg, rgba(35, 35, 35, 0.92), rgba(28, 28, 28, 0.96));
+        border-color: rgba(244, 81, 30, 0.35);
+    }
+
+    .header {
+        border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .tabs {
+        background: rgba(24, 24, 24, 0.82);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .header-chip {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.12);
+        color: var(--text-light);
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -139,19 +161,38 @@ body {
 }
 
 /* 头部 */
-.header {
-    background: var(--bg-white);
-    border-radius: 12px;
-    padding: var(--space-6);
+.topbar-shell {
+    background:
+        radial-gradient(circle at top right, rgba(244, 81, 30, 0.16), transparent 48%),
+        linear-gradient(120deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.96));
+    border: 1px solid rgba(244, 81, 30, 0.2);
+    border-radius: 16px;
+    padding: 10px;
     margin-bottom: var(--space-5);
-    box-shadow: 0 2px 8px var(--shadow);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.header {
+    background: transparent;
+    border-radius: 12px;
+    padding: var(--space-5);
+    margin-bottom: var(--space-3);
+    box-shadow: none;
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(2px);
     display: flex;
-    align-items: center;
-    gap: var(--space-5);
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-6);
 }
 
 .logo svg {
     display: block;
+}
+
+.header-main {
+    flex: 1;
+    min-width: 0;
 }
 
 .header-info {
@@ -166,9 +207,53 @@ body {
     color: var(--text-dark);
 }
 
+.header-kicker {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(244, 81, 30, 0.12);
+    border: 1px solid rgba(244, 81, 30, 0.28);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--primary-dark);
+}
+
 .subtitle {
     color: var(--text-gray);
     font-size: var(--text-sm);
+    max-width: 780px;
+}
+
+.header-meta {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.header-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    color: var(--text-gray);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.header-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 180px;
 }
 
 .header-status {
@@ -253,11 +338,12 @@ body {
 .tabs {
     display: flex;
     gap: var(--space-2);
-    margin-bottom: var(--space-5);
-    background: var(--bg-white);
+    margin-bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.25);
     padding: var(--space-2);
     border-radius: 12px;
-    box-shadow: 0 2px 8px var(--shadow);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
 }
 
 .tab-btn {
@@ -1106,12 +1192,36 @@ body {
 @media (max-width: 640px) {
     .header {
         flex-direction: column;
-        text-align: center;
+        align-items: stretch;
+        text-align: left;
         padding: var(--space-4);
     }
 
     .tabs {
-        flex-direction: column;
+        overflow-x: auto;
+        white-space: nowrap;
+        scrollbar-width: thin;
+    }
+
+    .tab-btn {
+        flex: 0 0 auto;
+        min-width: 76px;
+    }
+
+    .header-side {
+        width: 100%;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .header-meta {
+        gap: 6px;
+    }
+
+    .header-chip {
+        font-size: 0.72rem;
     }
 
     .info-grid {

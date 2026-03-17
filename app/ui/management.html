@@ -13,42 +13,54 @@
     </head>
     <body>
         <div class="container">
-            <!-- 头部 -->
-            <header class="header">
-                <div class="header-info">
-                    <h1>OC-Deploy 管理面板</h1>
-                    <p class="subtitle">
-                        这里负责 Gateway 的运行与配置；原生控制面板用于管理 AI
-                        智能体与对话，不负责网关启停与部署。
-                    </p>
-                </div>
-                <div class="header-links">
-                    <a
-                        class="github-link"
-                        href="https://github.com/iridite/openclawer"
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label="打开 GitHub 仓库"
-                        >GitHub</a
-                    >
-                </div>
-                <div class="header-status">
-                    <div class="status-badge" id="gatewayStatus">
-                        <span class="status-dot"></span>
-                        <span class="status-text">检查中...</span>
+            <div class="topbar-shell">
+                <!-- 头部 -->
+                <header class="header">
+                    <div class="header-main">
+                        <div class="header-info">
+                            <p class="header-kicker">OC-Deploy</p>
+                            <h1>管理面板</h1>
+                            <p class="subtitle">
+                                这里负责 Gateway 的运行与配置；原生控制面板用于管理 AI
+                                智能体与对话，不负责网关启停与部署。
+                            </p>
+                            <div class="header-meta">
+                                <span class="header-chip">Gateway 运维</span>
+                                <span class="header-chip">配置编辑</span>
+                                <span class="header-chip">技能与版本管理</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </header>
+                    <div class="header-side">
+                        <div class="header-status">
+                            <div class="status-badge" id="gatewayStatus">
+                                <span class="status-dot"></span>
+                                <span class="status-text">检查中...</span>
+                            </div>
+                        </div>
+                        <div class="header-links">
+                            <a
+                                class="github-link"
+                                href="https://github.com/iridite/openclawer"
+                                target="_blank"
+                                rel="noreferrer"
+                                aria-label="打开 GitHub 仓库"
+                                >GitHub</a
+                            >
+                        </div>
+                    </div>
+                </header>
 
-            <!-- 标签页导航 -->
-            <nav class="tabs">
-                <button class="tab-btn active" data-tab="overview">概览</button>
-                <button class="tab-btn" data-tab="models">模型</button>
-                <button class="tab-btn" data-tab="channels">渠道</button>
-                <button class="tab-btn" data-tab="config">配置</button>
-                <button class="tab-btn" data-tab="skills">技能</button>
-                <button class="tab-btn" data-tab="system">系统</button>
-            </nav>
+                <!-- 标签页导航 -->
+                <nav class="tabs">
+                    <button class="tab-btn active" data-tab="overview">概览</button>
+                    <button class="tab-btn" data-tab="models">模型</button>
+                    <button class="tab-btn" data-tab="channels">渠道</button>
+                    <button class="tab-btn" data-tab="config">配置</button>
+                    <button class="tab-btn" data-tab="skills">技能</button>
+                    <button class="tab-btn" data-tab="system">系统</button>
+                </nav>
+            </div>
 
             <!-- 标签页内容 -->
             <main class="content">
