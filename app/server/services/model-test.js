@@ -1,8 +1,49 @@
 const http = require("http");
 const https = require("https");
 const { URL } = require("url");
+const {
+  resolveProviderApiKeyValue,
+  resolveSecretRefValue,
+} = require("../core/secrets");
 
-function createModelTestService() {
+function createModelTestService(options = {}) {
+  const { CONFIG_FILE, readJSON } = options;
+
+  function loadCurrentConfig() {
+    if (!CONFIG_FILE || typeof readJSON !== "function") {
+      return null;
+    }
+    const config = readJSON(CONFIG_FILE);
+    return config && typeof config === "object" ? config : null;
+  }
+
+  function resolveApiKey(config) {
+    const directApiKey = String(config?.apiKey || "").trim();
+    if (directApiKey) {
+      return directApiKey;
+    }
+
+    const currentConfig = loadCurrentConfig();
+    if (!currentConfig) {
+      return "";
+    }
+
+    if (config?.apiKeyRef && typeof config.apiKeyRef === "object") {
+      const value = resolveSecretRefValue(config.apiKeyRef, currentConfig, process.env);
+      if (value) {
+        return value;
+      }
+    }
+
+    const providerName = String(config?.providerName || "").trim();
+    if (!providerName) {
+      return "";
+    }
+
+    const provider = currentConfig?.models?.providers?.[providerName];
+    return resolveProviderApiKeyValue(provider, currentConfig, process.env);
+  }
+
   function normalizeBaseUrl(baseUrl, protocol) {
     const raw = String(baseUrl || "").trim();
     if (!raw) return "";
@@ -24,9 +65,10 @@ function createModelTestService() {
   }
 
   function buildRequest(config) {
-    const { providerName, modelId, baseUrl, apiKey, apiProtocol } = config;
+    const { providerName, modelId, baseUrl, apiProtocol } = config;
     const protocol = String(apiProtocol || providerName || "openai").toLowerCase();
     const normalizedBaseUrl = normalizeBaseUrl(baseUrl, protocol);
+    const resolvedApiKey = resolveApiKey(config);
 
     if (protocol === "anthropic") {
       const endpoint = `${normalizedBaseUrl}/v1/messages`;
@@ -40,7 +82,7 @@ function createModelTestService() {
         protocol,
         payload,
         headers: {
-          "x-api-key": String(apiKey || ""),
+          "x-api-key": String(resolvedApiKey || ""),
           "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         },
@@ -58,7 +100,7 @@ function createModelTestService() {
       protocol,
       payload,
       headers: {
-        Authorization: `Bearer ${String(apiKey || "")}`,
+        Authorization: `Bearer ${String(resolvedApiKey || "")}`,
         "Content-Type": "application/json",
       },
     };

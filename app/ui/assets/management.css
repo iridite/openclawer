@@ -1969,11 +1969,25 @@ span[title] {
     transition: width 0.3s ease;
 }
 
+.skills-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.skills-section-header h3 {
+    margin: 0;
+}
+
 /* Card footer */
 .skill-card-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
     margin-top: auto;
     padding-top: 12px;
     border-top: 1px solid var(--border);
@@ -1984,6 +1998,25 @@ span[title] {
     align-items: center;
     gap: 8px;
     font-size: 0.85rem;
+}
+
+.skill-toggle-status {
+    font-size: 0.82rem;
+    color: var(--text-light);
+}
+
+.skill-toggle-status.enabled {
+    color: var(--success);
+}
+
+.skill-toggle-status.disabled {
+    color: var(--danger);
+}
+
+.skill-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 /* Path list styles */
@@ -2085,7 +2118,10 @@ span[title] {
     width: 44px;
     height: 24px;
     background: var(--border);
+    border: none;
+    padding: 0;
     border-radius: 12px;
+    appearance: none;
     cursor: pointer;
     transition: background 0.3s;
 }
@@ -2108,6 +2144,11 @@ span[title] {
 
 .toggle-switch.active::after {
     transform: translateX(20px);
+}
+
+.toggle-switch:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* Responsive adjustments */

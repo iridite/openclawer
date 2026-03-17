@@ -125,7 +125,10 @@ const {
   analyzeConfigImpact,
 } = configService;
 
-const modelTestService = createModelTestService({ execCommand });
+const modelTestService = createModelTestService({
+  CONFIG_FILE,
+  readJSON,
+});
 const { testModel } = modelTestService;
 
 const backupService = createBackupService({
@@ -164,6 +167,7 @@ const {
 const skillsService = createSkillsService({
   OC_HOME,
   TRIM_PKGVAR,
+  CONFIG_FILE,
   readJSON,
   writeJSON,
 });
@@ -172,6 +176,9 @@ const {
   install: installSkill,
   list: listSkills,
   uninstall: uninstallSkill,
+  toggle: toggleSkill,
+  update: updateSkill,
+  updateAll: updateAllSkills,
 } = skillsService;
 
 const managementAccessService = createManagementAccessService({
@@ -222,6 +229,9 @@ const router = createRouter({
   installSkill,
   listSkills,
   uninstallSkill,
+  toggleSkill,
+  updateSkill,
+  updateAllSkills,
   getManagementAccess,
   setManagementAccess,
 });

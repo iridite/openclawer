@@ -1,6 +1,15 @@
 const fs = require("fs");
 const crypto = require("crypto");
+const path = require("path");
 const { findPrimaryModelFallback, cleanupEmptyProvider } = require("../core/config-helpers");
+const {
+  OC_DEPLOY_SECRETS_FILENAME,
+  inferApiKeyStorageMode,
+  ensureEnvSecretProvider,
+  buildEnvSecretRef,
+  setManagedProviderApiKey,
+  removeManagedProviderApiKey,
+} = require("../core/secrets");
 
 function createConfigService(deps) {
   const {
@@ -14,6 +23,117 @@ function createConfigService(deps) {
     getTokenFromConfig,
     restartGateway,
   } = deps;
+  const SECRET_FILE_PATH = path.join(
+    path.dirname(CONFIG_FILE),
+    OC_DEPLOY_SECRETS_FILENAME,
+  );
+
+  function normalizeBool(value) {
+    return value === true || value === "true";
+  }
+
+  function isValidEnvVarName(name) {
+    return /^[A-Z_][A-Z0-9_]*$/.test(String(name || "").trim());
+  }
+
+  function cleanupManagedProviderSecretIfNeeded(providerName) {
+    removeManagedProviderApiKey({
+      providerName,
+      secretFilePath: SECRET_FILE_PATH,
+    });
+  }
+
+  function maybeMigratePlaintextProviderKeys(config) {
+    const providers = config?.models?.providers;
+    if (!providers || typeof providers !== "object") {
+      return { changed: false, migrated: 0 };
+    }
+
+    let changed = false;
+    let migrated = 0;
+
+    for (const [providerName, provider] of Object.entries(providers)) {
+      if (!provider || typeof provider !== "object" || Array.isArray(provider)) {
+        continue;
+      }
+      if (typeof provider.apiKey !== "string") {
+        continue;
+      }
+      const raw = provider.apiKey.trim();
+      if (!raw) {
+        continue;
+      }
+
+      provider.apiKey = setManagedProviderApiKey({
+        config,
+        providerName,
+        apiKey: raw,
+        secretFilePath: SECRET_FILE_PATH,
+      });
+      changed = true;
+      migrated += 1;
+    }
+
+    return { changed, migrated };
+  }
+
+  function buildProviderApiKeyForSave(config, providerName, modelData, existingApiKey) {
+    const requestedMode = String(
+      modelData?.apiKeyStorageMode || inferApiKeyStorageMode(existingApiKey),
+    ).trim();
+    const normalizedMode = requestedMode === "file-direct"
+      ? "managed-file"
+      : requestedMode;
+    const mode = normalizedMode || "managed-file";
+    const rawApiKey = String(modelData?.apiKey || "").trim();
+    const keepExisting = normalizeBool(modelData?.keepExistingApiKeyRef);
+
+    if (mode === "env") {
+      const envVar = String(modelData?.apiKeyEnvVar || "").trim();
+      if (!isValidEnvVarName(envVar)) {
+        throw new Error("环境变量名不合法（示例：OPENAI_API_KEY）");
+      }
+      ensureEnvSecretProvider(config, "default");
+      return {
+        value: buildEnvSecretRef(envVar, "default"),
+        storageMode: "env",
+      };
+    }
+
+    if (mode === "managed-file") {
+      if (
+        keepExisting &&
+        existingApiKey &&
+        typeof existingApiKey === "object" &&
+        !Array.isArray(existingApiKey)
+      ) {
+        return {
+          value: existingApiKey,
+          storageMode: "managed-file",
+        };
+      }
+      if (!rawApiKey) {
+        throw new Error("API Key 不能为空");
+      }
+      return {
+        value: setManagedProviderApiKey({
+          config,
+          providerName,
+          apiKey: rawApiKey,
+          secretFilePath: SECRET_FILE_PATH,
+        }),
+        storageMode: "managed-file",
+      };
+    }
+
+    if (!rawApiKey) {
+      throw new Error("API Key 不能为空");
+    }
+    return {
+      value: rawApiKey,
+      storageMode: "plaintext",
+    };
+  }
 
   function buildFallbackResetConfig(existingConfig = {}) {
     const packageJson = readJSON(OC_PKG_JSON_PATH);
@@ -97,6 +217,15 @@ function createConfigService(deps) {
         },
       };
     }
+
+    const migration = maybeMigratePlaintextProviderKeys(config);
+    if (migration.changed) {
+      const writeOk = writeJSON(CONFIG_FILE, config);
+      if (!writeOk) {
+        throw new Error("明文 API Key 自动迁移失败：无法写入配置文件");
+      }
+    }
+
     return config;
   }
 
@@ -104,6 +233,9 @@ function createConfigService(deps) {
     if (!newConfig || typeof newConfig !== "object") {
       throw new Error("无效的配置格式");
     }
+
+    // 自动将明文 API Key 转换为 SecretRef（托管文件）
+    maybeMigratePlaintextProviderKeys(newConfig);
 
     const validation = await validateConfig(newConfig);
     if (!validation.valid) {
@@ -195,11 +327,14 @@ function createConfigService(deps) {
     }
   }
 
-  function removeOldModel(config, editModelKey) {
+  function removeOldModel(config, editModelKey, options = {}) {
+    const { cleanupProviderSecret = true } = options;
     const [oldProvider, ...oldModelIdParts] = editModelKey.split("/");
     const oldModelId = oldModelIdParts.join("/");
 
-    if (!config.models.providers[oldProvider]) return;
+    if (!config.models.providers[oldProvider]) {
+      return { oldProvider, providerRemoved: false };
+    }
 
     const oldModelIndex = config.models.providers[oldProvider].models?.findIndex((m) => {
       const mId = m.id || "";
@@ -216,20 +351,34 @@ function createConfigService(deps) {
       delete config.agents.defaults.models[editModelKey];
     }
 
-    cleanupEmptyProvider(config, oldProvider);
+    const providerRemoved = cleanupEmptyProvider(config, oldProvider);
+    if (providerRemoved && cleanupProviderSecret) {
+      cleanupManagedProviderSecretIfNeeded(oldProvider);
+    }
+
+    return { oldProvider, providerRemoved };
   }
 
-  function ensureProvider(config, providerName, baseUrl, apiKey, apiType, apiProtocol) {
+  function ensureProvider(
+    config,
+    providerName,
+    baseUrl,
+    providerApiKey,
+    apiType,
+    apiProtocol,
+  ) {
     if (!config.models.providers[providerName]) {
       config.models.providers[providerName] = {
         baseUrl,
-        apiKey,
+        apiKey: providerApiKey,
         api: apiType || apiProtocol,
         models: [],
       };
     } else {
       if (baseUrl) config.models.providers[providerName].baseUrl = baseUrl;
-      if (apiKey) config.models.providers[providerName].apiKey = apiKey;
+      if (providerApiKey !== undefined) {
+        config.models.providers[providerName].apiKey = providerApiKey;
+      }
       if (apiType || apiProtocol) {
         config.models.providers[providerName].api = apiType || apiProtocol;
       }
@@ -298,17 +447,55 @@ function createConfigService(deps) {
       config.agents.defaults = config.agents.defaults || {};
       config.agents.defaults.models = config.agents.defaults.models || {};
 
-      const { providerName, modelId, baseUrl, apiKey, apiProtocol, apiType, advanced, isEditMode, editModelKey } = modelData;
+      const {
+        providerName,
+        modelId,
+        apiProtocol,
+        apiType,
+        advanced,
+        isEditMode,
+        editModelKey,
+      } = modelData;
+      const baseUrl = String(modelData?.baseUrl || "").trim();
 
       validateModelData(modelData);
 
+      const existingApiKey = config.models.providers[providerName]?.apiKey;
+      const providerApiKeyPayload = buildProviderApiKeyForSave(
+        config,
+        providerName,
+        modelData,
+        existingApiKey,
+      );
+
+      let oldModelCleanup = null;
       if (isEditMode && editModelKey) {
-        removeOldModel(config, editModelKey);
+        oldModelCleanup = removeOldModel(config, editModelKey, {
+          cleanupProviderSecret: false,
+        });
       }
 
-      ensureProvider(config, providerName, baseUrl, apiKey, apiType, apiProtocol);
+      ensureProvider(
+        config,
+        providerName,
+        baseUrl,
+        providerApiKeyPayload.value,
+        apiType,
+        apiProtocol,
+      );
       const modelConfig = buildModelConfig(modelId, advanced);
       upsertModel(config, providerName, modelId, modelConfig);
+
+      if (providerApiKeyPayload.storageMode !== "managed-file") {
+        cleanupManagedProviderSecretIfNeeded(providerName);
+      }
+      if (
+        oldModelCleanup?.providerRemoved &&
+        oldModelCleanup.oldProvider &&
+        oldModelCleanup.oldProvider !== providerName
+      ) {
+        cleanupManagedProviderSecretIfNeeded(oldModelCleanup.oldProvider);
+      }
 
       const agentModelKey = `${providerName}/${modelId}`;
       config.agents.defaults.models[agentModelKey] = {};
@@ -321,6 +508,7 @@ function createConfigService(deps) {
         success: true,
         message: isEditMode ? "模型修改成功" : "模型添加成功",
         modelKey: agentModelKey,
+        apiKeyStorage: providerApiKeyPayload.storageMode,
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : typeof err === "string" ? err : JSON.stringify(err);
@@ -401,6 +589,7 @@ function createConfigService(deps) {
 
       if (provider.models.length === 0) {
         delete config.models.providers[providerName];
+        cleanupManagedProviderSecretIfNeeded(providerName);
       }
 
       if (config.agents?.defaults?.models?.[modelKey]) {

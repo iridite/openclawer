@@ -576,12 +576,9 @@ API 类型: openai-completions
                                             <div class="form-group">
                                                 <label>
                                                     API Key
-                                                    <span class="required"
-                                                        >*</span
-                                                    >
                                                     <span
                                                         class="tooltip-icon"
-                                                        data-tooltip="API Key 用于鉴权与计费。建议使用最小权限密钥并定期轮换；保存后界面会脱敏显示。"
+                                                        data-tooltip="推荐使用 SecretRef（环境变量或文件）保存 API Key，避免明文落盘。"
                                                         >ⓘ</span
                                                     >
                                                 </label>
@@ -590,9 +587,74 @@ API 类型: openai-completions
                                                     id="api-key"
                                                     name="apiKey"
                                                     placeholder="输入 API Key"
+                                                />
+                                                <p class="help-text" id="api-key-input-note">
+                                                    默认写入受管密钥文件并以 SecretRef 引用；保存后不再在配置中明文展示。
+                                                </p>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>
+                                                    API Key 存储方式
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                    <span
+                                                        class="tooltip-icon"
+                                                        data-tooltip="受管文件和环境变量均使用 OpenClaw SecretRef 机制；仅在兼容场景下建议使用明文。"
+                                                        >ⓘ</span
+                                                    >
+                                                </label>
+                                                <select
+                                                    id="api-key-storage-mode"
+                                                    name="apiKeyStorageMode"
                                                     required
+                                                    onchange="handleApiKeyStorageModeChange()"
+                                                >
+                                                    <option value="managed-file">
+                                                        受管密钥文件（推荐）
+                                                    </option>
+                                                    <option value="env">
+                                                        环境变量（SecretRef）
+                                                    </option>
+                                                </select>
+                                                <p class="help-text" id="api-key-storage-note">
+                                                    推荐：受管密钥文件（SecretRef），密钥将保存到 <code>/root/.openclaw/oc-deploy-secrets.json</code>。
+                                                </p>
+                                            </div>
+
+                                            <div
+                                                class="form-group"
+                                                id="api-key-env-var-group"
+                                                style="display: none"
+                                            >
+                                                <label>
+                                                    环境变量名
+                                                    <span class="required"
+                                                        >*</span
+                                                    >
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="api-key-env-var"
+                                                    name="apiKeyEnvVar"
+                                                    placeholder="例如：OPENAI_API_KEY"
+                                                    pattern="[A-Z_][A-Z0-9_]*"
                                                 />
                                             </div>
+
+                                            <input
+                                                type="hidden"
+                                                id="keep-existing-api-key-ref"
+                                                name="keepExistingApiKeyRef"
+                                                value="false"
+                                            />
+                                            <input
+                                                type="hidden"
+                                                id="existing-api-key-ref"
+                                                name="existingApiKeyRef"
+                                                value=""
+                                            />
 
                                             <div class="form-group">
                                                 <label>
@@ -1902,7 +1964,7 @@ API 类型: openai-completions
                         <div class="form-hint warning" style="margin-bottom: 20px;">
                             <strong>💡 安装位置说明</strong><br>
                             通过此面板安装的 Skills 将保存到 <code>/root/.openclaw/skills/</code> 目录。<br>
-                            安装记录保存在 <code>/root/.openclaw/.skills_store_lock.json</code> 文件中。
+                            安装记录保存在 <code>/root/.openclaw/skills/.skills_store_lock.json</code> 文件中。
                         </div>
 
                         <div class="card">
@@ -1916,7 +1978,9 @@ API 类型: openai-completions
 
                         <div class="card">
                             <h2>技能列表</h2>
-                            <p class="help-text">包含用户安装的技能和系统内置技能。内置技能可以启用或禁用，用户技能可以卸载。</p>
+                            <p class="help-text">包含用户安装技能与系统内置技能。所有技能均可启用/禁用；用户技能支持更新和卸载。</p>
+                            <p class="help-text">启用状态会写入 <code>openclaw.json</code> 的 <code>skills.entries.&lt;skillKey&gt;.enabled</code>。若技能声明了 <code>metadata.openclaw.skillKey</code>，将按该键保存。</p>
+                            <p class="help-text">提示：当 <code>skills.load.watch=true</code> 时通常会在下一轮加载自动生效；若未开启 watch，可能需要重载配置或重启网关。</p>
                             <button id="skills-refresh-btn" class="btn btn-ghost">刷新列表</button>
                             <div id="skills-installed-list" class="skills-list"></div>
                         </div>
@@ -2202,8 +2266,8 @@ API 类型: openai-completions
                                 <div class="path-item">
                                     <div class="path-label">Skills 锁文件</div>
                                     <div class="path-value-wrapper">
-                                        <code class="path-value">/root/.openclaw/.skills_store_lock.json</code>
-                                        <button class="path-copy-btn" onclick="copyPath('/root/.openclaw/.skills_store_lock.json')" title="复制路径">
+                                        <code class="path-value">/root/.openclaw/skills/.skills_store_lock.json</code>
+                                        <button class="path-copy-btn" onclick="copyPath('/root/.openclaw/skills/.skills_store_lock.json')" title="复制路径">
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>

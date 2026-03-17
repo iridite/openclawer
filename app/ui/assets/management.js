@@ -830,6 +830,17 @@ async function quickAddModel(modelId) {
   document.getElementById("provider-name").value = modelData.providerName;
   document.getElementById("base-url").value = modelData.baseUrl;
   document.getElementById("api-protocol").value = modelData.apiProtocol;
+  const {
+    storageSelect,
+    envInput,
+    keepExistingInput,
+    existingRefInput,
+  } = getApiKeyStorageElements();
+  if (storageSelect) storageSelect.value = "managed-file";
+  if (envInput) envInput.value = "";
+  if (keepExistingInput) keepExistingInput.value = "false";
+  if (existingRefInput) existingRefInput.value = "";
+  handleApiKeyStorageModeChange();
 
   // 更新 API 类型下拉框并设置值
   updateApiTypeOptions(modelData.apiProtocol);
@@ -904,6 +915,148 @@ function maskApiKey(key) {
   return `${start}${"*".repeat(Math.min(20, key.length - 8))}${end}`;
 }
 
+function getApiKeyStorageElements() {
+  return {
+    apiKeyInput: document.getElementById("api-key"),
+    storageSelect: document.getElementById("api-key-storage-mode"),
+    envGroup: document.getElementById("api-key-env-var-group"),
+    envInput: document.getElementById("api-key-env-var"),
+    storageNote: document.getElementById("api-key-storage-note"),
+    inputNote: document.getElementById("api-key-input-note"),
+    keepExistingInput: document.getElementById("keep-existing-api-key-ref"),
+    existingRefInput: document.getElementById("existing-api-key-ref"),
+  };
+}
+
+function inferApiKeyStorageState(apiKeyValue) {
+  if (typeof apiKeyValue === "string") {
+    const hasValue = apiKeyValue.trim().length > 0;
+    return {
+      mode: "plaintext",
+      envVar: "",
+      keepExisting: false,
+      hasValue,
+      descriptor: hasValue ? `明文（${maskApiKey(apiKeyValue.trim())}）` : "未配置",
+    };
+  }
+
+  if (apiKeyValue && typeof apiKeyValue === "object") {
+    if (typeof apiKeyValue.env === "string") {
+      return {
+        mode: "env",
+        envVar: apiKeyValue.env.trim(),
+        keepExisting: true,
+        hasValue: true,
+        descriptor: `环境变量 SecretRef (${apiKeyValue.env.trim()})`,
+      };
+    }
+
+    const source = String(apiKeyValue.source || "").toLowerCase();
+    if (source === "env") {
+      return {
+        mode: "env",
+        envVar: String(apiKeyValue.id || "").trim(),
+        keepExisting: true,
+        hasValue: true,
+        descriptor: `环境变量 SecretRef (${String(apiKeyValue.id || "").trim()})`,
+      };
+    }
+    if (source === "file" || typeof apiKeyValue.file === "string") {
+      return {
+        mode: "managed-file",
+        envVar: "",
+        keepExisting: true,
+        hasValue: true,
+        descriptor: "文件 SecretRef（已配置）",
+      };
+    }
+  }
+
+  return {
+    mode: "managed-file",
+    envVar: "",
+    keepExisting: false,
+    hasValue: false,
+    descriptor: "未配置",
+  };
+}
+
+function handleApiKeyStorageModeChange() {
+  const {
+    apiKeyInput,
+    storageSelect,
+    envGroup,
+    envInput,
+    storageNote,
+    inputNote,
+    keepExistingInput,
+    existingRefInput,
+  } = getApiKeyStorageElements();
+  if (!apiKeyInput || !storageSelect || !envGroup || !envInput) {
+    return;
+  }
+
+  const mode = storageSelect.value || "managed-file";
+  const hasExistingRef = !!(existingRefInput && existingRefInput.value.trim());
+  const keepExisting = keepExistingInput?.value === "true";
+
+  if (mode === "env") {
+    envGroup.style.display = "block";
+    envInput.required = true;
+    apiKeyInput.required = false;
+    if (inputNote) {
+      inputNote.textContent = "环境变量模式下不需要输入密钥值。";
+    }
+    if (storageNote) {
+      storageNote.innerHTML =
+        "将保存为环境变量 SecretRef（例如 <code>{ source: \"env\", id: \"OPENAI_API_KEY\" }</code>）。";
+    }
+    if (keepExistingInput) {
+      keepExistingInput.value = "true";
+    }
+    return;
+  }
+
+  envGroup.style.display = "none";
+  envInput.required = false;
+  envInput.value = mode === "managed-file" ? envInput.value : "";
+
+  if (mode === "plaintext") {
+    apiKeyInput.required = true;
+    if (inputNote) {
+      inputNote.textContent = "明文模式会直接写入 openclaw.json，不推荐。";
+    }
+    if (storageNote) {
+      storageNote.innerHTML =
+        "兼容模式：密钥将以明文保存到配置文件，请谨慎使用。";
+    }
+    if (keepExistingInput) {
+      keepExistingInput.value = "false";
+    }
+    return;
+  }
+
+  // managed-file
+  if (keepExisting && hasExistingRef && !apiKeyInput.value.trim()) {
+    apiKeyInput.required = false;
+    apiKeyInput.placeholder = "留空则保留当前 SecretRef；输入新值将覆盖";
+  } else {
+    apiKeyInput.required = true;
+    if (!apiKeyInput.placeholder || apiKeyInput.placeholder.includes("留空则保留")) {
+      apiKeyInput.placeholder = "输入 API Key";
+    }
+  }
+
+  if (inputNote) {
+    inputNote.textContent =
+      "推荐：保存为受管文件 SecretRef，避免明文写入配置文件。";
+  }
+  if (storageNote) {
+    storageNote.innerHTML =
+      "推荐：受管密钥文件（SecretRef），密钥将保存到 <code>/root/.openclaw/oc-deploy-secrets.json</code>。";
+  }
+}
+
 // 复制路径
 function copyPath(path) {
   copyToClipboard(path, "路径");
@@ -968,9 +1121,13 @@ async function loadModelsList() {
       if (provider.models && Array.isArray(provider.models)) {
         for (const model of provider.models) {
           const baseUrl = provider.baseUrl || provider.baseURL || "未配置";
-          const apiKey = provider.apiKey || "";
-          const hasKey = apiKey ? "已配置" : "未配置";
-          const maskedKey = maskApiKey(apiKey);
+          const apiKeyState = inferApiKeyStorageState(provider.apiKey);
+          const storageModeLabel =
+            apiKeyState.mode === "env"
+              ? "环境变量"
+              : apiKeyState.mode === "managed-file"
+                ? "受管文件"
+                : "明文";
           const modelId = model.id || model.name || model.model;
           const modelKey = `${providerName}/${modelId}`;
 
@@ -986,17 +1143,11 @@ async function loadModelsList() {
           </div>
             <div class="model-card-info">
               <div class="model-card-info-item">
-                <span>API Key:</span>
+                <span>密钥存储:</span>
                 <span>
-                  ${hasKey}
-                  ${
-                    apiKey
-                      ? `<code style="margin-left: 8px; font-size: 0.85em;">${maskedKey}</code>
-                  <button class="btn btn-secondary btn-sm copy-apikey-btn" style="margin-left: 4px; padding: 2px 6px; font-size: 0.85em;" data-apikey="${apiKey.replace(/"/g, "&quot;")}">
-                    复制
-                  </button>`
-                      : ""
-                  }
+                  ${apiKeyState.hasValue ? "已配置" : "未配置"}
+                  <code style="margin-left: 8px; font-size: 0.85em;">${storageModeLabel}</code>
+                  <span style="margin-left: 8px; font-size: 0.8em; color: var(--text-light);">${escapeHtml(apiKeyState.descriptor)}</span>
                 </span>
               </div>
               <div class="model-card-info-item">
@@ -1029,15 +1180,6 @@ async function loadModelsList() {
         if (modelKey) {
           setPrimaryModel(modelKey);
         }
-      });
-    });
-
-    // 为复制按钮添加事件监听器
-    document.querySelectorAll(".copy-apikey-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const apiKey = btn.getAttribute("data-apikey");
-        copyToClipboard(apiKey, "API Key");
       });
     });
 
@@ -1144,7 +1286,41 @@ async function editModel(providerName, modelId) {
     document.getElementById("provider-name").value = providerName;
     document.getElementById("base-url").value =
       provider.baseUrl || provider.baseURL || "";
-    document.getElementById("api-key").value = provider.apiKey || "";
+    const {
+      apiKeyInput,
+      storageSelect,
+      envInput,
+      keepExistingInput,
+      existingRefInput,
+    } = getApiKeyStorageElements();
+    const apiKeyState = inferApiKeyStorageState(provider.apiKey);
+
+    if (apiKeyInput) {
+      apiKeyInput.value = apiKeyState.mode === "plaintext"
+        ? String(provider.apiKey || "")
+        : "";
+      apiKeyInput.placeholder =
+        apiKeyState.mode === "managed-file" && apiKeyState.keepExisting
+          ? "留空则保留当前 SecretRef；输入新值将覆盖"
+          : "输入 API Key";
+    }
+    if (storageSelect) {
+      storageSelect.value = apiKeyState.mode;
+    }
+    if (envInput) {
+      envInput.value = apiKeyState.envVar || "";
+    }
+    if (keepExistingInput) {
+      keepExistingInput.value = apiKeyState.keepExisting ? "true" : "false";
+    }
+    if (existingRefInput) {
+      if (provider.apiKey && typeof provider.apiKey === "object") {
+        existingRefInput.value = JSON.stringify(provider.apiKey);
+      } else {
+        existingRefInput.value = "";
+      }
+    }
+    handleApiKeyStorageModeChange();
 
     // provider.api 保存的是 API 类型（如 openai-completions），需先推断协议再回填
     const savedApiType = provider.api || "openai-completions";
@@ -2141,6 +2317,66 @@ async function submitModelForm(event) {
       return;
     }
 
+    const {
+      apiKeyInput,
+      storageSelect,
+      envInput,
+      keepExistingInput,
+      existingRefInput,
+    } = getApiKeyStorageElements();
+    const apiKeyStorageMode = storageSelect?.value || "managed-file";
+    const apiKey = String(formData.get("apiKey") || "").trim();
+    const apiKeyEnvVar = String(envInput?.value || "").trim();
+    const envVarPattern = /^[A-Z_][A-Z0-9_]*$/;
+    let keepExistingApiKeyRef = false;
+
+    if (apiKeyInput) {
+      apiKeyInput.setCustomValidity("");
+    }
+    if (envInput) {
+      envInput.setCustomValidity("");
+    }
+
+    if (apiKeyStorageMode === "env") {
+      if (!envVarPattern.test(apiKeyEnvVar)) {
+        if (envInput) {
+          envInput.setCustomValidity(
+            "环境变量名格式不正确（示例：OPENAI_API_KEY）",
+          );
+          envInput.reportValidity();
+          envInput.focus();
+        }
+        return;
+      }
+      keepExistingApiKeyRef = true;
+    } else if (apiKeyStorageMode === "managed-file") {
+      const hasExistingRef = !!(existingRefInput && existingRefInput.value.trim());
+      keepExistingApiKeyRef = isEditMode && hasExistingRef && !apiKey;
+      if (!keepExistingApiKeyRef && !apiKey) {
+        if (apiKeyInput) {
+          apiKeyInput.setCustomValidity("请输入 API Key");
+          apiKeyInput.reportValidity();
+          apiKeyInput.focus();
+        } else {
+          showToast("请输入 API Key", "error");
+        }
+        return;
+      }
+    } else if (!apiKey) {
+      if (apiKeyInput) {
+        apiKeyInput.setCustomValidity("明文模式下 API Key 不能为空");
+        apiKeyInput.reportValidity();
+        apiKeyInput.focus();
+      } else {
+        showToast("明文模式下 API Key 不能为空", "error");
+      }
+      return;
+    }
+
+    if (keepExistingInput) {
+      keepExistingInput.value = keepExistingApiKeyRef ? "true" : "false";
+    }
+
     // 构建输入类型数组（安全访问）
     const inputTypes = [];
     const inputTextEl = document.getElementById("input-type-text");
@@ -2158,8 +2394,11 @@ async function submitModelForm(event) {
     const modelData = {
       modelId: modelId,
       providerName: providerName,
-      baseUrl: formData.get("baseUrl"),
-      apiKey: formData.get("apiKey"),
+      baseUrl: String(formData.get("baseUrl") || "").trim(),
+      apiKey: apiKey,
+      apiKeyStorageMode: apiKeyStorageMode,
+      apiKeyEnvVar: apiKeyEnvVar,
+      keepExistingApiKeyRef: keepExistingApiKeyRef,
       apiProtocol: formData.get("apiProtocol"),
       apiType: formData.get("apiType"),
       isEditMode: isEditMode,
@@ -2251,6 +2490,31 @@ function resetModelForm() {
   if (inputTextEl) inputTextEl.checked = true;
   if (inputImageEl) inputImageEl.checked = false;
   if (reasoningEl) reasoningEl.checked = false;
+
+  const {
+    apiKeyInput,
+    storageSelect,
+    envInput,
+    keepExistingInput,
+    existingRefInput,
+  } = getApiKeyStorageElements();
+  if (apiKeyInput) {
+    apiKeyInput.value = "";
+    apiKeyInput.placeholder = "输入 API Key";
+  }
+  if (storageSelect) {
+    storageSelect.value = "managed-file";
+  }
+  if (envInput) {
+    envInput.value = "";
+  }
+  if (keepExistingInput) {
+    keepExistingInput.value = "false";
+  }
+  if (existingRefInput) {
+    existingRefInput.value = "";
+  }
+  handleApiKeyStorageModeChange();
 }
 
 // 测试模型连接
@@ -2261,10 +2525,38 @@ async function testModelConnection() {
   const baseUrl = document.getElementById("base-url").value.trim();
   const apiKey = document.getElementById("api-key").value.trim();
   const apiProtocol = document.getElementById("api-protocol").value;
+  const storageMode = document.getElementById("api-key-storage-mode")?.value || "managed-file";
+  const apiKeyEnvVar = document.getElementById("api-key-env-var")?.value.trim() || "";
+  const existingRefText = document.getElementById("existing-api-key-ref")?.value.trim() || "";
+  const envVarPattern = /^[A-Z_][A-Z0-9_]*$/;
+  const hasExistingRef = !!existingRefText;
+  let apiKeyRef = null;
+  if (storageMode === "env" && envVarPattern.test(apiKeyEnvVar)) {
+    apiKeyRef = { source: "env", provider: "default", id: apiKeyEnvVar };
+  } else if (hasExistingRef) {
+    try {
+      apiKeyRef = JSON.parse(existingRefText);
+    } catch (err) {
+      apiKeyRef = null;
+    }
+  }
 
   // 验证必填字段
-  if (!modelId || !providerName || !baseUrl || !apiKey) {
-    showToast("请先填写所有必填字段（模型ID、供应商、Base URL、API Key）", "error");
+  if (!modelId || !providerName || !baseUrl) {
+    showToast("请先填写所有必填字段（模型ID、供应商、Base URL）", "error");
+    return;
+  }
+
+  if (storageMode === "env" && !envVarPattern.test(apiKeyEnvVar)) {
+    showToast("请填写合法的环境变量名（示例：OPENAI_API_KEY）", "error");
+    return;
+  }
+  if (storageMode === "managed-file" && !apiKey && !hasExistingRef) {
+    showToast("请填写 API Key，或先保存后再复用已有 SecretRef", "error");
+    return;
+  }
+  if (storageMode === "plaintext" && !apiKey) {
+    showToast("明文模式下 API Key 不能为空", "error");
     return;
   }
 
@@ -2341,6 +2633,9 @@ async function testModelConnection() {
         modelId,
         baseUrl,
         apiKey,
+        apiKeyRef,
+        apiKeyStorageMode: storageMode,
+        apiKeyEnvVar,
         apiProtocol,
       }),
     });
@@ -2720,26 +3015,32 @@ async function loadInstalledSkills() {
       return;
     }
 
-    // Separate user and builtin skills
-    const userSkills = result.skills.filter(s => s.location === 'user');
-    const builtinSkills = result.skills.filter(s => s.location === 'builtin');
+    const userSkills = result.skills.filter((s) => s.location === "user");
+    const builtinSkills = result.skills.filter((s) => s.location === "builtin");
 
-    let html = '';
+    let html = "";
 
-    // User skills section
     if (userSkills.length > 0) {
-      html += '<h3>用户安装的技能</h3>';
+      html += `
+        <div class="skills-section-header">
+          <h3>用户安装的技能</h3>
+          <button id="skills-update-all-btn" class="btn btn-secondary btn-sm">更新全部用户技能</button>
+        </div>
+      `;
       html += '<div class="skills-grid">';
-      html += userSkills.map(skill => renderSkillCard(skill)).join('');
-      html += '</div>';
+      html += userSkills.map((skill) => renderSkillCard(skill)).join("");
+      html += "</div>";
     }
 
-    // Builtin skills section
     if (builtinSkills.length > 0) {
-      html += '<h3 style="margin-top: 30px;">内置技能</h3>';
+      html += `
+        <div class="skills-section-header" style="margin-top: 30px;">
+          <h3>内置技能</h3>
+        </div>
+      `;
       html += '<div class="skills-grid">';
-      html += builtinSkills.map(skill => renderSkillCard(skill)).join('');
-      html += '</div>';
+      html += builtinSkills.map((skill) => renderSkillCard(skill)).join("");
+      html += "</div>";
     }
 
     container.innerHTML = html;
@@ -2752,9 +3053,11 @@ async function loadInstalledSkills() {
 }
 
 function renderSkillCard(skill) {
-  const isBuiltin = skill.location === 'builtin';
+  const isBuiltin = skill.location === "builtin";
   const requiresApi = skill.requiresApi || false;
   const enabled = skill.enabled !== false;
+  const entryKey = skill.entryKey || skill.name || skill.slug;
+  const showsEntryKey = entryKey && entryKey !== skill.slug;
 
   return `
     <div class="skill-card" data-slug="${escapeHtml(skill.slug)}">
@@ -2769,19 +3072,37 @@ function renderSkillCard(skill) {
 
       <div class="skill-card-meta">
         <div class="skill-card-slug">${escapeHtml(skill.slug)}</div>
+        ${showsEntryKey ? `<div style="font-size: 0.8rem; color: var(--text-light);">skillKey: <code>${escapeHtml(entryKey)}</code></div>` : ""}
         ${skill.description ? `<p class="skill-card-description">${escapeHtml(skill.description)}</p>` : ''}
         ${skill.version ? `<div style="font-size: 0.8rem; color: var(--text-light);">版本: ${escapeHtml(skill.version)}</div>` : ''}
         ${skill.installed_at ? `<div style="font-size: 0.8rem; color: var(--text-light);">安装时间: ${new Date(skill.installed_at).toLocaleDateString('zh-CN')}</div>` : ''}
       </div>
 
       <div class="skill-card-footer">
-        ${isBuiltin ? `
-          <div class="skill-toggle">
-            <span style="font-size: 0.85rem; color: var(--text-light);">${enabled ? '已启用' : '已禁用'}</span>
-            <div class="toggle-switch ${enabled ? 'active' : ''}" data-action="toggle" data-slug="${escapeHtml(skill.slug)}"></div>
+        <div class="skill-toggle">
+          <span class="skill-toggle-status ${enabled ? "enabled" : "disabled"}">
+            ${enabled ? "已启用" : "已禁用"}
+          </span>
+          <button
+            class="toggle-switch ${enabled ? "active" : ""}"
+            data-action="toggle-skill"
+            data-slug="${escapeHtml(skill.slug)}"
+            data-entry-key="${escapeHtml(entryKey)}"
+            data-location="${escapeHtml(skill.location || "")}"
+            data-enabled="${enabled ? "true" : "false"}"
+            title="${enabled ? "点击禁用技能" : "点击启用技能"}"
+            aria-label="${enabled ? "禁用技能" : "启用技能"}"
+            aria-pressed="${enabled ? "true" : "false"}"
+            type="button"
+          ></button>
+        </div>
+        ${isBuiltin
+    ? '<span style="font-size: 0.85rem; color: var(--text-light);">内置技能</span>'
+    : `
+          <div class="skill-actions">
+            <button class="btn btn-secondary btn-sm" data-action="update-skill" data-slug="${escapeHtml(skill.slug)}">更新</button>
+            <button class="btn btn-danger btn-sm" data-action="uninstall" data-slug="${escapeHtml(skill.slug)}">卸载</button>
           </div>
-        ` : `
-          <button class="btn btn-danger btn-sm" data-action="uninstall" data-slug="${escapeHtml(skill.slug)}">卸载</button>
         `}
       </div>
     </div>
@@ -2789,31 +3110,101 @@ function renderSkillCard(skill) {
 }
 
 function bindSkillCardEvents() {
-  // Uninstall buttons
-  document.querySelectorAll('[data-action="uninstall"]').forEach(btn => {
-    btn.addEventListener('click', () => uninstallSkill(btn.dataset.slug));
+  const updateAllBtn = document.getElementById("skills-update-all-btn");
+  if (updateAllBtn) {
+    updateAllBtn.addEventListener("click", updateAllSkills);
+  }
+
+  document.querySelectorAll('[data-action="toggle-skill"]').forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (btn.disabled) {
+        return;
+      }
+      const currentlyEnabled = btn.dataset.enabled === "true";
+      btn.disabled = true;
+      try {
+        await toggleSkillStatus(
+          btn.dataset.slug,
+          !currentlyEnabled,
+          btn.dataset.entryKey,
+          btn.dataset.location,
+        );
+      } finally {
+        btn.disabled = false;
+      }
+    });
   });
 
-  // Toggle switches
-  document.querySelectorAll('[data-action="toggle"]').forEach(toggle => {
-    toggle.addEventListener('click', () => toggleSkill(toggle.dataset.slug, !toggle.classList.contains('active')));
+  document.querySelectorAll('[data-action="update-skill"]').forEach((btn) => {
+    btn.addEventListener("click", () => updateSkill(btn.dataset.slug));
+  });
+
+  // Uninstall buttons
+  document.querySelectorAll('[data-action="uninstall"]').forEach((btn) => {
+    btn.addEventListener("click", () => uninstallSkill(btn.dataset.slug));
   });
 }
 
-async function toggleSkill(slug, enabled) {
+async function toggleSkillStatus(slug, enabled, entryKey, location) {
   try {
-    // TODO: Implement backend API for toggling skills
-    showToast(`技能 ${slug} ${enabled ? '启用' : '禁用'}功能待实现`, "info");
-
-    // For now, just update UI
-    const toggle = document.querySelector(`[data-action="toggle"][data-slug="${slug}"]`);
-    if (toggle) {
-      toggle.classList.toggle('active', enabled);
-      const label = toggle.previousElementSibling;
-      if (label) label.textContent = enabled ? '已启用' : '已禁用';
+    const result = await apiRequest("/skills/toggle", {
+      method: "POST",
+      body: JSON.stringify({
+        slug,
+        enabled,
+        entryKey,
+        location,
+      }),
+    });
+    if (result.success) {
+      showToast(result.message || `技能 ${slug} 状态已更新`, "success");
+      await loadInstalledSkills();
+    } else {
+      showToast(result.error || "更新技能状态失败", "error");
     }
   } catch (err) {
-    showToast(`操作失败: ${err.message}`, "error");
+    showToast(`更新技能状态失败: ${err.message}`, "error");
+  }
+}
+
+async function updateSkill(slug) {
+  try {
+    showToast(`正在更新技能 ${slug}...`, "info");
+    const result = await apiRequest("/skills/update", {
+      method: "POST",
+      body: JSON.stringify({ slug }),
+    });
+    if (result.success) {
+      showToast(result.message || `技能 ${slug} 更新成功`, "success");
+      await loadInstalledSkills();
+    } else {
+      showToast(result.error || `技能 ${slug} 更新失败`, "error");
+    }
+  } catch (err) {
+    showToast(`更新失败: ${err.message}`, "error");
+  }
+}
+
+async function updateAllSkills() {
+  if (!confirm("确定要更新全部用户技能吗？")) {
+    return;
+  }
+
+  try {
+    showToast("正在更新全部用户技能...", "info");
+    const result = await apiRequest("/skills/update", {
+      method: "POST",
+      body: JSON.stringify({ all: true }),
+    });
+
+    if (result.success) {
+      showToast(result.message || "全部用户技能更新完成", "success");
+    } else {
+      showToast(result.message || result.error || "部分技能更新失败", "warning");
+    }
+    await loadInstalledSkills();
+  } catch (err) {
+    showToast(`批量更新失败: ${err.message}`, "error");
   }
 }
 
@@ -2953,6 +3344,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 初始化 API 类型下拉框（默认 openai）
   updateApiTypeOptions("openai");
+  const storageSelect = document.getElementById("api-key-storage-mode");
+  if (storageSelect) {
+    storageSelect.addEventListener("change", handleApiKeyStorageModeChange);
+  }
+  handleApiKeyStorageModeChange();
 
   console.log("初始化完成");
 });

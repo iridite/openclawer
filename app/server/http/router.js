@@ -31,6 +31,9 @@ function createRouter(deps) {
     installSkill,
     listSkills,
     uninstallSkill,
+    toggleSkill,
+    updateSkill,
+    updateAllSkills,
     getManagementAccess,
     setManagementAccess,
   } = deps;
@@ -149,6 +152,26 @@ function createRouter(deps) {
       "POST /api/skills/uninstall": async () => {
         const data = await parseJsonBody(req);
         return uninstallSkill(data.slug);
+      },
+      "POST /api/skills/toggle": async () => {
+        const data = await parseJsonBody(req);
+        return toggleSkill(data.slug, data.enabled, {
+          entryKey: data.entryKey,
+          location: data.location,
+        });
+      },
+      "POST /api/skills/update": async () => {
+        const data = await parseJsonBody(req);
+        if (data?.all === true) {
+          return updateAllSkills();
+        }
+        if (!data?.slug) {
+          return {
+            success: false,
+            error: "缺少技能名称",
+          };
+        }
+        return updateSkill(data.slug);
       },
       "GET /api/management/access": getManagementAccess,
       "POST /api/management/access": async () =>
