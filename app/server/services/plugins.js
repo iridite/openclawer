@@ -58,7 +58,7 @@ function createPluginService(options) {
     }
 
     function getUnverifiedInfo() {
-      const extensionDir = path.join(OC_HOME, "extensions", plugin.dirs[2][0]);
+      const extensionDir = path.join(OC_HOME, "extensions", plugin.dirs[2][1]);
       if (!fs.existsSync(extensionDir)) {
         return { exists: false, path: extensionDir };
       }
@@ -83,7 +83,7 @@ function createPluginService(options) {
             state: "unverified",
             version: "",
             package: plugin.pkg,
-            message: `检测到插件目录但缺少插件元数据，无法确认安装状态。若为手动插件，请在 openclaw.json 的 plugins.allow 中加入 ${plugin.dirs[2][0]}；否则请清理 ${unverified.path} 后重试`,
+            message: `检测到插件目录但缺少插件元数据，无法确认安装状态。若为手动插件，请在 openclaw.json 的 plugins.allow 中加入 ${plugin.dirs[2][1]}；否则请清理 ${unverified.path} 后重试`,
           };
         }
         return {

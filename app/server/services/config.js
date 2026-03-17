@@ -185,12 +185,13 @@ function createConfigService(deps) {
     if (!modelId) throw new Error("模型 ID 不能为空");
     if (!providerName) throw new Error("供应商名称不能为空");
 
-    const namePattern = /^[a-zA-Z0-9/_-]+$/;
-    if (!namePattern.test(modelId)) {
-      throw new Error("模型 ID 只能包含大小写字母、数字、斜杠(/)、连字符(-)和下划线(_)");
+    const modelIdPattern = /^[a-zA-Z0-9._/:-]+$/;
+    if (!modelIdPattern.test(modelId)) {
+      throw new Error("模型 ID 只能包含字母、数字、点号(.)、斜杠(/)、冒号(:)、连字符(-)和下划线(_)");
     }
-    if (!namePattern.test(providerName)) {
-      throw new Error("供应商名称只能包含大小写字母、数字、斜杠(/)、连字符(-)和下划线(_)");
+    const providerPattern = /^[a-z-]+$/;
+    if (!providerPattern.test(providerName)) {
+      throw new Error("供应商名称只能包含小写英文字符(a-z)和连字符(-)");
     }
   }
 

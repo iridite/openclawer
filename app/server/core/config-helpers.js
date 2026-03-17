@@ -5,16 +5,27 @@
 
 /**
  * Find a fallback primary model when the current primary is deleted
- * @param {Object} models - Models object from config
- * @param {string} excludeId - Model ID to exclude from candidates
- * @returns {string|null} - Fallback model key or null
+ * @param {Object} providers - providers object from config.models.providers
+ * @param {string} excludeModelKey - model key to exclude (provider/modelId)
+ * @returns {string|null} - fallback model key or null
  */
-function findPrimaryModelFallback(models, excludeId) {
-  const candidates = Object.entries(models)
-    .filter(([id]) => id !== excludeId)
-    .map(([id, model]) => ({ id, ...model }));
+function findPrimaryModelFallback(providers, excludeModelKey) {
+  if (!providers || typeof providers !== "object") {
+    return null;
+  }
 
-  return candidates.length > 0 ? candidates[0].id : null;
+  for (const [providerName, provider] of Object.entries(providers)) {
+    const models = Array.isArray(provider?.models) ? provider.models : [];
+    for (const model of models) {
+      const modelId = model?.id || model?.name || model?.model;
+      if (!modelId) continue;
+      const modelKey = `${providerName}/${modelId}`;
+      if (modelKey === excludeModelKey) continue;
+      return modelKey;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -27,8 +38,7 @@ function cleanupEmptyProvider(config, providerId) {
   const provider = config.models?.providers?.[providerId];
   if (!provider) return false;
 
-  const hasModels = Object.values(config.models?.models || {})
-    .some(m => m.provider === providerId);
+  const hasModels = Array.isArray(provider.models) && provider.models.length > 0;
 
   if (!hasModels) {
     delete config.models.providers[providerId];
