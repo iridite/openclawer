@@ -1,7 +1,7 @@
 const path = require("path");
 
 const PORT = parseInt(process.env.MANAGEMENT_PORT || "18790", 10);
-const BIND_ADDR = process.env.BIND_ADDR || "127.0.0.1";
+const BIND_ADDR = process.env.BIND_ADDR || "0.0.0.0";
 
 const TRIM_PKGVAR = process.env.TRIM_PKGVAR || "/var/apps/oc-deploy/var";
 const TRIM_APPDEST = process.env.TRIM_APPDEST || "/var/apps/oc-deploy/target";

@@ -228,6 +228,7 @@ GET  /api/console/url
 - 默认允许远程访问管理面板/API（请确保网络环境可信）
 - 如需收敛访问面，可在 WebUI 的「系统」->「管理访问」中切换为仅本机访问
 - 该设置保存后立即生效，并持久化到 `/var/apps/oc-deploy/var/management-access.json`
+- 项目决策：不引入本地账号/密码认证；管理面板访问控制仅通过网络边界（内网/反代）与“管理访问”开关实现
 
 ### 模型与渠道
 
@@ -278,12 +279,24 @@ POST /api/skills/update
 
 ### 测试与打包
 
+#### Management API 环境变量
+
+以下变量在 `app/server/core/env.js` 中读取，可用于覆盖默认行为：
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| `MANAGEMENT_PORT` | `18790` | Management API 监听端口 |
+| `BIND_ADDR` | `0.0.0.0` | Management API 监听地址（默认监听所有网卡） |
+| `TRIM_PKGVAR` | `/var/apps/oc-deploy/var` | 应用数据目录（日志、PID、运行时文件） |
+| `TRIM_APPDEST` | `/var/apps/oc-deploy/target` | 应用静态资源根目录（管理界面位于 `${TRIM_APPDEST}/ui`） |
+
 #### 本地运行
 
 ```bash
 export TRIM_PKGVAR="/tmp/oc-deploy-test"
-export TRIM_APPDEST="/tmp/oc-deploy-test"
+export TRIM_APPDEST="$(pwd)/app"
 export MANAGEMENT_PORT="18790"
+export BIND_ADDR="0.0.0.0"
 export GATEWAY_PORT="18789"
 node app/server/management-api.js
 ```
