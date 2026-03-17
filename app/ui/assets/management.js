@@ -1892,6 +1892,11 @@ function setQqbotPluginButtonState(state, version = "") {
         : "QQ 插件：已安装";
       btn.disabled = false;
       break;
+    case "disabled":
+      btn.classList.add("missing");
+      btn.textContent = "QQ 插件：未启用（点击启用）";
+      btn.disabled = false;
+      break;
     case "missing":
       btn.classList.add("missing");
       btn.textContent = "QQ 插件：未安装（点击安装）";
@@ -1921,6 +1926,8 @@ async function refreshQqbotPluginStatus() {
     const status = await fetchQqbotPluginStatus();
     if (status && status.state === "installed") {
       setQqbotPluginButtonState("installed", status.version || "");
+    } else if (status && status.state === "disabled") {
+      setQqbotPluginButtonState("disabled");
     } else if (status && status.state === "unverified") {
       setQqbotPluginButtonState("unverified");
     } else {
@@ -1967,7 +1974,7 @@ async function installQqbotPlugin() {
     });
     const version = result?.version || "";
     setQqbotPluginButtonState("installed", version);
-    showToast("QQ 插件安装成功", "success");
+    showToast(result?.message || "QQ 插件安装成功", "success");
     qqbotPluginInstalling = false;
     return true;
   } catch (error) {
@@ -1994,6 +2001,11 @@ function setWecomPluginButtonState(state, version = "") {
       btn.textContent = version
         ? `企业微信插件：已安装 (${version})`
         : "企业微信插件：已安装";
+      btn.disabled = false;
+      break;
+    case "disabled":
+      btn.classList.add("missing");
+      btn.textContent = "企业微信插件：未启用（点击启用）";
       btn.disabled = false;
       break;
     case "missing":
@@ -2025,6 +2037,8 @@ async function refreshWecomPluginStatus() {
     const status = await fetchWecomPluginStatus();
     if (status && status.state === "installed") {
       setWecomPluginButtonState("installed", status.version || "");
+    } else if (status && status.state === "disabled") {
+      setWecomPluginButtonState("disabled");
     } else if (status && status.state === "unverified") {
       setWecomPluginButtonState("unverified");
     } else {
@@ -2074,7 +2088,7 @@ async function installWecomPlugin() {
     });
     const version = result?.version || "";
     setWecomPluginButtonState("installed", version);
-    showToast("企业微信插件安装成功", "success");
+    showToast(result?.message || "企业微信插件安装成功", "success");
     wecomPluginInstalling = false;
     return true;
   } catch (error) {

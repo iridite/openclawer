@@ -247,6 +247,7 @@ const pluginService = createPluginService({
   NODE_BIN_DIR,
   PKG_NODE_BIN_DIR,
   readJSON,
+  writeJSON,
   execCommand,
 });
 const {
