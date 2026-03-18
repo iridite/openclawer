@@ -1,4 +1,5 @@
 const fs = require("fs");
+const fsp = fs.promises;
 const path = require("path");
 const { execSync } = require("child_process");
 const { fetchJSON, downloadFile } = require("../core/http-client");
@@ -15,8 +16,17 @@ function createSkillsService(options) {
   const FALLBACK_DOWNLOAD = "https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com/skills";
   const SKILL_SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*$/i;
 
-  function loadLockfile() {
-    if (!fs.existsSync(LOCKFILE_PATH)) {
+  async function pathExists(targetPath) {
+    try {
+      await fsp.access(targetPath);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  async function loadLockfile() {
+    if (!(await pathExists(LOCKFILE_PATH))) {
       return { version: 1, skills: {} };
     }
     const data = readJSON(LOCKFILE_PATH);
@@ -32,9 +42,9 @@ function createSkillsService(options) {
     return data;
   }
 
-  function saveLockfile(lock) {
-    if (!fs.existsSync(SKILLS_DIR)) {
-      fs.mkdirSync(SKILLS_DIR, { recursive: true });
+  async function saveLockfile(lock) {
+    if (!(await pathExists(SKILLS_DIR))) {
+      await fsp.mkdir(SKILLS_DIR, { recursive: true });
     }
     const ok = writeJSON(LOCKFILE_PATH, lock);
     if (!ok) {
@@ -94,11 +104,11 @@ function createSkillsService(options) {
     return metadataJsonSkillKey ? metadataJsonSkillKey[1].trim() : "";
   }
 
-  function loadConfigForWrite() {
+  async function loadConfigForWrite() {
     if (!CONFIG_FILE) {
       throw new Error("未配置 openclaw.json 路径");
     }
-    if (!fs.existsSync(CONFIG_FILE)) {
+    if (!(await pathExists(CONFIG_FILE))) {
       throw new Error("openclaw.json 不存在，请先完成初始化");
     }
 
@@ -109,8 +119,8 @@ function createSkillsService(options) {
     return config;
   }
 
-  function loadSkillEntriesConfigSafe() {
-    if (!CONFIG_FILE || !fs.existsSync(CONFIG_FILE)) {
+  async function loadSkillEntriesConfigSafe() {
+    if (!CONFIG_FILE || !(await pathExists(CONFIG_FILE))) {
       return {};
     }
 
@@ -157,18 +167,18 @@ function createSkillsService(options) {
     }
   }
 
-  function resolveSkillRecord(slug, location) {
+  async function resolveSkillRecord(slug, location) {
     const normalizedSlug = String(slug || "").trim();
     if (!normalizedSlug) {
       return null;
     }
 
-    const lock = loadLockfile();
+    const lock = await loadLockfile();
     const userSkillDir = path.join(SKILLS_DIR, normalizedSlug);
-    const hasUserSkill = !!lock.skills[normalizedSlug] || fs.existsSync(userSkillDir);
+    const hasUserSkill = !!lock.skills[normalizedSlug] || (await pathExists(userSkillDir));
 
     if (location !== "builtin" && hasUserSkill) {
-      const metadata = readSkillMetadata(userSkillDir, normalizedSlug);
+      const metadata = await readSkillMetadata(userSkillDir, normalizedSlug);
       return {
         slug: normalizedSlug,
         location: "user",
@@ -177,8 +187,8 @@ function createSkillsService(options) {
     }
 
     const builtinSkillDir = path.join(BUILTIN_SKILLS_DIR, normalizedSlug);
-    if (location !== "user" && fs.existsSync(builtinSkillDir)) {
-      const metadata = readSkillMetadata(builtinSkillDir, normalizedSlug);
+    if (location !== "user" && (await pathExists(builtinSkillDir))) {
+      const metadata = await readSkillMetadata(builtinSkillDir, normalizedSlug);
       return {
         slug: normalizedSlug,
         location: "builtin",
@@ -222,7 +232,7 @@ function createSkillsService(options) {
     }
     const targetDir = path.join(SKILLS_DIR, normalizedSlug);
 
-    if (fs.existsSync(targetDir) && !force) {
+    if ((await pathExists(targetDir)) && !force) {
       return {
         success: false,
         error: `技能 ${normalizedSlug} 已安装，使用 force=true 覆盖安装`,
@@ -235,7 +245,7 @@ function createSkillsService(options) {
     const zipPath = path.join(tmpDir, `${normalizedSlug}.zip`);
 
     try {
-      fs.mkdirSync(tmpDir, { recursive: true });
+      await fsp.mkdir(tmpDir, { recursive: true });
 
       const primaryUrl = `${PRIMARY_DOWNLOAD}?slug=${normalizedSlug}`;
       const fallbackUrl = `${FALLBACK_DOWNLOAD}/${normalizedSlug}.zip`;
@@ -262,27 +272,27 @@ function createSkillsService(options) {
       }
 
       const stageDir = path.join(tmpDir, "stage");
-      fs.mkdirSync(stageDir, { recursive: true });
+      await fsp.mkdir(stageDir, { recursive: true });
       execSync(`unzip -q -o "${zipPath}" -d "${stageDir}"`, { stdio: 'inherit' });
 
       // 智能检测 ZIP 结构：如果只有一个子目录，提取其内容
-      const entries = fs.readdirSync(stageDir);
+      const entries = await fsp.readdir(stageDir);
       let sourceDir = stageDir;
       
       if (entries.length === 1) {
         const singleEntry = path.join(stageDir, entries[0]);
-        if (fs.statSync(singleEntry).isDirectory()) {
+        if ((await fsp.stat(singleEntry)).isDirectory()) {
           sourceDir = singleEntry;
         }
       }
 
-      if (fs.existsSync(targetDir)) {
-        fs.rmSync(targetDir, { recursive: true, force: true });
+      if (await pathExists(targetDir)) {
+        await fsp.rm(targetDir, { recursive: true, force: true });
       }
 
-      fs.renameSync(sourceDir, targetDir);
+      await fsp.rename(sourceDir, targetDir);
 
-      const lock = loadLockfile();
+      const lock = await loadLockfile();
       lock.skills[normalizedSlug] = {
         name: normalizedSlug,
         zip_url: usedUrl,
@@ -290,9 +300,9 @@ function createSkillsService(options) {
         version: "",
         installed_at: new Date().toISOString(),
       };
-      saveLockfile(lock);
+      await saveLockfile(lock);
 
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      await fsp.rm(tmpDir, { recursive: true, force: true });
 
       return {
         success: true,
@@ -300,8 +310,8 @@ function createSkillsService(options) {
         path: targetDir,
       };
     } catch (err) {
-      if (fs.existsSync(tmpDir)) {
-        fs.rmSync(tmpDir, { recursive: true, force: true });
+      if (await pathExists(tmpDir)) {
+        await fsp.rm(tmpDir, { recursive: true, force: true });
       }
       return {
         success: false,
@@ -312,9 +322,9 @@ function createSkillsService(options) {
     }
   }
 
-  function readSkillMetadata(skillDir, fallbackSlug = "") {
+  async function readSkillMetadata(skillDir, fallbackSlug = "") {
     const skillMdPath = path.join(skillDir, "SKILL.md");
-    if (!fs.existsSync(skillMdPath)) {
+    if (!(await pathExists(skillMdPath))) {
       return {
         description: "",
         requiresApi: false,
@@ -324,7 +334,7 @@ function createSkillsService(options) {
     }
 
     try {
-      const content = fs.readFileSync(skillMdPath, "utf-8");
+      const content = await fsp.readFile(skillMdPath, "utf-8");
       const frontmatter = parseFrontmatter(content);
       const skillName = extractFrontmatterValue(frontmatter, "name") || fallbackSlug;
       const entryKey = extractSkillEntryKey(frontmatter) || skillName || fallbackSlug;
@@ -370,18 +380,18 @@ function createSkillsService(options) {
     }
   }
 
-  function listBuiltinSkills(entryConfigMap) {
-    if (!fs.existsSync(BUILTIN_SKILLS_DIR)) {
+  async function listBuiltinSkills(entryConfigMap) {
+    if (!(await pathExists(BUILTIN_SKILLS_DIR))) {
       return [];
     }
 
     try {
-      const entries = fs.readdirSync(BUILTIN_SKILLS_DIR, { withFileTypes: true });
-      return entries
+      const entries = await fsp.readdir(BUILTIN_SKILLS_DIR, { withFileTypes: true });
+      return await Promise.all(entries
         .filter(e => e.isDirectory())
-        .map(e => {
+        .map(async (e) => {
           const skillDir = path.join(BUILTIN_SKILLS_DIR, e.name);
-          const metadata = readSkillMetadata(skillDir, e.name);
+          const metadata = await readSkillMetadata(skillDir, e.name);
           const entryKey = metadata.entryKey || e.name;
 
           return {
@@ -397,7 +407,7 @@ function createSkillsService(options) {
             entryKey,
             enabled: getSkillEnabledState(entryConfigMap, entryKey),
           };
-        });
+        }));
     } catch (err) {
       return [];
     }
@@ -405,15 +415,15 @@ function createSkillsService(options) {
 
   async function list() {
     try {
-      const lock = loadLockfile();
-      const entryConfigMap = loadSkillEntriesConfigSafe();
-      const userSkills = Object.entries(lock.skills || {}).map(([slug, meta]) => {
+      const lock = await loadLockfile();
+      const entryConfigMap = await loadSkillEntriesConfigSafe();
+      const userSkills = await Promise.all(Object.entries(lock.skills || {}).map(async ([slug, meta]) => {
         const safeMeta =
           meta && typeof meta === "object" && !Array.isArray(meta) ? meta : {};
         const skillDir = path.join(SKILLS_DIR, slug);
-        const exists = fs.existsSync(skillDir);
+        const exists = await pathExists(skillDir);
         const metadata = exists
-          ? readSkillMetadata(skillDir, safeMeta.name || slug)
+          ? await readSkillMetadata(skillDir, safeMeta.name || slug)
           : {
               description: "",
               requiresApi: false,
@@ -435,9 +445,9 @@ function createSkillsService(options) {
           entryKey,
           enabled: getSkillEnabledState(entryConfigMap, entryKey),
         };
-      });
+      }));
 
-      const builtinSkills = listBuiltinSkills(entryConfigMap);
+      const builtinSkills = await listBuiltinSkills(entryConfigMap);
 
       return {
         success: true,
@@ -463,18 +473,18 @@ function createSkillsService(options) {
     const targetDir = path.join(SKILLS_DIR, normalizedSlug);
 
     try {
-      if (!fs.existsSync(targetDir)) {
+      if (!(await pathExists(targetDir))) {
         return {
           success: false,
           error: `技能 ${normalizedSlug} 未安装`,
         };
       }
 
-      fs.rmSync(targetDir, { recursive: true, force: true });
+      await fsp.rm(targetDir, { recursive: true, force: true });
 
-      const lock = loadLockfile();
+      const lock = await loadLockfile();
       delete lock.skills[normalizedSlug];
-      saveLockfile(lock);
+      await saveLockfile(lock);
 
       return {
         success: true,
@@ -507,7 +517,7 @@ function createSkillsService(options) {
       };
     }
 
-    const skillRecord = resolveSkillRecord(normalizedSlug, normalizedLocation);
+    const skillRecord = await resolveSkillRecord(normalizedSlug, normalizedLocation);
     if (!skillRecord) {
       return {
         success: false,
@@ -524,7 +534,7 @@ function createSkillsService(options) {
     }
 
     try {
-      const config = loadConfigForWrite();
+      const config = await loadConfigForWrite();
       const entries = ensureSkillsEntries(config);
 
       const existingEntry =
@@ -574,7 +584,7 @@ function createSkillsService(options) {
       };
     }
 
-    const lock = loadLockfile();
+    const lock = await loadLockfile();
     if (!lock.skills[normalizedSlug]) {
       return {
         success: false,
@@ -586,7 +596,7 @@ function createSkillsService(options) {
   }
 
   async function updateAll() {
-    const lock = loadLockfile();
+    const lock = await loadLockfile();
     const userSkillSlugs = Object.keys(lock.skills || {});
 
     if (userSkillSlugs.length === 0) {
