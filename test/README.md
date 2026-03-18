@@ -107,6 +107,19 @@ bash test/capability-regression.sh
 - user / builtin 技能列表识别与启用/禁用写入
 - 常见 `400 / 404` 错误语义返回
 
+## 🌐 前端请求入口约束回归
+
+用于验证前端网络请求仍然通过统一 helper 进入，而不是在各模块中散落裸 `fetch`：
+
+```bash
+bash test/frontend-request-entry.sh
+```
+
+检查项包含：
+- `management.js` 中存在 `apiRequest` / `apiFormRequest` / `apiDownloadRequest`
+- 其他前端模块不允许直接使用 `fetch`
+- 不允许引入 `XMLHttpRequest` 或 `navigator.sendBeacon` 等额外入口
+
 ### 3. 访问测试界面
 
 启动后访问：
