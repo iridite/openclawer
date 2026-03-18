@@ -307,6 +307,17 @@ node app/server/management-api.js
 bash test/smoke.sh
 ```
 
+当前 smoke 基线覆盖：
+
+- management-api 启动与 `GET /api/status`
+- 静态首页可访问
+- 静态资源 `ETag / 304` 协商
+- `GET /dashboard/` 在 Gateway 未启动时返回 fallback 页面
+- `GET /api/config`
+- `POST /api/config/validate`
+- `GET /api/console/url`
+- `GET /api/logs`
+
 #### 打包 FPK
 
 ```bash
@@ -358,6 +369,10 @@ tail -n 100 /var/apps/oc-deploy/var/openclaw.log
 
 - `CLAUDE.md`：开发与维护说明
 - `TODO.md`：需求与迭代清单
+- `docs/PHASE0_BASELINE.md`：当前运行基线
+- `docs/MINIMAL_REGRESSION_CHECKLIST.md`：最小回归检查清单
+- `docs/PROJECT_ANALYSIS.md`：项目结构分析
+- `docs/IMPLEMENTATION_PLAN.md`：分阶段实施计划
 - `test/README.md`：本地测试脚本说明
 
 ## 🔗 相关链接

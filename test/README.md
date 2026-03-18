@@ -50,11 +50,19 @@ SMOKE_READY_MAX_ATTEMPTS=10 SMOKE_READY_INTERVAL_SECONDS=0.05 SMOKE_HTTP_MAX_TIM
 ```
 
 检查项包含：
+- Management API 启动就绪
+- `/` 静态首页可访问
+- `/assets/management.js` 的 `ETag / 304` 缓存协商
+- `/dashboard/` 在 Gateway 未启动时返回 fallback 页面
 - `/api/status`
-- `/api/config` 读写与 `/api/config/validate`
-- `/api/models/add` / `/api/models/delete`
+- `/api/config`
+- `/api/config/validate`
 - `/api/console/url`
 - `/api/logs`
+
+说明：
+- 这条 smoke 的目标是验证“管理面板主链路仍可工作”，不是覆盖升级、插件安装、技能下载或真实 Gateway 运行时能力。
+- 若后续改动涉及高风险流程，请同时参考 [`docs/MINIMAL_REGRESSION_CHECKLIST.md`](../docs/MINIMAL_REGRESSION_CHECKLIST.md)。
 
 ### 3. 访问测试界面
 
