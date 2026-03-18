@@ -263,19 +263,28 @@ function refreshSystemPathTexts() {
 }
 
 async function loadSystemPaths() {
+  if (systemPaths && typeof systemPaths === "object") {
+    return systemPaths;
+  }
+
   try {
     const result = await apiRequest("/system/paths", { retries: 0 });
     if (!result || typeof result !== "object") {
-      return;
+      return null;
     }
     systemPaths = result;
     refreshSystemPathTexts();
+    return systemPaths;
   } catch (err) {
     console.warn("加载系统路径信息失败，使用默认展示路径:", err);
+    return null;
   }
 }
 
-function copyPath(pathValue) {
+async function copyPath(pathValue) {
+  if (!systemPaths || typeof systemPaths !== "object") {
+    await loadSystemPaths();
+  }
   copyToClipboard(resolveSystemPath(pathValue), "路径");
 }
 
