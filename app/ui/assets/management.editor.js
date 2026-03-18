@@ -462,16 +462,12 @@ async function handleFullBackupImportFile(event) {
     const formData = new FormData();
     formData.append("backupFile", file);
 
-    const response = await fetch(`${API_BASE}/backup/import`, {
+    const result = await apiFormRequest("/backup/import", {
       method: "POST",
-      body: formData,
+      formData,
     });
-
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result.success === false) {
-      throw new Error(
-        result.error || result.message || `HTTP ${response.status}`,
-      );
+    if (result.success === false) {
+      throw new Error(result.error || result.message || "导入失败");
     }
 
     await Promise.all([

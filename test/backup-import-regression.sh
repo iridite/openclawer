@@ -22,13 +22,14 @@ export OC_HOME="${TMP_DIR}/oc-home"
 export CONFIG_FILE="${OC_HOME}/openclaw.json"
 export OPENCLAW_CONFIG_PATH="${CONFIG_FILE}"
 export USER_BACKUP_ROOT="${TMP_DIR}/user-backups"
-export MAX_BACKUP_UPLOAD_BYTES="${BACKUP_IMPORT_MAX_BACKUP_UPLOAD_BYTES:-16777216}"
+export MAX_BACKUP_UPLOAD_BYTES="${BACKUP_IMPORT_MAX_BACKUP_UPLOAD_BYTES:-1048576}"
 export NODE_BIN="$(command -v node)"
 export OC_JS_PATH="${TMP_DIR}/dummy-gateway.js"
 
 API_LOG="${TMP_DIR}/management-api.log"
 API_BASE="http://127.0.0.1:${MANAGEMENT_PORT}/api"
 EXPORT_ARCHIVE="${TMP_DIR}/backup-export.tar.gz"
+OVERSIZE_FILE="${TMP_DIR}/oversize-upload.bin"
 
 curl_common=(
   -fsS
@@ -150,5 +151,24 @@ if ! grep -q '^demo-plugin$' "${TRIM_PKGVAR}/plugins/demo-plugin/plugin.txt"; th
   echo "[backup-import] 恢复后的 plugin.txt 内容不正确"
   exit 1
 fi
+
+head -c 2097152 /dev/urandom > "${OVERSIZE_FILE}"
+OVERSIZE_RESULT="${TMP_DIR}/backup-import-oversize-result.json"
+OVERSIZE_STATUS="$(
+  curl -sS -o "${OVERSIZE_RESULT}" -w "%{http_code}" \
+    --connect-timeout "${HTTP_CONNECT_TIMEOUT_SECONDS}" \
+    --max-time "${HTTP_MAX_TIME_SECONDS}" \
+    -X POST \
+    -F "backupFile=@${OVERSIZE_FILE}" \
+    "${API_BASE}/backup/import"
+)"
+
+if [ "${OVERSIZE_STATUS}" != "400" ]; then
+  echo "[backup-import] 超限上传未返回 400，实际为 ${OVERSIZE_STATUS}"
+  cat "${OVERSIZE_RESULT}" || true
+  exit 1
+fi
+
+assert_json_expr "${OVERSIZE_RESULT}" "data.status === 400 && data.code === 'bad_request' && /上传文件过大/.test(data.error)" "超限上传错误语义不正确"
 
 echo "[backup-import] all checks passed"

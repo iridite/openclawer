@@ -266,6 +266,32 @@ function buildApiErrorMessage(endpoint, response, data = {}, fallbackText = "") 
     .join("\n");
 }
 
+async function parseApiResponse(endpoint, response) {
+  const responseText = await response.text();
+  let data = {};
+
+  if (responseText) {
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseErr) {
+      const trimmed = responseText.trim();
+      if (!response.ok) {
+        const briefBody = trimmed ? trimmed.slice(0, 240) : "空响应体";
+        throw new Error(buildApiErrorMessage(endpoint, response, {}, briefBody));
+      }
+      throw new Error(
+        `接口返回格式错误：预期 JSON，实际收到非 JSON 内容（${API_BASE + endpoint}）`,
+      );
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(buildApiErrorMessage(endpoint, response, data));
+  }
+
+  return data;
+}
+
 // API 请求封装
 async function apiRequest(endpoint, options = {}) {
   const maxRetries = options.retries || 2;
@@ -280,30 +306,7 @@ async function apiRequest(endpoint, options = {}) {
           ...options.headers,
         },
       });
-      const responseText = await response.text();
-      let data = {};
-      if (responseText) {
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseErr) {
-          const trimmed = responseText.trim();
-          if (!response.ok) {
-            const briefBody = trimmed ? trimmed.slice(0, 240) : "空响应体";
-            throw new Error(
-              buildApiErrorMessage(endpoint, response, {}, briefBody),
-            );
-          }
-          throw new Error(
-            `接口返回格式错误：预期 JSON，实际收到非 JSON 内容（${API_BASE + endpoint}）`,
-          );
-        }
-      }
-
-      if (!response.ok) {
-        throw new Error(buildApiErrorMessage(endpoint, response, data));
-      }
-
-      return data;
+      return await parseApiResponse(endpoint, response);
     } catch (error) {
       const isLastAttempt = attempt === maxRetries;
       const errorMessage = String(error?.message || "");
@@ -329,6 +332,39 @@ async function apiRequest(endpoint, options = {}) {
       }
       throw error;
     }
+  }
+}
+
+async function apiFormRequest(endpoint, options = {}) {
+  const { formData, headers = {}, ...rest } = options;
+  if (!(formData instanceof FormData)) {
+    throw new Error("formData 必须是 FormData 实例");
+  }
+
+  try {
+    const response = await fetch(API_BASE + endpoint, {
+      ...rest,
+      headers,
+      body: formData,
+    });
+    return await parseApiResponse(endpoint, response);
+  } catch (error) {
+    const errorMessage = String(error?.message || "");
+    const lowerMsg = errorMessage.toLowerCase();
+    const isNetworkError =
+      error?.name === "TypeError" ||
+      lowerMsg.includes("fetch") ||
+      lowerMsg.includes("load failed") ||
+      lowerMsg.includes("failed to fetch") ||
+      lowerMsg.includes("networkerror");
+
+    console.error("API 表单请求失败:", error);
+    if (isNetworkError) {
+      throw new Error(
+        `无法连接管理接口（${API_BASE + endpoint}）。请检查管理服务是否在线、浏览器网络/证书与反向代理配置。原始错误: ${errorMessage || "网络请求异常"}`,
+      );
+    }
+    throw error;
   }
 }
 

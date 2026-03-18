@@ -401,7 +401,7 @@ function createBackupService(options) {
               `上传文件过大，已超过 ${(maxBytes / 1024 / 1024).toFixed(0)}MB 限制`,
             ),
           );
-          req.destroy();
+          req.resume();
           return;
         }
 
