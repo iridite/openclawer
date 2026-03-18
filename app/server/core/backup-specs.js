@@ -1,45 +1,66 @@
-const fs = require("fs");
 const path = require("path");
 
 const DEFAULT_BACKUP_SPECS_FILE = path.resolve(
   __dirname,
   "../../../config/backup-path-specs.tsv",
 );
-
-function parseBackupSpecsFile(filePath) {
-  const raw = fs.readFileSync(filePath, "utf8");
-  const lines = raw.split(/\r?\n/);
-  const specs = [];
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) {
-      continue;
-    }
-
-    const parts = line.split("\t");
-    if (parts.length < 4) {
-      throw new Error(`Invalid backup spec line: ${line}`);
-    }
-
-    const [id, type, backupPath, targetTemplate] = parts.map((value) =>
-      String(value || "").trim(),
-    );
-
-    if (!id || !type || !backupPath || !targetTemplate) {
-      throw new Error(`Incomplete backup spec line: ${line}`);
-    }
-
-    specs.push({
-      id,
-      type,
-      backupPath,
-      targetTemplate,
-    });
-  }
-
-  return specs;
-}
+const EMBEDDED_BACKUP_SPECS = Object.freeze([
+  {
+    id: "oc_home",
+    type: "dir",
+    backupPath: ".openclaw",
+    targetTemplate: "${OC_HOME}",
+  },
+  {
+    id: "pkg_plugins",
+    type: "dir",
+    backupPath: "var/plugins",
+    targetTemplate: "${TRIM_PKGVAR}/plugins",
+  },
+  {
+    id: "pkg_extensions",
+    type: "dir",
+    backupPath: "var/extensions",
+    targetTemplate: "${TRIM_PKGVAR}/extensions",
+  },
+  {
+    id: "qqbot_node_modules",
+    type: "dir",
+    backupPath: "var/node_modules/@tencent-connect/openclaw-qqbot",
+    targetTemplate:
+      "${TRIM_PKGVAR}/node_modules/@tencent-connect/openclaw-qqbot",
+  },
+  {
+    id: "wecom_node_modules",
+    type: "dir",
+    backupPath: "var/node_modules/@wecom/wecom-openclaw-plugin",
+    targetTemplate: "${TRIM_PKGVAR}/node_modules/@wecom/wecom-openclaw-plugin",
+  },
+  {
+    id: "skillhub_node_modules",
+    type: "dir",
+    backupPath: "var/node_modules/skillhub",
+    targetTemplate: "${TRIM_PKGVAR}/node_modules/skillhub",
+  },
+  {
+    id: "openclaw_skillhub_node_modules",
+    type: "dir",
+    backupPath: "var/node_modules/@openclaw/skillhub",
+    targetTemplate: "${TRIM_PKGVAR}/node_modules/@openclaw/skillhub",
+  },
+  {
+    id: "management_access",
+    type: "file",
+    backupPath: "var/management-access.json",
+    targetTemplate: "${TRIM_PKGVAR}/management-access.json",
+  },
+  {
+    id: "api_key_protection",
+    type: "file",
+    backupPath: "var/api-key-protection.json",
+    targetTemplate: "${TRIM_PKGVAR}/api-key-protection.json",
+  },
+]);
 
 function resolveTemplate(template, variables) {
   return String(template || "").replace(/\$\{([A-Z0-9_]+)\}/g, (_, name) => {
@@ -50,13 +71,17 @@ function resolveTemplate(template, variables) {
   });
 }
 
-function loadBackupSpecs(options = {}) {
-  const filePath = path.resolve(
-    options.filePath ||
-      process.env.BACKUP_SPECS_FILE ||
-      DEFAULT_BACKUP_SPECS_FILE,
-  );
-  return parseBackupSpecsFile(filePath);
+function cloneSpecs(specs) {
+  return specs.map((spec) => ({
+    id: String(spec.id || "").trim(),
+    type: String(spec.type || "").trim(),
+    backupPath: String(spec.backupPath || "").trim(),
+    targetTemplate: String(spec.targetTemplate || "").trim(),
+  }));
+}
+
+function loadBackupSpecs() {
+  return cloneSpecs(EMBEDDED_BACKUP_SPECS);
 }
 
 function resolveBackupPathSpecs(options = {}) {
