@@ -155,6 +155,57 @@ function showToast(message, type = "info") {
   }, 3500);
 }
 
+function copyToClipboard(text, label = "内容") {
+  const value = String(text || "");
+  if (!value) {
+    showToast(`没有可复制的${label}`, "warning");
+    return;
+  }
+
+  const fallbackCopy = () => {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "readonly");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    textarea.style.top = "-9999px";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch (err) {
+      copied = false;
+    } finally {
+      document.body.removeChild(textarea);
+    }
+
+    if (copied) {
+      showToast(`${label}已复制到剪贴板`, "success");
+    } else {
+      showToast(`${label}复制失败，请手动复制`, "error");
+    }
+  };
+
+  if (navigator?.clipboard?.writeText) {
+    navigator.clipboard.writeText(value).then(
+      () => {
+        showToast(`${label}已复制到剪贴板`, "success");
+      },
+      () => {
+        fallbackCopy();
+      },
+    );
+    return;
+  }
+
+  fallbackCopy();
+}
+
 function isLikelyPolicyBlock(text) {
   const raw = String(text || "").trim().toLowerCase();
   if (!raw) return false;
