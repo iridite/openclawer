@@ -35,6 +35,28 @@ log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
 }
 
+resolve_runtime_config_env() {
+    local explicit_config="${OPENCLAW_CONFIG_PATH:-}"
+
+    if [ -n "${explicit_config}" ]; then
+        RUNTIME_CONFIG_FILE="${explicit_config}"
+    elif [ -f "${TRIM_PKGVAR}/.openclaw/openclaw.json" ] || [ -d "${TRIM_PKGVAR}/.openclaw" ]; then
+        RUNTIME_CONFIG_FILE="${TRIM_PKGVAR}/.openclaw/openclaw.json"
+    else
+        RUNTIME_CONFIG_FILE="/root/.openclaw/openclaw.json"
+    fi
+
+    local runtime_home
+    runtime_home="$(dirname "$(dirname "${RUNTIME_CONFIG_FILE}")")"
+    if [ -z "${runtime_home}" ] || [ "${runtime_home}" = "." ]; then
+        runtime_home="/root"
+    fi
+
+    RUNTIME_HOME="${runtime_home}"
+    log_msg "运行时配置路径: ${RUNTIME_CONFIG_FILE}"
+    log_msg "运行时 HOME: ${RUNTIME_HOME}"
+}
+
 # 启动应用进程
 # 如果进程已经在运行，则直接返回
 # 否则在后台启动进程并将 PID 写入文件
@@ -98,17 +120,18 @@ start_process() {
     log_msg "✅ Management API 路径: ${MANAGEMENT_API}"
 
     log_msg "[2/3] 启动服务进程..."
+    resolve_runtime_config_env
 
     # 启动 Management API（已集成 Dashboard 代理功能）
     log_msg "启动 Management API (端口: ${MANAGEMENT_PORT})..."
-    (
-        export TRIM_PKGVAR="${TRIM_PKGVAR}"
-        export TRIM_APPDEST="${TRIM_APPDEST}"
-        export MANAGEMENT_PORT="${MANAGEMENT_PORT}"
-        export GATEWAY_PORT="${GATEWAY_PORT}"
-
-        exec "${NODE_PATH}" "${MANAGEMENT_API}"
-    ) >> ${LOG_FILE} 2>&1 &
+    nohup env \
+        HOME="${RUNTIME_HOME}" \
+        OPENCLAW_CONFIG_PATH="${RUNTIME_CONFIG_FILE}" \
+        TRIM_PKGVAR="${TRIM_PKGVAR}" \
+        TRIM_APPDEST="${TRIM_APPDEST}" \
+        MANAGEMENT_PORT="${MANAGEMENT_PORT}" \
+        GATEWAY_PORT="${GATEWAY_PORT}" \
+        "${NODE_PATH}" "${MANAGEMENT_API}" >> "${LOG_FILE}" 2>&1 &
 
     local main_pid=$!
     # 将后台进程的 PID 写入 PID 文件

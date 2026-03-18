@@ -401,6 +401,25 @@ function getClientIp(req) {
   return normalizeRemoteIp(req?.socket?.remoteAddress || "");
 }
 
+function getRequestHost(req) {
+  const raw = String(req?.headers?.host || "").trim();
+  return raw || `127.0.0.1:${PORT}`;
+}
+
+function parseRequestUrl(req) {
+  const rawUrl = typeof req?.url === "string" && req.url ? req.url : "/";
+  const host = getRequestHost(req);
+
+  try {
+    return new URL(rawUrl, `http://${host}`);
+  } catch (err) {
+    console.error(
+      `[management-api] Invalid request URL "${rawUrl}": ${err.message}`,
+    );
+    return new URL("/", `http://${host}`);
+  }
+}
+
 function isAccessAllowed(req) {
   if (isLoopbackIp(getClientIp(req))) {
     return true;
@@ -426,57 +445,99 @@ function applyCorsHeaders(req, res) {
 
 // HTTP 请求处理
 function handleRequest(req, res) {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = url.pathname;
-  const method = req.method;
+  const rawUrl = String(req?.url || "");
+  let url = null;
+  let pathname = "/";
+  try {
+    url = parseRequestUrl(req);
+    pathname = url.pathname;
+    const method = req.method;
 
-  applyCorsHeaders(req, res);
+    applyCorsHeaders(req, res);
 
-  if (!isAccessAllowed(req)) {
-    const message =
-      "Forbidden: Management API is local-only. Enable remote access from System -> Management Access in WebUI.";
+    if (!isAccessAllowed(req)) {
+      const message =
+        "Forbidden: Management API is local-only. Enable remote access from System -> Management Access in WebUI.";
+      if (pathname.startsWith("/api/")) {
+        res.writeHead(403, { "Content-Type": "application/json" });
+        const error = forbiddenError(message);
+        res.end(JSON.stringify({
+          error: error.message,
+          code: error.code,
+          status: error.statusCode,
+        }));
+        return;
+      }
+      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end(message);
+      return;
+    }
+
+    if (method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    // Dashboard 代理处理 - 直接转发到 Gateway (18789)
+    if (handleDashboardHttp(req, res, url, pathname)) {
+      return;
+    }
+
+    // API 路由处理
     if (pathname.startsWith("/api/")) {
-      res.writeHead(403, { "Content-Type": "application/json" });
-      const error = forbiddenError(message);
+      handleApiRoutes(req, res, pathname, method, url);
+      return;
+    }
+
+    // 静态文件处理
+    handleStaticRequest(req, pathname, res);
+  } catch (err) {
+    console.error(
+      `[management-api] Request handling failed for ${rawUrl || "/"}: ${err.stack || err.message}`,
+    );
+
+    if (res.headersSent || res.writableEnded) {
+      res.destroy(err);
+      return;
+    }
+
+    if (pathname.startsWith("/api/") || rawUrl.startsWith("/api/")) {
+      res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
-        error: error.message,
-        code: error.code,
-        status: error.statusCode,
+        error: "Internal Server Error",
+        code: "internal_error",
+        status: 500,
       }));
       return;
     }
-    res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end(message);
-    return;
-  }
 
-  if (method === "OPTIONS") {
-    res.writeHead(204);
-    res.end();
-    return;
+    res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Internal Server Error");
   }
-
-  // Dashboard 代理处理 - 直接转发到 Gateway (18789)
-  if (handleDashboardHttp(req, res, url, pathname)) {
-    return;
-  }
-
-  // API 路由处理
-  if (pathname.startsWith("/api/")) {
-    handleApiRoutes(req, res, pathname, method, url);
-    return;
-  }
-
-  // 静态文件处理
-  handleStaticRequest(req, pathname, res);
 }
 
 // 启动服务器
 const server = http.createServer(handleRequest);
+server.on("clientError", (err, socket) => {
+  console.error(`[management-api] Client error: ${err.message}`);
+  if (!socket.writable) {
+    socket.destroy();
+    return;
+  }
+  socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
+});
 
 // WebSocket 升级处理 - 转发到 Gateway
 server.on("upgrade", (req, socket, head) => {
-  handleDashboardUpgrade(req, socket);
+  try {
+    handleDashboardUpgrade(req, socket, head);
+  } catch (err) {
+    console.error(
+      `[management-api] Upgrade handling failed: ${err.stack || err.message}`,
+    );
+    socket.destroy();
+  }
 });
 
 async function bootstrap() {

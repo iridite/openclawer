@@ -15,6 +15,25 @@ const HOP_BY_HOP_HEADERS = new Set([
 function createDashboardProxyService(options) {
   const { CONFIG_FILE, GATEWAY_PORT, readJSON } = options;
 
+  function getRequestHost(req) {
+    const raw = String(req?.headers?.host || "").trim();
+    return raw || "127.0.0.1";
+  }
+
+  function parseRequestUrl(req) {
+    const rawUrl = typeof req?.url === "string" && req.url ? req.url : "/";
+    const host = getRequestHost(req);
+
+    try {
+      return new URL(rawUrl, `http://${host}`);
+    } catch (err) {
+      console.error(
+        `[Dashboard Proxy] Invalid request URL "${rawUrl}": ${err.message}`,
+      );
+      return new URL("/", `http://${host}`);
+    }
+  }
+
   function getInjectionScript(token) {
     if (!token) return "";
     return `<script>
@@ -424,7 +443,7 @@ button {
   }
 
   function handleDashboardUpgrade(req, socket) {
-    const url = new URL(req.url, `http://${req.headers.host}`);
+    const url = parseRequestUrl(req);
     const pathname = url.pathname;
 
     if (!pathname.startsWith("/dashboard")) {
