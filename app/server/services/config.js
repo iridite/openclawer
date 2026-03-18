@@ -1,6 +1,13 @@
 const fs = require("fs");
 const crypto = require("crypto");
 const path = require("path");
+const {
+  AppError,
+  badRequestError,
+  notFoundError,
+  conflictError,
+  normalizeError,
+} = require("../core/http-errors");
 const { findPrimaryModelFallback, cleanupEmptyProvider } = require("../core/config-helpers");
 const {
   OC_DEPLOY_SECRETS_FILENAME,
@@ -66,6 +73,15 @@ function createConfigService(deps) {
     });
   }
 
+  function wrapContextError(error, prefix) {
+    const normalized = normalizeError(error);
+    return new AppError(`${prefix}: ${normalized.message}`, {
+      statusCode: normalized.statusCode,
+      code: normalized.code,
+      details: normalized.details,
+    });
+  }
+
   function buildProviderApiKeyForSave(config, providerName, modelData, existingApiKey) {
     const requestedMode = normalizeStorageMode(modelData?.apiKeyStorageMode);
     const hasExistingApiKey = existingApiKey !== undefined && existingApiKey !== null;
@@ -89,7 +105,7 @@ function createConfigService(deps) {
     const keepExisting = normalizeBool(modelData?.keepExistingApiKeyRef);
 
     if (mode !== "plaintext" && mode !== "managed-file" && mode !== "env") {
-      throw new Error(`不支持的 API Key 存储方式: ${mode}`);
+      throw badRequestError(`不支持的 API Key 存储方式: ${mode}`);
     }
 
     if (!apiKeyProtectionEnabled && isSecretRefStorageMode(mode)) {
@@ -115,7 +131,7 @@ function createConfigService(deps) {
         !Array.isArray(existingApiKey);
 
       if (!canKeepLegacySecretRefUnchanged) {
-        throw new Error(
+        throw conflictError(
           "当前未开启 API 防护，禁止将模型密钥配置为 SecretRef。请改用明文，或先到“系统”启用 API 防护。",
         );
       }
@@ -129,7 +145,7 @@ function createConfigService(deps) {
     if (mode === "env") {
       const envVar = rawEnvVar;
       if (!isValidEnvVarName(envVar)) {
-        throw new Error("环境变量名不合法（示例：OPENAI_API_KEY）");
+        throw badRequestError("环境变量名不合法（示例：OPENAI_API_KEY）");
       }
       ensureEnvSecretProvider(config, "default");
       return {
@@ -151,7 +167,7 @@ function createConfigService(deps) {
         };
       }
       if (!rawApiKey) {
-        throw new Error("API Key 不能为空");
+        throw badRequestError("API Key 不能为空");
       }
       return {
         value: setManagedProviderApiKey({
@@ -165,7 +181,7 @@ function createConfigService(deps) {
     }
 
     if (!rawApiKey) {
-      throw new Error("API Key 不能为空");
+      throw badRequestError("API Key 不能为空");
     }
     return {
       value: rawApiKey,
@@ -217,7 +233,7 @@ function createConfigService(deps) {
     if (providerMigrationChanged) {
       const writeOk = writeJSON(CONFIG_FILE, config);
       if (!writeOk) {
-        throw new Error("配置自动迁移失败：无法写入配置文件");
+        throw conflictError("配置自动迁移失败：无法写入配置文件");
       }
     }
 
@@ -226,7 +242,7 @@ function createConfigService(deps) {
 
   async function saveConfig(newConfig) {
     if (!newConfig || typeof newConfig !== "object") {
-      throw new Error("无效的配置格式");
+      throw badRequestError("无效的配置格式");
     }
 
     migrateLegacyManagedFileProvider(newConfig);
@@ -234,20 +250,20 @@ function createConfigService(deps) {
     const validation = await validateConfig(newConfig);
     if (!validation.valid) {
       const errorList = validation.errors.map((e, i) => `${i + 1}. ${e}`).join('\n');
-      throw new Error(`配置验证失败:\n${errorList}`);
+      throw badRequestError(`配置验证失败:\n${errorList}`);
     }
 
     if (fs.existsSync(CONFIG_FILE)) {
       const backupFile = CONFIG_FILE + ".backup." + Date.now();
       fs.copyFileSync(CONFIG_FILE, backupFile);
       if (!fs.existsSync(backupFile) || fs.statSync(backupFile).size === 0) {
-        throw new Error("备份创建失败");
+        throw conflictError("备份创建失败");
       }
     }
 
     const success = writeJSON(CONFIG_FILE, newConfig);
     if (!success) {
-      throw new Error("写入配置文件失败");
+      throw conflictError("写入配置文件失败");
     }
 
     return { success: true };
@@ -269,7 +285,7 @@ function createConfigService(deps) {
     if (fs.existsSync(INITIAL_CONFIG_FILE)) {
       configToRestore = readJSON(INITIAL_CONFIG_FILE);
       if (!configToRestore || typeof configToRestore !== "object") {
-        throw new Error("初始配置快照损坏，无法恢复");
+        throw conflictError("初始配置快照损坏，无法恢复");
       }
     } else {
       source = "fallback-default";
@@ -278,7 +294,7 @@ function createConfigService(deps) {
 
     const success = writeJSON(CONFIG_FILE, configToRestore);
     if (!success) {
-      throw new Error("恢复配置失败：写入配置文件失败");
+      throw conflictError("恢复配置失败：写入配置文件失败");
     }
 
     let restarted = false;
@@ -308,16 +324,16 @@ function createConfigService(deps) {
   function validateModelData(modelData) {
     const { modelId, providerName } = modelData;
 
-    if (!modelId) throw new Error("模型 ID 不能为空");
-    if (!providerName) throw new Error("供应商名称不能为空");
+    if (!modelId) throw badRequestError("模型 ID 不能为空");
+    if (!providerName) throw badRequestError("供应商名称不能为空");
 
     const modelIdPattern = /^[a-zA-Z0-9._/:-]+$/;
     if (!modelIdPattern.test(modelId)) {
-      throw new Error("模型 ID 只能包含字母、数字、点号(.)、斜杠(/)、冒号(:)、连字符(-)和下划线(_)");
+      throw badRequestError("模型 ID 只能包含字母、数字、点号(.)、斜杠(/)、冒号(:)、连字符(-)和下划线(_)");
     }
     const providerPattern = /^[a-z-]+$/;
     if (!providerPattern.test(providerName)) {
-      throw new Error("供应商名称只能包含小写英文字符(a-z)和连字符(-)");
+      throw badRequestError("供应商名称只能包含小写英文字符(a-z)和连字符(-)");
     }
   }
 
@@ -432,7 +448,7 @@ function createConfigService(deps) {
 
     try {
       const config = readJSON(CONFIG_FILE);
-      if (!config) throw new Error("配置文件不存在");
+      if (!config) throw conflictError("配置文件不存在");
 
       config.models = config.models || {};
       config.models.mode = config.models.mode || "merge";
@@ -497,7 +513,7 @@ function createConfigService(deps) {
       updatePrimaryModel(config, agentModelKey, isEditMode, editModelKey);
 
       const success = writeJSON(CONFIG_FILE, config);
-      if (!success) throw new Error("保存配置失败");
+      if (!success) throw conflictError("保存配置失败");
 
       return {
         success: true,
@@ -508,7 +524,10 @@ function createConfigService(deps) {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : typeof err === "string" ? err : JSON.stringify(err);
       console.error("[addModel] failed", { isEditOperation, rawError: err, errorMessage });
-      throw new Error(`${isEditOperation ? "修改模型失败" : "添加模型失败"}: ${errorMessage || "未知错误"}`);
+      throw wrapContextError(
+        err,
+        isEditOperation ? "修改模型失败" : "添加模型失败",
+      );
     }
   }
 
@@ -518,7 +537,7 @@ function createConfigService(deps) {
 
       const config = readJSON(CONFIG_FILE);
       if (!config || !config.models) {
-        throw new Error("配置文件不存在或格式错误");
+        throw conflictError("配置文件不存在或格式错误");
       }
       migrateLegacyManagedFileProvider(config);
 
@@ -530,7 +549,7 @@ function createConfigService(deps) {
       );
 
       if (!providerName || !modelId) {
-        throw new Error(
+        throw badRequestError(
           `模型标识格式错误，应为 providerName/modelId。收到: "${modelKey}"`,
         );
       }
@@ -539,14 +558,14 @@ function createConfigService(deps) {
         const availableProviders = Object.keys(
           config.models.providers || {},
         ).join(", ");
-        throw new Error(
+        throw notFoundError(
           `供应商 "${providerName}" 不存在。可用供应商: ${availableProviders || "无"}`,
         );
       }
 
       const provider = config.models.providers[providerName];
       if (!provider.models || !Array.isArray(provider.models)) {
-        throw new Error(`供应商 "${providerName}" 没有模型列表`);
+        throw conflictError(`供应商 "${providerName}" 没有模型列表`);
       }
 
       console.log(
@@ -573,7 +592,7 @@ function createConfigService(deps) {
             return `[${idx}] id="${m.id || "undefined"}" name="${m.name || "undefined"}"`;
           })
           .join(", ");
-        throw new Error(
+        throw notFoundError(
           `模型 "${modelId}" 在供应商 "${providerName}" 中不存在。该供应商下的所有模型: ${modelDetails || "无模型"}`,
         );
       }
@@ -603,35 +622,35 @@ function createConfigService(deps) {
 
       const success = writeJSON(CONFIG_FILE, config);
       if (!success) {
-        throw new Error("保存配置失败");
+        throw conflictError("保存配置失败");
       }
 
       return { success: true, message: `模型 "${modelKey}" 已删除` };
     } catch (err) {
-      throw new Error("删除模型失败: " + err.message);
+      throw wrapContextError(err, "删除模型失败");
     }
   }
 
   async function setPrimaryModel(modelKey) {
     const normalizedModelKey = String(modelKey || "").trim();
     if (!normalizedModelKey) {
-      throw new Error("模型标识不能为空");
+      throw badRequestError("模型标识不能为空");
     }
 
     const [providerName, ...modelIdParts] = normalizedModelKey.split("/");
     const modelId = modelIdParts.join("/");
     if (!providerName || !modelId) {
-      throw new Error("模型标识格式错误，应为 providerName/modelId");
+      throw badRequestError("模型标识格式错误，应为 providerName/modelId");
     }
 
     const config = readJSON(CONFIG_FILE);
     if (!isPlainObject(config)) {
-      throw new Error("配置文件不存在或格式错误");
+      throw conflictError("配置文件不存在或格式错误");
     }
 
     const provider = config.models?.providers?.[providerName];
     if (!isPlainObject(provider) || !Array.isArray(provider.models)) {
-      throw new Error(`供应商 "${providerName}" 不存在`);
+      throw notFoundError(`供应商 "${providerName}" 不存在`);
     }
 
     const exists = provider.models.some((model) => {
@@ -641,7 +660,7 @@ function createConfigService(deps) {
       return candidateId === modelId || candidateName === modelId || candidateModel === modelId;
     });
     if (!exists) {
-      throw new Error(`模型 "${normalizedModelKey}" 不存在`);
+      throw notFoundError(`模型 "${normalizedModelKey}" 不存在`);
     }
 
     config.agents = isPlainObject(config.agents) ? config.agents : {};
@@ -659,7 +678,7 @@ function createConfigService(deps) {
 
     const success = writeJSON(CONFIG_FILE, config);
     if (!success) {
-      throw new Error("保存配置失败");
+      throw conflictError("保存配置失败");
     }
 
     return {
@@ -675,15 +694,15 @@ function createConfigService(deps) {
     const channel = payload.channel;
 
     if (!channelId) {
-      throw new Error("渠道标识不能为空");
+      throw badRequestError("渠道标识不能为空");
     }
     if (!isPlainObject(channel)) {
-      throw new Error("渠道配置格式错误");
+      throw badRequestError("渠道配置格式错误");
     }
 
     const config = readJSON(CONFIG_FILE);
     if (!isPlainObject(config)) {
-      throw new Error("配置文件不存在或格式错误");
+      throw conflictError("配置文件不存在或格式错误");
     }
 
     config.channels = isPlainObject(config.channels) ? config.channels : {};
@@ -695,12 +714,12 @@ function createConfigService(deps) {
     const validationErrors = [];
     validateChannels({ channels: { [channelId]: channel } }, validationErrors);
     if (validationErrors.length > 0) {
-      throw new Error(validationErrors.join("\n"));
+      throw badRequestError(validationErrors.join("\n"));
     }
 
     const success = writeJSON(CONFIG_FILE, config);
     if (!success) {
-      throw new Error("保存配置失败");
+      throw conflictError("保存配置失败");
     }
 
     return {
@@ -714,22 +733,22 @@ function createConfigService(deps) {
   async function deleteChannel(channelId) {
     const normalizedChannelId = String(channelId || "").trim();
     if (!normalizedChannelId) {
-      throw new Error("渠道标识不能为空");
+      throw badRequestError("渠道标识不能为空");
     }
 
     const config = readJSON(CONFIG_FILE);
     if (!isPlainObject(config)) {
-      throw new Error("配置文件不存在或格式错误");
+      throw conflictError("配置文件不存在或格式错误");
     }
     if (!isPlainObject(config.channels) || !config.channels[normalizedChannelId]) {
-      throw new Error("渠道不存在");
+      throw notFoundError("渠道不存在");
     }
 
     delete config.channels[normalizedChannelId];
 
     const success = writeJSON(CONFIG_FILE, config);
     if (!success) {
-      throw new Error("保存配置失败");
+      throw conflictError("保存配置失败");
     }
 
     return {
@@ -744,12 +763,12 @@ function createConfigService(deps) {
     const allowedProfiles = new Set(["minimal", "messaging", "coding", "full"]);
 
     if (!allowedProfiles.has(normalizedProfile)) {
-      throw new Error("不支持的 Tool Profile");
+      throw badRequestError("不支持的 Tool Profile");
     }
 
     const config = readJSON(CONFIG_FILE) || {};
     if (!isPlainObject(config)) {
-      throw new Error("配置文件格式错误");
+      throw conflictError("配置文件格式错误");
     }
 
     config.tools = isPlainObject(config.tools) ? config.tools : {};
@@ -757,7 +776,7 @@ function createConfigService(deps) {
 
     const success = writeJSON(CONFIG_FILE, config);
     if (!success) {
-      throw new Error("保存配置失败");
+      throw conflictError("保存配置失败");
     }
 
     return {
@@ -772,7 +791,7 @@ function createConfigService(deps) {
 
     const config = readJSON(CONFIG_FILE);
     if (!config || typeof config !== "object" || Array.isArray(config)) {
-      throw new Error("配置文件不存在或格式错误");
+      throw conflictError("配置文件不存在或格式错误");
     }
     migrateLegacyManagedFileProvider(config);
 
@@ -781,7 +800,7 @@ function createConfigService(deps) {
       backupFile = `${CONFIG_FILE}.backup.models-reset.${Date.now()}`;
       fs.copyFileSync(CONFIG_FILE, backupFile);
       if (!fs.existsSync(backupFile) || fs.statSync(backupFile).size === 0) {
-        throw new Error("清空模型前创建备份失败");
+        throw conflictError("清空模型前创建备份失败");
       }
     }
     let secretBackupFile = null;
@@ -792,7 +811,7 @@ function createConfigService(deps) {
         !fs.existsSync(secretBackupFile) ||
         fs.statSync(secretBackupFile).size === 0
       ) {
-        throw new Error("清空模型前创建密钥备份失败");
+        throw conflictError("清空模型前创建密钥备份失败");
       }
     }
 
@@ -841,7 +860,7 @@ function createConfigService(deps) {
 
     const success = writeJSON(CONFIG_FILE, config);
     if (!success) {
-      throw new Error("清空模型配置失败");
+      throw conflictError("清空模型配置失败");
     }
 
     let secretCleanupErrors = 0;

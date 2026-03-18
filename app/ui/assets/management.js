@@ -209,6 +209,63 @@ function build502ErrorMessage(endpoint, detail = "") {
     .join("\n");
 }
 
+function buildApiErrorMessage(endpoint, response, data = {}, fallbackText = "") {
+  if (response.status === 502) {
+    const detail = data?.error || data?.message || fallbackText || "";
+    return build502ErrorMessage(endpoint, detail);
+  }
+
+  const baseMessage = String(
+    data?.error || data?.message || fallbackText || "请求失败",
+  ).trim() || "请求失败";
+  const apiCode = String(data?.code || "").trim();
+  const hint = apiCode ? `\n错误码: ${apiCode}` : "";
+
+  if (response.status === 400) {
+    return `${baseMessage}${hint}`;
+  }
+
+  if (response.status === 403) {
+    return [
+      baseMessage,
+      "当前访问被管理访问策略拒绝。",
+      "请检查 WebUI 的「系统 -> 管理访问」是否允许远程访问，或改用 fnOS 默认中继/已配置的反向代理入口。",
+      apiCode ? `错误码: ${apiCode}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  if (response.status === 404) {
+    return [
+      baseMessage,
+      "请求目标不存在，可能已被删除，或当前版本未提供该接口。",
+      `接口路径: ${API_BASE + endpoint}`,
+      apiCode ? `错误码: ${apiCode}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  if (response.status === 409) {
+    return [
+      baseMessage,
+      "当前状态与执行条件冲突。通常是配置文件缺失、目标已变化，或需要先完成前置步骤。",
+      apiCode ? `错误码: ${apiCode}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  return [
+    `请求失败（HTTP ${response.status}）`,
+    baseMessage,
+    apiCode ? `错误码: ${apiCode}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 // API 请求封装
 async function apiRequest(endpoint, options = {}) {
   const maxRetries = options.retries || 2;
@@ -231,14 +288,9 @@ async function apiRequest(endpoint, options = {}) {
         } catch (parseErr) {
           const trimmed = responseText.trim();
           if (!response.ok) {
-            if (response.status === 502) {
-              throw new Error(build502ErrorMessage(endpoint, trimmed));
-            }
-            const briefBody = trimmed
-              ? trimmed.slice(0, 240)
-              : "空响应体";
+            const briefBody = trimmed ? trimmed.slice(0, 240) : "空响应体";
             throw new Error(
-              `请求失败（HTTP ${response.status}），接口返回了非 JSON 内容: ${briefBody}`,
+              buildApiErrorMessage(endpoint, response, {}, briefBody),
             );
           }
           throw new Error(
@@ -248,11 +300,7 @@ async function apiRequest(endpoint, options = {}) {
       }
 
       if (!response.ok) {
-        if (response.status === 502) {
-          const detail = data?.error || data?.message || "";
-          throw new Error(build502ErrorMessage(endpoint, detail));
-        }
-        throw new Error(data.error || "请求失败");
+        throw new Error(buildApiErrorMessage(endpoint, response, data));
       }
 
       return data;

@@ -1,4 +1,9 @@
 const fs = require("fs");
+const {
+  badRequestError,
+  notFoundError,
+  normalizeError,
+} = require("../core/http-errors");
 
 function createRouter(deps) {
   const {
@@ -50,10 +55,30 @@ function createRouter(deps) {
       return JSON.parse(body);
     } catch (e) {
       if (e instanceof SyntaxError) {
-        throw new Error("无效的 JSON 格式");
+        throw badRequestError("无效的 JSON 格式");
       }
       throw e;
     }
+  }
+
+  function sendJson(res, status, payload) {
+    res.writeHead(status, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(payload));
+  }
+
+  function sendError(res, err) {
+    const normalized = normalizeError(err);
+    const payload = {
+      error: normalized.message,
+      code: normalized.code,
+      status: normalized.statusCode,
+    };
+
+    if (normalized.details !== undefined) {
+      payload.details = normalized.details;
+    }
+
+    sendJson(res, normalized.statusCode, payload);
   }
 
   function handleApiRoutes(req, res, pathname, method, url) {
@@ -79,10 +104,7 @@ function createRouter(deps) {
           stream.on("error", (err) => {
             cleanup();
             if (!res.headersSent) {
-              res.writeHead(500, { "Content-Type": "application/json" });
-              res.end(
-                JSON.stringify({ error: "导出备份失败: " + err.message }),
-              );
+              sendError(res, err);
             } else {
               res.destroy(err);
             }
@@ -91,32 +113,16 @@ function createRouter(deps) {
           res.on("close", cleanup);
           stream.pipe(res);
         })
-        .catch((err) => {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({
-              error: "导出完整备份失败: " + (err?.message || "未知错误"),
-            }),
-          );
-        });
+        .catch((err) => sendError(res, err));
       return true;
     }
 
     if (method === "POST" && pathname === "/api/backup/import") {
       importBackupArchiveFromRequest(req)
         .then((result) => {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(result));
+          sendJson(res, 200, result);
         })
-        .catch((err) => {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({
-              success: false,
-              error: "导入完整备份失败: " + (err?.message || "未知错误"),
-            }),
-          );
-        });
+        .catch((err) => sendError(res, err));
       return true;
     }
 
@@ -185,10 +191,7 @@ function createRouter(deps) {
           return updateAllSkills();
         }
         if (!data?.slug) {
-          return {
-            success: false,
-            error: "缺少技能名称",
-          };
+          throw badRequestError("缺少技能名称");
         }
         return updateSkill(data.slug);
       },
@@ -206,18 +209,13 @@ function createRouter(deps) {
     if (handler) {
       handler()
         .then((result) => {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify(result));
+          sendJson(res, 200, result);
         })
-        .catch((err) => {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: err.message }));
-        });
+        .catch((err) => sendError(res, err));
       return true;
     }
 
-    res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Not Found" }));
+    sendError(res, notFoundError("接口不存在"));
     return true;
   }
 

@@ -79,6 +79,41 @@ request_json() {
   fi
 }
 
+request_expect_status() {
+  local method="$1"
+  local path="$2"
+  local expected_status="$3"
+  local outfile="$4"
+  local body="${5:-}"
+  local status
+
+  if [ -n "${body}" ]; then
+    status="$(
+      curl -sS -o "${outfile}" -w "%{http_code}" \
+        --connect-timeout "${HTTP_CONNECT_TIMEOUT_SECONDS}" \
+        --max-time "${HTTP_MAX_TIME_SECONDS}" \
+        -X "${method}" \
+        -H "Content-Type: application/json" \
+        --data "${body}" \
+        "${API_BASE}${path}"
+    )"
+  else
+    status="$(
+      curl -sS -o "${outfile}" -w "%{http_code}" \
+        --connect-timeout "${HTTP_CONNECT_TIMEOUT_SECONDS}" \
+        --max-time "${HTTP_MAX_TIME_SECONDS}" \
+        -X "${method}" \
+        "${API_BASE}${path}"
+    )"
+  fi
+
+  if [ "${status}" != "${expected_status}" ]; then
+    echo "[capability] unexpected HTTP ${status} for ${method} ${path}, expected ${expected_status}"
+    cat "${outfile}" || true
+    exit 1
+  fi
+}
+
 assert_json_expr() {
   local file="$1"
   local expr="$2"
@@ -290,6 +325,19 @@ NODE
 request_json POST "/security/api-key-protection" "${TMP_DIR}/protection-disable.json" '{"enabled":false,"confirmReset":true}'
 assert_json_expr "${TMP_DIR}/protection-disable.json" "data.enabled === false && data.modelsReset && data.modelsReset.performed === true" "关闭 API 防护失败"
 assert_config_expr "Object.keys(data.models.providers || {}).length === 0" "关闭 API 防护后模型未清空"
+
+# 错误语义：参数错误 / 目标不存在 / 路由不存在
+request_expect_status POST "/models/primary" "400" "${TMP_DIR}/error-bad-request.json" '{"modelKey":""}'
+assert_json_expr "${TMP_DIR}/error-bad-request.json" "data.status === 400 && data.code === 'bad_request' && /模型标识不能为空/.test(data.error)" "400 bad_request 语义不正确"
+
+request_expect_status POST "/models/delete" "404" "${TMP_DIR}/error-not-found.json" '{"modelKey":"openai/not-exists"}'
+assert_json_expr "${TMP_DIR}/error-not-found.json" "data.status === 404 && data.code === 'not_found' && /不存在/.test(data.error)" "404 not_found 语义不正确"
+
+request_expect_status GET "/route-not-found" "404" "${TMP_DIR}/error-route-not-found.json"
+assert_json_expr "${TMP_DIR}/error-route-not-found.json" "data.status === 404 && data.code === 'not_found'" "未知路由未返回 404 not_found"
+
+request_expect_status POST "/management/access" "400" "${TMP_DIR}/error-invalid-management-access.json" '{"allowRemote":"yes"}'
+assert_json_expr "${TMP_DIR}/error-invalid-management-access.json" "data.status === 400 && data.code === 'bad_request'" "management access 参数错误未返回 400 bad_request"
 
 # 插件：状态识别 + plugins.allow 修正
 mkdir -p "${OC_HOME}/plugins/openclaw-qqbot"

@@ -1,6 +1,7 @@
 const http = require("http");
 const https = require("https");
 const { URL } = require("url");
+const { badRequestError, conflictError } = require("../core/http-errors");
 const {
   resolveProviderApiKeyValue,
   resolveSecretRefValue,
@@ -133,25 +134,25 @@ function createModelTestService(options = {}) {
 
   function validateTestConfig(config) {
     if (!config || typeof config !== "object" || Array.isArray(config)) {
-      throw new Error("请求体必须是 JSON 对象");
+      throw badRequestError("请求体必须是 JSON 对象");
     }
 
     const modelId = String(config.modelId || "").trim();
     const providerName = String(config.providerName || "").trim();
     const baseUrl = String(config.baseUrl || "").trim();
     if (!modelId || !providerName || !baseUrl) {
-      throw new Error("请先填写所有必填字段（模型ID、供应商、Base URL）");
+      throw badRequestError("请先填写所有必填字段（模型ID、供应商、Base URL）");
     }
 
     const modelIdPattern = /^[a-zA-Z0-9._/:-]+$/;
     if (!modelIdPattern.test(modelId)) {
-      throw new Error(
+      throw badRequestError(
         "模型 ID 只能包含字母、数字、点号(.)、斜杠(/)、冒号(:)、连字符(-)和下划线(_)",
       );
     }
     const providerPattern = /^[a-z-]+$/;
     if (!providerPattern.test(providerName)) {
-      throw new Error("供应商名称只能包含小写英文字符(a-z)和连字符(-)");
+      throw badRequestError("供应商名称只能包含小写英文字符(a-z)和连字符(-)");
     }
 
     const requestedMode = normalizeStorageMode(config.apiKeyStorageMode);
@@ -166,13 +167,13 @@ function createModelTestService(options = {}) {
       mode !== "managed-file" &&
       mode !== "env"
     ) {
-      throw new Error(`不支持的 API Key 存储方式: ${mode}`);
+      throw badRequestError(`不支持的 API Key 存储方式: ${mode}`);
     }
 
     if (mode === "env") {
       const envVarName = String(config.apiKeyEnvVar || "").trim();
       if (!/^[A-Z_][A-Z0-9_]*$/.test(envVarName)) {
-        throw new Error("环境变量名不合法（示例：OPENAI_API_KEY）");
+        throw badRequestError("环境变量名不合法（示例：OPENAI_API_KEY）");
       }
     }
 
@@ -184,7 +185,7 @@ function createModelTestService(options = {}) {
         currentConfig,
       );
       if (!canKeepLegacyRef) {
-        throw new Error(
+        throw conflictError(
           "当前未开启 API 防护，不能使用 SecretRef 方式测试。请改用明文，或先到“系统”启用 API 防护。",
         );
       }

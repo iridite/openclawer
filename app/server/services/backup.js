@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { badRequestError, conflictError } = require("../core/http-errors");
 const { resolveBackupPathSpecs } = require("../core/backup-specs");
 
 function createBackupService(options) {
@@ -85,7 +86,7 @@ function createBackupService(options) {
 
     if (includedEntries.length === 0) {
       cleanupPathQuietly(workDir);
-      throw new Error("没有可导出的备份内容");
+      throw conflictError("没有可导出的备份内容");
     }
 
     const manifest = {
@@ -181,7 +182,7 @@ function createBackupService(options) {
     }
 
     if (restored.length === 0) {
-      throw new Error("备份包中未找到可恢复的内容");
+      throw conflictError("备份包中未找到可恢复的内容");
     }
 
     return restored;
@@ -226,7 +227,7 @@ function createBackupService(options) {
   function parseMultipartUpload(contentType, bodyBuffer) {
     const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
     if (!boundaryMatch) {
-      throw new Error("上传请求缺少 multipart boundary");
+      throw badRequestError("上传请求缺少 multipart boundary");
     }
     const boundary = boundaryMatch[1].trim().replace(/^"|"$/g, "");
     const delimiter = Buffer.from(`--${boundary}`);
@@ -287,26 +288,26 @@ function createBackupService(options) {
       cursor = nextBoundaryPos + 2;
     }
 
-    throw new Error("未在上传请求中找到备份文件");
+    throw badRequestError("未在上传请求中找到备份文件");
   }
 
   async function importBackupArchiveFromRequest(req) {
     const contentType = req.headers["content-type"] || "";
     if (!contentType.includes("multipart/form-data")) {
-      throw new Error("请使用 multipart/form-data 上传备份文件");
+      throw badRequestError("请使用 multipart/form-data 上传备份文件");
     }
 
     const bodyBuffer = await readBodyBuffer(req);
     const upload = parseMultipartUpload(contentType, bodyBuffer);
     if (!upload.data || upload.data.length === 0) {
-      throw new Error("上传的备份文件为空");
+      throw badRequestError("上传的备份文件为空");
     }
     if (
       upload.data.length < 2 ||
       upload.data[0] !== 0x1f ||
       upload.data[1] !== 0x8b
     ) {
-      throw new Error("备份文件格式错误，请上传 .tar.gz 文件");
+      throw badRequestError("备份文件格式错误，请上传 .tar.gz 文件");
     }
 
     const uploadWorkDir = fs.mkdtempSync(

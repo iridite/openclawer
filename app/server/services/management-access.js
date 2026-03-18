@@ -1,3 +1,5 @@
+const { badRequestError } = require("../core/http-errors");
+
 function createManagementAccessService(options) {
   const {
     MANAGEMENT_ACCESS_FILE,
@@ -36,10 +38,10 @@ function createManagementAccessService(options) {
 
   async function setManagementAccess(payload) {
     if (!payload || typeof payload !== "object") {
-      throw new Error("请求体必须是 JSON 对象");
+      throw badRequestError("请求体必须是 JSON 对象");
     }
     if (typeof payload.allowRemote !== "boolean") {
-      throw new Error("allowRemote 必须是布尔值");
+      throw badRequestError("allowRemote 必须是布尔值");
     }
 
     const persisted = {

@@ -11,6 +11,11 @@ const crypto = require("crypto");
 const { spawn } = require("child_process");
 const env = require("./core/env");
 const { readJSON, writeJSON, readText, readBody, execCommand } = require("./core/io");
+const {
+  badRequestError,
+  conflictError,
+  forbiddenError,
+} = require("./core/http-errors");
 const { createBackupService } = require("./services/backup");
 const { createPluginService } = require("./services/plugins");
 const { createSkillsService } = require("./services/skills");
@@ -148,10 +153,10 @@ const {
 
 async function setApiKeyProtection(payload) {
   if (!payload || typeof payload !== "object") {
-    throw new Error("请求体必须是 JSON 对象");
+    throw badRequestError("请求体必须是 JSON 对象");
   }
   if (typeof payload.enabled !== "boolean") {
-    throw new Error("enabled 必须是布尔值");
+    throw badRequestError("enabled 必须是布尔值");
   }
 
   const currentState = await getApiKeyProtection();
@@ -170,7 +175,7 @@ async function setApiKeyProtection(payload) {
   }
 
   if (payload.confirmReset !== true) {
-    throw new Error("切换 API 防护前必须确认清空全部模型配置");
+    throw badRequestError("切换 API 防护前必须确认清空全部模型配置");
   }
 
   const reason = nextEnabled
@@ -216,7 +221,7 @@ async function setApiKeyProtection(payload) {
       }
     }
     if (rollbackError) {
-      throw new Error(`切换 API 防护失败，且${rollbackError}`);
+      throw conflictError(`切换 API 防护失败，且${rollbackError}`);
     }
     throw err;
   }
@@ -402,7 +407,12 @@ function handleRequest(req, res) {
       "Forbidden: Management API is local-only. Enable remote access from System -> Management Access in WebUI.";
     if (pathname.startsWith("/api/")) {
       res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: message }));
+      const error = forbiddenError(message);
+      res.end(JSON.stringify({
+        error: error.message,
+        code: error.code,
+        status: error.statusCode,
+      }));
       return;
     }
     res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });

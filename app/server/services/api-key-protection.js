@@ -1,3 +1,5 @@
+const { badRequestError } = require("../core/http-errors");
+
 function createApiKeyProtectionService(options) {
   const {
     API_KEY_PROTECTION_FILE,
@@ -36,10 +38,10 @@ function createApiKeyProtectionService(options) {
 
   async function setApiKeyProtection(payload) {
     if (!payload || typeof payload !== "object") {
-      throw new Error("请求体必须是 JSON 对象");
+      throw badRequestError("请求体必须是 JSON 对象");
     }
     if (typeof payload.enabled !== "boolean") {
-      throw new Error("enabled 必须是布尔值");
+      throw badRequestError("enabled 必须是布尔值");
     }
 
     const persisted = {
