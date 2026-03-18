@@ -3,6 +3,8 @@ const path = require("path");
 const { badRequestError, conflictError } = require("../core/http-errors");
 const { resolveBackupPathSpecs } = require("../core/backup-specs");
 
+const MULTIPART_HEADER_LIMIT_BYTES = 64 * 1024;
+
 function createBackupService(options) {
   const {
     OC_HOME,
@@ -188,107 +190,250 @@ function createBackupService(options) {
     return restored;
   }
 
-  function readBodyBuffer(req, maxBytes = MAX_BACKUP_UPLOAD_BYTES) {
+  function extractMultipartBoundary(contentType) {
+    const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
+    if (!boundaryMatch) {
+      throw badRequestError("上传请求缺少 multipart boundary");
+    }
+    return boundaryMatch[1].trim().replace(/^"|"$/g, "");
+  }
+
+  function sanitizeArchiveName(fileName) {
+    const normalized = String(fileName || "").trim();
+    if (!normalized) {
+      return `oc-deploy-backup-upload-${Date.now()}.tar.gz`;
+    }
+    return normalized.replace(/[^\w.@-]+/g, "_");
+  }
+
+  function isGzipFile(filePath) {
+    const fd = fs.openSync(filePath, "r");
+    try {
+      const header = Buffer.alloc(2);
+      const bytesRead = fs.readSync(fd, header, 0, 2, 0);
+      return bytesRead === 2 && header[0] === 0x1f && header[1] === 0x8b;
+    } finally {
+      fs.closeSync(fd);
+    }
+  }
+
+  function parseMultipartUploadToFile(req, contentType, maxBytes = MAX_BACKUP_UPLOAD_BYTES) {
+    const boundary = extractMultipartBoundary(contentType);
+    const initialBoundary = Buffer.from(`--${boundary}`);
+    const partBoundary = Buffer.from(`\r\n--${boundary}`);
+    const headerSeparator = Buffer.from("\r\n\r\n");
+    const keepTailBytes = partBoundary.length + 4;
+    const uploadWorkDir = fs.mkdtempSync(
+      path.join("/tmp", "oc-deploy-upload-"),
+    );
+    const tempArchivePath = path.join(uploadWorkDir, "upload.bin");
+
     return new Promise((resolve, reject) => {
-      const chunks = [];
-      let size = 0;
-      let finished = false;
+      let state = "seek-boundary";
+      let pending = Buffer.alloc(0);
+      let totalBytes = 0;
+      let currentPartIsFile = false;
+      let fileDescriptor = null;
+      let fileSize = 0;
+      let uploadMeta = null;
+      let settled = false;
+
+      const cleanupResources = (removeDir) => {
+        if (fileDescriptor !== null) {
+          try {
+            fs.closeSync(fileDescriptor);
+          } catch (err) {}
+          fileDescriptor = null;
+        }
+        if (removeDir) {
+          cleanupPathQuietly(uploadWorkDir);
+        }
+      };
+
+      const finishReject = (error) => {
+        if (settled) return;
+        settled = true;
+        cleanupResources(true);
+        reject(error);
+      };
+
+      const finishResolve = () => {
+        if (settled) return;
+        settled = true;
+        cleanupResources(false);
+        resolve({
+          fieldName: uploadMeta?.fieldName || "file",
+          filename: uploadMeta?.filename || "",
+          archivePath: tempArchivePath,
+          workDir: uploadWorkDir,
+          size: fileSize,
+        });
+      };
+
+      const writePartChunk = (chunk) => {
+        if (!currentPartIsFile || !chunk || chunk.length === 0) {
+          return;
+        }
+        fs.writeSync(fileDescriptor, chunk, 0, chunk.length);
+        fileSize += chunk.length;
+      };
+
+      const finalizeCurrentPart = () => {
+        if (fileDescriptor !== null) {
+          try {
+            fs.closeSync(fileDescriptor);
+          } catch (err) {}
+          fileDescriptor = null;
+        }
+        currentPartIsFile = false;
+      };
+
+      const processPending = () => {
+        while (!settled) {
+          if (state === "seek-boundary") {
+            const boundaryPos = pending.indexOf(initialBoundary);
+            if (boundaryPos === -1) {
+              if (pending.length > keepTailBytes) {
+                pending = pending.slice(pending.length - keepTailBytes);
+              }
+              return;
+            }
+
+            pending = pending.slice(boundaryPos + initialBoundary.length);
+            if (pending.length < 2) {
+              return;
+            }
+
+            if (pending[0] === 45 && pending[1] === 45) {
+              state = "done";
+              pending = pending.slice(2);
+              continue;
+            }
+
+            if (pending[0] !== 13 || pending[1] !== 10) {
+              finishReject(badRequestError("上传请求格式错误"));
+              return;
+            }
+
+            pending = pending.slice(2);
+            state = "headers";
+            continue;
+          }
+
+          if (state === "headers") {
+            const headerEnd = pending.indexOf(headerSeparator);
+            if (headerEnd === -1) {
+              if (pending.length > MULTIPART_HEADER_LIMIT_BYTES) {
+                finishReject(badRequestError("上传请求头过大"));
+              }
+              return;
+            }
+
+            const headersText = pending.slice(0, headerEnd).toString("utf8");
+            pending = pending.slice(headerEnd + headerSeparator.length);
+            const dispositionLine = headersText
+              .split("\r\n")
+              .find((line) =>
+                line.toLowerCase().startsWith("content-disposition:"),
+              );
+            const nameMatch = dispositionLine?.match(/name="([^"]+)"/i);
+            const filenameMatch = dispositionLine?.match(/filename="([^"]*)"/i);
+            const fileName = filenameMatch?.[1]
+              ? path.basename(filenameMatch[1])
+              : "";
+
+            currentPartIsFile = !!fileName && !uploadMeta;
+            if (currentPartIsFile) {
+              fileDescriptor = fs.openSync(tempArchivePath, "w");
+              uploadMeta = {
+                fieldName: nameMatch ? nameMatch[1] : "file",
+                filename: fileName,
+              };
+            }
+
+            state = "part-data";
+            continue;
+          }
+
+          if (state === "part-data") {
+            const nextBoundaryPos = pending.indexOf(partBoundary);
+            if (nextBoundaryPos === -1) {
+              if (pending.length <= keepTailBytes) {
+                return;
+              }
+
+              const chunk = pending.slice(0, pending.length - keepTailBytes);
+              writePartChunk(chunk);
+              pending = pending.slice(pending.length - keepTailBytes);
+              return;
+            }
+
+            writePartChunk(pending.slice(0, nextBoundaryPos));
+            pending = pending.slice(nextBoundaryPos + 2);
+            finalizeCurrentPart();
+            state = "seek-boundary";
+            continue;
+          }
+
+          if (state === "done") {
+            if (!uploadMeta) {
+              finishReject(badRequestError("未在上传请求中找到备份文件"));
+              return;
+            }
+            finishResolve();
+            return;
+          }
+
+          finishReject(badRequestError("上传请求格式错误"));
+          return;
+        }
+      };
 
       req.on("data", (chunk) => {
-        if (finished) return;
-        size += chunk.length;
-        if (size > maxBytes) {
-          finished = true;
-          reject(
-            new Error(
+        if (settled) {
+          return;
+        }
+
+        totalBytes += chunk.length;
+        if (totalBytes > maxBytes) {
+          finishReject(
+            badRequestError(
               `上传文件过大，已超过 ${(maxBytes / 1024 / 1024).toFixed(0)}MB 限制`,
             ),
           );
           req.destroy();
           return;
         }
-        chunks.push(chunk);
+
+        pending = pending.length > 0 ? Buffer.concat([pending, chunk]) : chunk;
+        processPending();
       });
 
       req.on("end", () => {
-        if (finished) return;
-        finished = true;
-        resolve(Buffer.concat(chunks));
+        if (settled) {
+          return;
+        }
+
+        if (state === "done") {
+          finishResolve();
+          return;
+        }
+
+        finalizeCurrentPart();
+        if (!uploadMeta) {
+          finishReject(badRequestError("未在上传请求中找到备份文件"));
+          return;
+        }
+        finishReject(badRequestError("上传请求格式错误"));
       });
 
       req.on("error", (err) => {
-        if (finished) return;
-        finished = true;
-        reject(err);
+        if (settled) {
+          return;
+        }
+        finishReject(err);
       });
     });
-  }
-
-  function parseMultipartUpload(contentType, bodyBuffer) {
-    const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
-    if (!boundaryMatch) {
-      throw badRequestError("上传请求缺少 multipart boundary");
-    }
-    const boundary = boundaryMatch[1].trim().replace(/^"|"$/g, "");
-    const delimiter = Buffer.from(`--${boundary}`);
-    const nextPartDelimiter = Buffer.from(`\r\n--${boundary}`);
-    const headerSeparator = Buffer.from("\r\n\r\n");
-    let cursor = 0;
-
-    while (true) {
-      const boundaryPos = bodyBuffer.indexOf(delimiter, cursor);
-      if (boundaryPos === -1) {
-        break;
-      }
-      cursor = boundaryPos + delimiter.length;
-
-      if (
-        cursor + 1 < bodyBuffer.length &&
-        bodyBuffer[cursor] === 45 &&
-        bodyBuffer[cursor + 1] === 45
-      ) {
-        break;
-      }
-
-      if (
-        cursor + 1 < bodyBuffer.length &&
-        bodyBuffer[cursor] === 13 &&
-        bodyBuffer[cursor + 1] === 10
-      ) {
-        cursor += 2;
-      }
-
-      const headerEnd = bodyBuffer.indexOf(headerSeparator, cursor);
-      if (headerEnd === -1) {
-        break;
-      }
-
-      const headersText = bodyBuffer.slice(cursor, headerEnd).toString("utf8");
-      const dataStart = headerEnd + headerSeparator.length;
-      const nextBoundaryPos = bodyBuffer.indexOf(nextPartDelimiter, dataStart);
-      if (nextBoundaryPos === -1) {
-        break;
-      }
-
-      const data = bodyBuffer.slice(dataStart, nextBoundaryPos);
-      const dispositionLine = headersText
-        .split("\r\n")
-        .find((line) => line.toLowerCase().startsWith("content-disposition:"));
-      const nameMatch = dispositionLine?.match(/name="([^"]+)"/i);
-      const filenameMatch = dispositionLine?.match(/filename="([^"]*)"/i);
-
-      if (filenameMatch && filenameMatch[1]) {
-        return {
-          fieldName: nameMatch ? nameMatch[1] : "file",
-          filename: path.basename(filenameMatch[1]),
-          data,
-        };
-      }
-
-      cursor = nextBoundaryPos + 2;
-    }
-
-    throw badRequestError("未在上传请求中找到备份文件");
   }
 
   async function importBackupArchiveFromRequest(req) {
@@ -297,31 +442,23 @@ function createBackupService(options) {
       throw badRequestError("请使用 multipart/form-data 上传备份文件");
     }
 
-    const bodyBuffer = await readBodyBuffer(req);
-    const upload = parseMultipartUpload(contentType, bodyBuffer);
-    if (!upload.data || upload.data.length === 0) {
+    const upload = await parseMultipartUploadToFile(req, contentType);
+    if (!upload.archivePath || upload.size === 0) {
       throw badRequestError("上传的备份文件为空");
     }
-    if (
-      upload.data.length < 2 ||
-      upload.data[0] !== 0x1f ||
-      upload.data[1] !== 0x8b
-    ) {
+    if (!isGzipFile(upload.archivePath)) {
       throw badRequestError("备份文件格式错误，请上传 .tar.gz 文件");
     }
 
-    const uploadWorkDir = fs.mkdtempSync(
-      path.join("/tmp", "oc-deploy-import-"),
-    );
-    const archiveName =
-      upload.filename && upload.filename.trim()
-        ? upload.filename.trim().replace(/[^\w.@-]+/g, "_")
-        : `oc-deploy-backup-upload-${Date.now()}.tar.gz`;
+    const uploadWorkDir = upload.workDir;
+    const archiveName = sanitizeArchiveName(upload.filename);
     const archivePath = path.join(uploadWorkDir, archiveName);
     const extractDir = path.join(uploadWorkDir, "extract");
 
     try {
-      fs.writeFileSync(archivePath, upload.data);
+      if (archivePath !== upload.archivePath) {
+        fs.renameSync(upload.archivePath, archivePath);
+      }
       fs.mkdirSync(extractDir, { recursive: true });
 
       const extractCmd = `tar -xzf ${shellQuote(archivePath)} -C ${shellQuote(extractDir)}`;

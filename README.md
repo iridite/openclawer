@@ -326,6 +326,8 @@ POST /api/skills/update
 | `BIND_ADDR` | `0.0.0.0` | Management API 监听地址（默认监听所有网卡） |
 | `TRIM_PKGVAR` | `/var/apps/oc-deploy/var` | 应用数据目录（日志、PID、运行时文件） |
 | `TRIM_APPDEST` | `/var/apps/oc-deploy/target` | 应用静态资源根目录（管理界面位于 `${TRIM_APPDEST}/ui`） |
+| `USER_BACKUP_ROOT` | `/root/oc-deploy/user-backups` | 手动导出/导入前备份的持久化目录 |
+| `MAX_BACKUP_UPLOAD_BYTES` | `536870912` | 完整备份导入的最大上传体积限制（字节） |
 
 #### 本地运行
 
@@ -343,6 +345,14 @@ node app/server/management-api.js
 ```bash
 bash test/smoke.sh
 ```
+
+#### 备份导入回归
+
+```bash
+bash test/backup-import-regression.sh
+```
+
+该测试会走完整的 `/api/backup/export` + `/api/backup/import` 链路，验证 multipart 备份导入、恢复结果与流式上传实现。
 
 当前 smoke 基线覆盖：
 

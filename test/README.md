@@ -77,6 +77,20 @@ bash test/backup-boundary.sh
 - `upgrade_init` 生成的 manifest 条目数与规格清单一致
 - `upgrade_callback` 可以按 manifest 将所有备份项恢复回来
 
+## 📦 备份导入回归
+
+用于验证完整备份导入链路仍可工作，并且 multipart 上传按流式方式落盘，不再整包读入内存：
+
+```bash
+bash test/backup-import-regression.sh
+```
+
+检查项包含：
+- `/api/backup/export` 可生成有效备份包
+- `/api/backup/import` 可通过 `multipart/form-data` 导入备份
+- 导入后 `.openclaw` 与 `plugins` 中的样例内容可恢复
+- 大文件样例可恢复，覆盖流式上传与解包链路
+
 ## 🔗 关键能力链路回归
 
 用于验证高风险但不依赖外网的核心能力链路：
@@ -91,6 +105,7 @@ bash test/capability-regression.sh
 - API Key 防护切换与 `managed-file` SecretRef 写入
 - QQ / WeCom 插件状态识别与 `plugins.allow` 自动修正
 - user / builtin 技能列表识别与启用/禁用写入
+- 常见 `400 / 404` 错误语义返回
 
 ### 3. 访问测试界面
 
