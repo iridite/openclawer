@@ -122,6 +122,7 @@ const configService = createConfigService({
   CONFIG_FILE,
   INITIAL_CONFIG_FILE,
   GATEWAY_PORT,
+  OC_HOME,
   OC_PKG_JSON_PATH,
   DEFAULT_ALLOWED_PLUGINS,
   readJSON,

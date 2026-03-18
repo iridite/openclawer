@@ -11,12 +11,17 @@ const {
   setManagedProviderApiKey,
   removeManagedProviderApiKey,
 } = require("../core/secrets");
+const {
+  applyManagedConfigPatch,
+  buildDefaultConfig,
+} = require("../core/default-config");
 
 function createConfigService(deps) {
   const {
     CONFIG_FILE,
     INITIAL_CONFIG_FILE,
     GATEWAY_PORT,
+    OC_HOME,
     OC_PKG_JSON_PATH,
     DEFAULT_ALLOWED_PLUGINS,
     readJSON,
@@ -180,71 +185,28 @@ function createConfigService(deps) {
       new Set([...DEFAULT_ALLOWED_PLUGINS, ...existingAllow]),
     );
 
-    return {
-      meta: {
-        lastTouchedVersion,
-        lastTouchedAt: new Date().toISOString(),
-      },
-      agents: {
-        defaults: {
-          workspace: "/root/.openclaw/workspace",
-          compaction: {
-            mode: "safeguard",
-          },
-        },
-      },
-      tools: {
-        profile: "full",
-        allow: [],
-      },
-      commands: {
-        native: "auto",
-        nativeSkills: "auto",
-        restart: true,
-        ownerDisplay: "raw",
-      },
-      plugins: {
-        enabled: true,
-        allow: mergedAllow,
-      },
-      gateway: {
-        port: GATEWAY_PORT,
-        mode: "local",
-        bind: "lan",
-        controlUi: {
-          allowedOrigins: ["*"],
-          dangerouslyAllowHostHeaderOriginFallback: true,
-          allowInsecureAuth: true,
-          dangerouslyDisableDeviceAuth: true,
-        },
-        auth: {
-          mode: "token",
-          token: preservedToken,
-        },
-        trustedProxies: ["10.0.0.1", "127.0.0.1", "::1"],
-        reload: {
-          mode: "hybrid",
-          debounceMs: 300,
-        },
-      },
-    };
+    return buildDefaultConfig({
+      gatewayPort: GATEWAY_PORT,
+      ocHome: OC_HOME,
+      allowedPlugins: mergedAllow,
+      preservedToken,
+      lastTouchedVersion,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   async function getConfig() {
     const config = readJSON(CONFIG_FILE);
     if (!config) {
-      return {
+      return applyManagedConfigPatch({
         models: {},
         channels: {},
-        gateway: {
-          port: GATEWAY_PORT,
-          bind: "0.0.0.0",
-          auth: {
-            mode: "token",
-            token: getTokenFromConfig(),
-          },
-        },
-      };
+      }, {
+        gatewayPort: GATEWAY_PORT,
+        ocHome: OC_HOME,
+        allowedPlugins: DEFAULT_ALLOWED_PLUGINS,
+        preservedToken: getTokenFromConfig(),
+      });
     }
 
     const providerMigrationChanged = migrateLegacyManagedFileProvider(config);
