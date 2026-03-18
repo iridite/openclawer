@@ -399,18 +399,7 @@ async function exportFullBackup() {
   const fallbackName = `oc-deploy-backup-manual-export-${buildConfigExportFileName().replace("openclaw-", "").replace(".json", ".tar.gz")}`;
   try {
     showToast("正在导出完整备份（包含配置、记忆与插件）...", "info");
-    const response = await fetch(`${API_BASE}/backup/export`, {
-      method: "GET",
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      let message = `HTTP ${response.status}`;
-      try {
-        const payload = await response.json();
-        message = payload.error || payload.message || message;
-      } catch (err) {}
-      throw new Error(message);
-    }
+    const response = await apiDownloadRequest("/backup/export");
 
     const blob = await response.blob();
     const fileName = parseDownloadFileName(

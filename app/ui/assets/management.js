@@ -292,6 +292,35 @@ async function parseApiResponse(endpoint, response) {
   return data;
 }
 
+function isNetworkRequestError(error) {
+  const errorMessage = String(error?.message || "");
+  const lowerMsg = errorMessage.toLowerCase();
+  return (
+    error?.name === "TypeError" ||
+    lowerMsg.includes("fetch") ||
+    lowerMsg.includes("load failed") ||
+    lowerMsg.includes("failed to fetch") ||
+    lowerMsg.includes("networkerror")
+  );
+}
+
+function buildNetworkErrorMessage(endpoint, error) {
+  const detail = String(error?.message || "网络请求异常");
+  return `无法连接管理接口（${API_BASE + endpoint}）。请检查管理服务是否在线、浏览器网络/证书与反向代理配置。原始错误: ${detail}`;
+}
+
+async function performApiFetch(endpoint, fetchOptions, logLabel) {
+  try {
+    return await fetch(API_BASE + endpoint, fetchOptions);
+  } catch (error) {
+    console.error(`${logLabel}失败:`, error);
+    if (isNetworkRequestError(error)) {
+      throw new Error(buildNetworkErrorMessage(endpoint, error));
+    }
+    throw error;
+  }
+}
+
 // API 请求封装
 async function apiRequest(endpoint, options = {}) {
   const maxRetries = options.retries || 2;
@@ -299,37 +328,23 @@ async function apiRequest(endpoint, options = {}) {
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(API_BASE + endpoint, {
+      const response = await performApiFetch(endpoint, {
         ...options,
         headers: {
           "Content-Type": "application/json",
           ...options.headers,
         },
-      });
+      }, "API 请求");
       return await parseApiResponse(endpoint, response);
     } catch (error) {
       const isLastAttempt = attempt === maxRetries;
-      const errorMessage = String(error?.message || "");
-      const lowerMsg = errorMessage.toLowerCase();
-      const isNetworkError =
-        error?.name === "TypeError" ||
-        lowerMsg.includes("fetch") ||
-        lowerMsg.includes("load failed") ||
-        lowerMsg.includes("failed to fetch") ||
-        lowerMsg.includes("networkerror");
+      const isNetworkError = isNetworkRequestError(error);
 
       if (!isLastAttempt && isNetworkError) {
         await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
         continue;
       }
 
-      console.error("API 请求失败:", error);
-      if (isNetworkError) {
-        const detail = errorMessage || "网络请求异常";
-        throw new Error(
-          `无法连接管理接口（${API_BASE + endpoint}）。请检查管理服务是否在线、浏览器网络/证书与反向代理配置。原始错误: ${detail}`,
-        );
-      }
       throw error;
     }
   }
@@ -342,30 +357,29 @@ async function apiFormRequest(endpoint, options = {}) {
   }
 
   try {
-    const response = await fetch(API_BASE + endpoint, {
+    const response = await performApiFetch(endpoint, {
       ...rest,
       headers,
       body: formData,
-    });
+    }, "API 表单请求");
     return await parseApiResponse(endpoint, response);
   } catch (error) {
-    const errorMessage = String(error?.message || "");
-    const lowerMsg = errorMessage.toLowerCase();
-    const isNetworkError =
-      error?.name === "TypeError" ||
-      lowerMsg.includes("fetch") ||
-      lowerMsg.includes("load failed") ||
-      lowerMsg.includes("failed to fetch") ||
-      lowerMsg.includes("networkerror");
-
-    console.error("API 表单请求失败:", error);
-    if (isNetworkError) {
-      throw new Error(
-        `无法连接管理接口（${API_BASE + endpoint}）。请检查管理服务是否在线、浏览器网络/证书与反向代理配置。原始错误: ${errorMessage || "网络请求异常"}`,
-      );
-    }
     throw error;
   }
+}
+
+async function apiDownloadRequest(endpoint, options = {}) {
+  const response = await performApiFetch(endpoint, {
+    method: "GET",
+    cache: "no-store",
+    ...options,
+  }, "API 下载请求");
+
+  if (!response.ok) {
+    await parseApiResponse(endpoint, response);
+  }
+
+  return response;
 }
 
 function clamp(value, min, max) {

@@ -1,4 +1,5 @@
 const fs = require("fs");
+const fsp = fs.promises;
 const path = require("path");
 const { badRequestError, conflictError } = require("../core/http-errors");
 const { resolveBackupPathSpecs } = require("../core/backup-specs");
@@ -26,19 +27,19 @@ function createBackupService(options) {
     return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
   }
 
-  function cleanupPathQuietly(targetPath) {
+  async function cleanupPathQuietly(targetPath) {
     try {
-      fs.rmSync(targetPath, { recursive: true, force: true });
+      await fsp.rm(targetPath, { recursive: true, force: true });
     } catch (err) {}
   }
 
-  function copyDirectoryContents(sourceDir, targetDir) {
-    fs.mkdirSync(targetDir, { recursive: true });
-    const names = fs.readdirSync(sourceDir);
+  async function copyDirectoryContents(sourceDir, targetDir) {
+    await fsp.mkdir(targetDir, { recursive: true });
+    const names = await fsp.readdir(sourceDir);
     for (const name of names) {
       const sourcePath = path.join(sourceDir, name);
       const targetPath = path.join(targetDir, name);
-      fs.cpSync(sourcePath, targetPath, {
+      await fsp.cp(sourcePath, targetPath, {
         recursive: true,
         force: true,
         dereference: false,
@@ -46,9 +47,9 @@ function createBackupService(options) {
     }
   }
 
-  function copyFileWithParents(sourceFile, targetFile) {
-    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-    fs.cpSync(sourceFile, targetFile, { force: true });
+  async function copyFileWithParents(sourceFile, targetFile) {
+    await fsp.mkdir(path.dirname(targetFile), { recursive: true });
+    await fsp.cp(sourceFile, targetFile, { force: true });
   }
 
   function getBackupPathSpecs() {
@@ -59,9 +60,9 @@ function createBackupService(options) {
   }
 
   async function createBackupArchive(mode = "manual-export") {
-    const workDir = fs.mkdtempSync(path.join("/tmp", "oc-deploy-backup-"));
+    const workDir = await fsp.mkdtemp(path.join("/tmp", "oc-deploy-backup-"));
     const payloadDir = path.join(workDir, "payload");
-    fs.mkdirSync(payloadDir, { recursive: true });
+    await fsp.mkdir(payloadDir, { recursive: true });
 
     const now = new Date();
     const stamp = formatBackupStamp(now);
@@ -69,14 +70,16 @@ function createBackupService(options) {
     const includedEntries = [];
 
     for (const spec of specs) {
-      if (!fs.existsSync(spec.targetPath)) {
+      try {
+        await fsp.access(spec.targetPath);
+      } catch (err) {
         continue;
       }
       const backupTarget = path.join(payloadDir, spec.backupPath);
       if (spec.type === "file") {
-        copyFileWithParents(spec.targetPath, backupTarget);
+        await copyFileWithParents(spec.targetPath, backupTarget);
       } else {
-        copyDirectoryContents(spec.targetPath, backupTarget);
+        await copyDirectoryContents(spec.targetPath, backupTarget);
       }
       includedEntries.push({
         id: spec.id,
@@ -87,7 +90,7 @@ function createBackupService(options) {
     }
 
     if (includedEntries.length === 0) {
-      cleanupPathQuietly(workDir);
+      await cleanupPathQuietly(workDir);
       throw conflictError("没有可导出的备份内容");
     }
 
@@ -98,7 +101,7 @@ function createBackupService(options) {
       createdAt: now.toISOString(),
       entries: includedEntries,
     };
-    fs.writeFileSync(
+    await fsp.writeFile(
       path.join(payloadDir, BACKUP_MANIFEST_FILE),
       JSON.stringify(manifest, null, 2),
       "utf8",
@@ -120,16 +123,16 @@ function createBackupService(options) {
   async function createPersistentBackupArchive(mode = "manual") {
     const backup = await createBackupArchive(mode);
     try {
-      fs.mkdirSync(USER_BACKUP_ROOT, { recursive: true });
+      await fsp.mkdir(USER_BACKUP_ROOT, { recursive: true });
       const persistedPath = path.join(USER_BACKUP_ROOT, backup.fileName);
-      fs.cpSync(backup.archivePath, persistedPath, { force: true });
+      await fsp.cp(backup.archivePath, persistedPath, { force: true });
       return persistedPath;
     } finally {
-      cleanupPathQuietly(backup.workDir);
+      await cleanupPathQuietly(backup.workDir);
     }
   }
 
-  function restoreBackupPayload(extractDir) {
+  async function restoreBackupPayload(extractDir) {
     const specs = getBackupPathSpecs();
     const specById = new Map(specs.map((spec) => [spec.id, spec]));
     const specByBackupPath = new Map(
@@ -138,11 +141,11 @@ function createBackupService(options) {
     const manifestPath = path.join(extractDir, BACKUP_MANIFEST_FILE);
     const restored = [];
 
-    const restoreSpec = (spec, sourcePath, itemType) => {
+    const restoreSpec = async (spec, sourcePath, itemType) => {
       if (itemType === "file") {
-        copyFileWithParents(sourcePath, spec.targetPath);
+        await copyFileWithParents(sourcePath, spec.targetPath);
       } else {
-        copyDirectoryContents(sourcePath, spec.targetPath);
+        await copyDirectoryContents(sourcePath, spec.targetPath);
       }
       restored.push({
         id: spec.id,
@@ -152,7 +155,8 @@ function createBackupService(options) {
       });
     };
 
-    if (fs.existsSync(manifestPath)) {
+    try {
+      await fsp.access(manifestPath);
       const manifest = readJSON(manifestPath);
       const entries = Array.isArray(manifest?.entries) ? manifest.entries : [];
       for (const entry of entries) {
@@ -166,20 +170,24 @@ function createBackupService(options) {
           extractDir,
           entry.backupPath || spec.backupPath,
         );
-        if (!fs.existsSync(sourcePath)) {
+        try {
+          await fsp.access(sourcePath);
+        } catch (err) {
           continue;
         }
-        restoreSpec(spec, sourcePath, entry.type || spec.type || "dir");
+        await restoreSpec(spec, sourcePath, entry.type || spec.type || "dir");
       }
-    }
+    } catch (err) {}
 
     if (restored.length === 0) {
       for (const spec of specs) {
         const sourcePath = path.join(extractDir, spec.backupPath);
-        if (!fs.existsSync(sourcePath)) {
+        try {
+          await fsp.access(sourcePath);
+        } catch (err) {
           continue;
         }
-        restoreSpec(spec, sourcePath, spec.type || "dir");
+        await restoreSpec(spec, sourcePath, spec.type || "dir");
       }
     }
 
@@ -206,14 +214,14 @@ function createBackupService(options) {
     return normalized.replace(/[^\w.@-]+/g, "_");
   }
 
-  function isGzipFile(filePath) {
-    const fd = fs.openSync(filePath, "r");
+  async function isGzipFile(filePath) {
+    const fd = await fsp.open(filePath, "r");
     try {
       const header = Buffer.alloc(2);
-      const bytesRead = fs.readSync(fd, header, 0, 2, 0);
+      const { bytesRead } = await fd.read(header, 0, 2, 0);
       return bytesRead === 2 && header[0] === 0x1f && header[1] === 0x8b;
     } finally {
-      fs.closeSync(fd);
+      await fd.close();
     }
   }
 
@@ -446,7 +454,7 @@ function createBackupService(options) {
     if (!upload.archivePath || upload.size === 0) {
       throw badRequestError("上传的备份文件为空");
     }
-    if (!isGzipFile(upload.archivePath)) {
+    if (!(await isGzipFile(upload.archivePath))) {
       throw badRequestError("备份文件格式错误，请上传 .tar.gz 文件");
     }
 
@@ -457,9 +465,9 @@ function createBackupService(options) {
 
     try {
       if (archivePath !== upload.archivePath) {
-        fs.renameSync(upload.archivePath, archivePath);
+        await fsp.rename(upload.archivePath, archivePath);
       }
-      fs.mkdirSync(extractDir, { recursive: true });
+      await fsp.mkdir(extractDir, { recursive: true });
 
       const extractCmd = `tar -xzf ${shellQuote(archivePath)} -C ${shellQuote(extractDir)}`;
       await execCommand(extractCmd, { timeout: 600000 });
@@ -478,7 +486,7 @@ function createBackupService(options) {
         console.warn("[backup-import] pre-backup failed:", preBackupWarning);
       }
 
-      const restoredEntries = restoreBackupPayload(extractDir);
+      const restoredEntries = await restoreBackupPayload(extractDir);
 
       let restarted = false;
       let restartError = "";
@@ -503,7 +511,7 @@ function createBackupService(options) {
         restartError: restartError || undefined,
       };
     } finally {
-      cleanupPathQuietly(uploadWorkDir);
+      await cleanupPathQuietly(uploadWorkDir);
     }
   }
 
