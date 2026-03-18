@@ -606,8 +606,8 @@ function setConfigViewMode(mode) {
 function loadTabData(tabName) {
   switch (tabName) {
     case "overview":
-      refreshDashboard();
-      refreshLogs();
+      window.refreshDashboard();
+      window.refreshLogs();
       break;
     case "models":
       setConfigViewMode("models");
@@ -626,256 +626,17 @@ function loadTabData(tabName) {
       loadInstalledSkills();
       break;
     case "system":
-      loadToolProfiles();
-      loadManagementAccessSettings();
-      loadApiKeyProtectionSettings();
-      loadVersionInfo();
-      loadConsoleInfo();
+      window.loadToolProfiles();
+      window.loadManagementAccessSettings();
+      window.loadApiKeyProtectionSettings();
+      window.loadVersionInfo();
+      window.loadConsoleInfo();
       break;
   }
 }
 
 // ============================================================================
 // 仪表板
-// ============================================================================
-
-async function refreshDashboard() {
-  try {
-    // 并行请求状态和配置数据，日志延迟到控制台标签页加载
-    const [status, config] = await Promise.all([
-      apiRequest("/status"),
-      apiRequest("/config"),
-    ]);
-
-    currentStatus = status;
-
-    // 更新状态显示
-    updateStatusBadge(status.gateway);
-
-    // 更新仪表板信息
-    // Gateway 状态：显示状态 + PID
-    const gatewayStatusText =
-      status.gateway === "running" ? "运行中" : "已停止";
-    const gatewayPidText =
-      status.gatewayPid && status.gateway === "running"
-        ? ` (PID: ${status.gatewayPid})`
-        : "";
-    const refs = window.domRefs;
-    if (refs?.dash.gatewayStatus) refs.dash.gatewayStatus.textContent =
-      gatewayStatusText + gatewayPidText;
-
-    // Proxy 状态：显示状态 + PID
-    const proxyStatusText = status.proxy === "running" ? "运行中" : "已停止";
-    const proxyPidText = status.proxyPid ? ` (PID: ${status.proxyPid})` : "";
-    if (refs?.dash.proxyStatus) refs.dash.proxyStatus.textContent =
-      proxyStatusText + proxyPidText;
-
-    if (refs?.dash.version) refs.dash.version.textContent =
-      status.version || "unknown";
-    if (refs?.dash.configStatus) refs.dash.configStatus.textContent =
-      status.configExists ? "已配置" : "未配置";
-
-    // 更新系统资源信息
-    if (status.system) {
-      if (refs?.dash.cpuUsage) refs.dash.cpuUsage.textContent =
-        status.system.cpuUsage !== undefined
-          ? `${status.system.cpuUsage.toFixed(1)}%`
-          : "N/A";
-
-      // 显示内存使用：百分比 + MB 数值（小字）
-      const memoryEl = refs?.dash.memoryUsage || document.getElementById("dash-memory-usage");
-      if (
-        status.system.memoryPercent !== undefined &&
-        status.system.memoryMB !== undefined
-      ) {
-        memoryEl.innerHTML = `${status.system.memoryPercent.toFixed(1)}% <span style="font-size: 0.8em; color: #888;">(${status.system.memoryMB.toFixed(1)} MB)</span>`;
-      } else {
-        memoryEl.textContent = "N/A";
-      }
-    }
-
-    // 更新配置摘要（使用已获取的 config 数据）
-    updateConfigSummary(config);
-  } catch (error) {
-    showToast("加载状态失败: " + error.message, "error");
-  }
-}
-
-// 更新配置摘要（使用已有的 config 数据，避免重复请求）
-function updateConfigSummary(config) {
-  try {
-    const summaryEl = document.getElementById("config-summary");
-
-    // 正确解析模型：检查 config.models.providers
-    const providers = config.models?.providers || {};
-    const primaryModel = config.agents?.defaults?.model?.primary || "";
-    const modelEntries = [];
-
-    for (const [providerName, provider] of Object.entries(providers)) {
-      const models = Array.isArray(provider?.models) ? provider.models : [];
-      const baseUrl = provider.baseUrl || provider.baseURL || "";
-      const urlHint = baseUrl ? ` - ${baseUrl.split("/")[2] || baseUrl}` : "";
-
-      for (const model of models) {
-        const modelId = model?.id || model?.name || model?.model;
-        if (!modelId) continue;
-        const modelKey = `${providerName}/${modelId}`;
-        const isPrimary = modelKey === primaryModel;
-        modelEntries.push({ modelKey, urlHint, isPrimary });
-      }
-    }
-
-    const modelCount = modelEntries.length;
-    const channelCount = config.channels
-      ? Object.keys(config.channels).length
-      : 0;
-
-    let html = `
-      <div class="info-grid">
-        <div class="info-item">
-          <span class="label">AI 模型</span>
-          <span class="value">${modelCount} 个</span>
-        </div>
-        <div class="info-item">
-          <span class="label">消息渠道</span>
-          <span class="value">${channelCount} 个</span>
-        </div>
-      </div>
-    `;
-
-    // 显示模型详情
-    if (modelCount > 0) {
-      html +=
-        '<div style="margin-top: 15px;"><strong>已配置模型：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
-      for (const entry of modelEntries) {
-        const activeTag = entry.isPrimary ? ' <span class="primary-badge primary-badge-inline">主模型</span>' : "";
-        html += `<li><code>${entry.modelKey}</code>${entry.urlHint}${activeTag}</li>`;
-      }
-      html += "</ul></div>";
-    } else {
-      html += '<div style="margin-top: 15px;"><em>尚未配置 AI 模型</em></div>';
-    }
-
-    // 显示渠道详情
-    if (channelCount > 0) {
-      html +=
-        '<div style="margin-top: 10px;"><strong>已配置渠道：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
-      for (const [name, channel] of Object.entries(config.channels)) {
-        const type = inferChannelType(name, channel);
-        const label = getChannelDisplayLabel(type, name);
-        const identity = getChannelIdentityValue(type, channel);
-        const masked = identity ? maskApiKey(identity) : "未绑定";
-        const enabled = channel.enabled !== false ? "已启用" : "已禁用";
-        html += `<li><code>${label}</code> (${masked}) ${enabled}</li>`;
-      }
-      html += "</ul></div>";
-    } else {
-      html += '<div style="margin-top: 10px;"><em>尚未配置消息渠道</em></div>';
-    }
-
-    summaryEl.innerHTML = html;
-  } catch (error) {
-    document.getElementById("config-summary").innerHTML =
-      '<p class="loading">加载失败</p>';
-  }
-}
-
-async function loadConfigSummary() {
-  try {
-    const config = await apiRequest("/config");
-    updateConfigSummary(config);
-  } catch (error) {
-    document.getElementById("config-summary").innerHTML =
-      '<p class="loading">加载失败</p>';
-  }
-}
-
-function updateStatusBadge(status) {
-  const refs = window.domRefs;
-  const badge = refs?.gateway.statusBadge || document.getElementById("gatewayStatus");
-  const statusText = badge.querySelector(".status-text");
-
-  badge.className = "status-badge";
-
-  // 获取按钮元素
-  const startBtn = refs?.gateway.startBtn || document.getElementById("start-gateway-btn");
-  const stopBtn = refs?.gateway.stopBtn || document.getElementById("stop-gateway-btn");
-
-  if (status === "running") {
-    badge.classList.add("running");
-    statusText.textContent = "运行中";
-
-    // Gateway 运行中：禁用启动按钮，启用停止按钮
-    if (startBtn) startBtn.disabled = true;
-    if (stopBtn) stopBtn.disabled = false;
-  } else {
-    badge.classList.add("stopped");
-    statusText.textContent = "已停止";
-
-    // Gateway 已停止：启用启动按钮，禁用停止按钮
-    if (startBtn) startBtn.disabled = false;
-    if (stopBtn) stopBtn.disabled = true;
-  }
-}
-
-async function startGateway() {
-  if (!confirm("确定要启动 Gateway 吗？")) {
-    return;
-  }
-
-  try {
-    showToast("正在启动 Gateway...", "info");
-    await apiRequest("/gateway/start", { method: "POST" });
-    showToast("Gateway 启动成功", "success");
-
-    // 等待几秒后刷新状态
-    setTimeout(refreshStatus, 3000);
-  } catch (error) {
-    showToast("启动失败: " + error.message, "error");
-  }
-}
-
-async function stopGateway() {
-  if (!confirm("确定要停止 Gateway 吗？这将中断当前所有连接。")) {
-    return;
-  }
-
-  try {
-    showToast("正在停止 Gateway...", "info");
-    await apiRequest("/gateway/stop", { method: "POST" });
-    showToast("Gateway 已停止", "success");
-
-    // 等待几秒后刷新状态
-    setTimeout(refreshStatus, 2000);
-  } catch (error) {
-    showToast("停止失败: " + error.message, "error");
-  }
-}
-
-async function restartGateway() {
-  if (!confirm("确定要重启 Gateway 吗？这将中断当前所有连接。")) {
-    return;
-  }
-
-  try {
-    showToast("正在重启 Gateway...", "info");
-    await apiRequest("/gateway/restart", { method: "POST" });
-    showToast("Gateway 重启成功", "success");
-
-    // 等待几秒后刷新状态
-    setTimeout(refreshStatus, 2000);
-  } catch (error) {
-    showToast("重启失败: " + error.message, "error");
-  }
-}
-
-async function refreshStatus() {
-  showToast("正在刷新状态...", "info");
-  await refreshDashboard();
-  showToast("状态已刷新", "success");
-}
-
-// ============================================================================
 // 快速添加模型
 // ============================================================================
 
@@ -1479,7 +1240,7 @@ async function setPrimaryModel(modelKey) {
     showToast("当前模型已更新", "success");
 
     await loadModelsList();
-    await loadConfigSummary();
+    await window.loadConfigSummary();
     await loadConfig();
   } catch (error) {
     showToast("设置当前模型失败: " + error.message, "error");
@@ -2066,7 +1827,7 @@ async function submitChannelForm(event) {
 
     // 重新加载渠道列表、配置摘要和配置编辑器
     await loadChannelsList();
-    await loadConfigSummary();
+    await window.loadConfigSummary();
     await loadConfig();
 
     // 隐藏表单
@@ -2480,7 +2241,7 @@ async function deleteChannel(channelId) {
 
     // 重新加载渠道列表、配置摘要和配置编辑器
     await loadChannelsList();
-    await loadConfigSummary();
+    await window.loadConfigSummary();
     await loadConfig();
   } catch (error) {
     showToast("删除渠道失败: " + error.message, "error");
@@ -2684,7 +2445,7 @@ async function submitModelForm(event) {
 
     // 刷新列表和配置编辑器
     await loadModelsList();
-    await loadConfigSummary();
+    await window.loadConfigSummary();
     await loadConfig();
   } catch (error) {
     const errorMessage = error?.message || "";
@@ -3117,480 +2878,6 @@ async function testModelConnection() {
 }
 
 // ============================================================================
-// 版本管理
-// ============================================================================
-
-function getApiKeyProtectionSourceLabel(source) {
-  switch (source) {
-    case "file":
-      return "WebUI 设置";
-    case "default":
-    default:
-      return "默认值（关闭）";
-  }
-}
-
-function getApiKeyProtectionNote(enabled) {
-  return enabled
-    ? "当前已开启 API 防护。新建模型默认写入 SecretRef（受管密钥文件）。再次切换策略会清空全部模型配置。"
-    : "当前为明文默认模式。新建模型默认会把 API Key 写入 openclaw.json。切换策略会清空全部模型配置。";
-}
-
-function updateApiKeyProtectionBadge(enabled) {
-  const badge = document.getElementById("api-protection-state-badge");
-  if (!badge) return;
-
-  badge.classList.remove("access-state-local", "access-state-remote");
-  if (enabled) {
-    badge.classList.add("access-state-remote");
-    badge.textContent = "防护开启";
-  } else {
-    badge.classList.add("access-state-local");
-    badge.textContent = "明文模式";
-  }
-}
-
-function updateApiKeyProtectionToggle(enabled) {
-  const checkbox = document.getElementById("api-protection-enabled");
-  const toggleSwitch = document.getElementById("api-protection-switch");
-
-  if (checkbox) {
-    checkbox.checked = enabled === true;
-  }
-  if (!toggleSwitch) {
-    return;
-  }
-
-  toggleSwitch.classList.toggle("active", enabled === true);
-  toggleSwitch.dataset.enabled = enabled === true ? "true" : "false";
-  toggleSwitch.setAttribute("aria-checked", enabled === true ? "true" : "false");
-  toggleSwitch.setAttribute("aria-pressed", enabled === true ? "true" : "false");
-  toggleSwitch.title = enabled === true
-    ? "当前已开启 API 防护，点击切换为明文默认"
-    : "当前为明文默认，点击切换为 SecretRef 默认";
-}
-
-function initApiKeyProtectionToggleControl() {
-  const checkbox = document.getElementById("api-protection-enabled");
-  const toggleSwitch = document.getElementById("api-protection-switch");
-  if (!checkbox || !toggleSwitch) {
-    return;
-  }
-
-  const toggleHandler = () => {
-    if (toggleSwitch.disabled) {
-      return;
-    }
-    updateApiKeyProtectionToggle(!checkbox.checked);
-  };
-
-  toggleSwitch.addEventListener("click", toggleHandler);
-  toggleSwitch.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" && e.key !== " ") {
-      return;
-    }
-    e.preventDefault();
-    toggleHandler();
-  });
-}
-
-async function loadApiKeyProtectionSettings() {
-  try {
-    const result = await apiRequest("/security/api-key-protection");
-    const checkbox = document.getElementById("api-protection-enabled");
-    const toggleSwitch = document.getElementById("api-protection-switch");
-    const saveBtn = document.getElementById("api-protection-save-btn");
-    const sourceEl = document.getElementById("api-protection-source");
-    const fileEl = document.getElementById("api-protection-file");
-    const noteEl = document.getElementById("api-protection-note");
-
-    apiKeyProtectionEnabled = result.enabled === true;
-
-    if (checkbox) checkbox.disabled = false;
-    if (toggleSwitch) toggleSwitch.disabled = false;
-    if (saveBtn) saveBtn.disabled = false;
-
-    updateApiKeyProtectionToggle(apiKeyProtectionEnabled);
-    updateApiKeyProtectionBadge(apiKeyProtectionEnabled);
-
-    if (sourceEl) {
-      sourceEl.textContent = getApiKeyProtectionSourceLabel(result.source);
-    }
-    if (fileEl) {
-      fileEl.textContent = result.file || "-";
-    }
-    if (noteEl) {
-      noteEl.textContent = getApiKeyProtectionNote(apiKeyProtectionEnabled);
-    }
-
-    applyDefaultApiKeyStorageMode();
-  } catch (error) {
-    console.error("加载 API 防护设置失败:", error);
-  }
-}
-
-async function saveApiKeyProtectionSettings() {
-  const checkbox = document.getElementById("api-protection-enabled");
-  const noteEl = document.getElementById("api-protection-note");
-  if (!checkbox) {
-    showToast("未找到 API 防护控件", "error");
-    return;
-  }
-
-  const enabled = checkbox.checked === true;
-  const previousEnabled = apiKeyProtectionEnabled === true;
-  if (enabled === previousEnabled) {
-    showToast("API 防护状态未变化", "info");
-    return;
-  }
-
-  const confirmMessage = enabled
-    ? "开启 API 防护后会立即清空当前所有模型配置（包括供应商、模型列表和主模型绑定），并需要你重新配置模型。是否继续？"
-    : "关闭 API 防护并切回明文模式后，会立即清空当前所有模型配置，并需要你重新配置模型。是否继续？";
-  if (!confirm(confirmMessage)) {
-    updateApiKeyProtectionToggle(previousEnabled);
-    return;
-  }
-
-  try {
-    const result = await apiRequest("/security/api-key-protection", {
-      method: "POST",
-      body: JSON.stringify({
-        enabled,
-        confirmReset: true,
-      }),
-    });
-
-    apiKeyProtectionEnabled = result.enabled === true;
-    updateApiKeyProtectionToggle(apiKeyProtectionEnabled);
-    updateApiKeyProtectionBadge(apiKeyProtectionEnabled);
-
-    const sourceEl = document.getElementById("api-protection-source");
-    if (sourceEl) {
-      sourceEl.textContent = getApiKeyProtectionSourceLabel(result.source);
-    }
-    const fileEl = document.getElementById("api-protection-file");
-    if (fileEl) {
-      fileEl.textContent = result.file || "-";
-    }
-    if (noteEl) {
-      noteEl.textContent = getApiKeyProtectionNote(apiKeyProtectionEnabled);
-    }
-
-    applyDefaultApiKeyStorageMode();
-    await Promise.all([
-      loadModelsList(),
-      loadConfigSummary(),
-    ]);
-
-    const clearedModels = result?.modelsReset?.modelsCleared || 0;
-    showToast(
-      apiKeyProtectionEnabled
-        ? `已开启 API 防护，已清空 ${clearedModels} 个模型，请重新配置`
-        : `已切换为明文默认，已清空 ${clearedModels} 个模型，请重新配置`,
-      "success",
-    );
-  } catch (error) {
-    updateApiKeyProtectionToggle(previousEnabled);
-    showToast("保存 API 防护设置失败: " + error.message, "error");
-  }
-}
-
-function getManagementAccessSourceLabel(source) {
-  switch (source) {
-    case "file":
-      return "WebUI 设置";
-    case "default":
-    default:
-      return "默认值（远程可访问）";
-  }
-}
-
-function updateManagementAccessBadge(allowRemote) {
-  const badge = document.getElementById("management-access-state-badge");
-  if (!badge) return;
-
-  badge.classList.remove("access-state-local", "access-state-remote");
-  if (allowRemote) {
-    badge.classList.add("access-state-remote");
-    badge.textContent = "远程可访问";
-  } else {
-    badge.classList.add("access-state-local");
-    badge.textContent = "仅本机";
-  }
-}
-
-function updateManagementAccessToggle(allowRemote) {
-  const checkbox = document.getElementById("management-allow-remote");
-  const toggleSwitch = document.getElementById("management-allow-remote-switch");
-
-  if (checkbox) {
-    checkbox.checked = allowRemote === true;
-  }
-  if (!toggleSwitch) {
-    return;
-  }
-
-  toggleSwitch.classList.toggle("active", allowRemote === true);
-  toggleSwitch.dataset.enabled = allowRemote === true ? "true" : "false";
-  toggleSwitch.setAttribute("aria-checked", allowRemote === true ? "true" : "false");
-  toggleSwitch.setAttribute("aria-pressed", allowRemote === true ? "true" : "false");
-  toggleSwitch.title = allowRemote === true
-    ? "当前已开启远程访问，点击切换为仅本机访问"
-    : "当前仅本机访问，点击切换为远程可访问";
-}
-
-function initManagementAccessToggleControl() {
-  const checkbox = document.getElementById("management-allow-remote");
-  const toggleSwitch = document.getElementById("management-allow-remote-switch");
-  if (!checkbox || !toggleSwitch) {
-    return;
-  }
-
-  const toggleHandler = () => {
-    if (toggleSwitch.disabled) {
-      return;
-    }
-    updateManagementAccessToggle(!checkbox.checked);
-  };
-
-  toggleSwitch.addEventListener("click", toggleHandler);
-  toggleSwitch.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" && e.key !== " ") {
-      return;
-    }
-    e.preventDefault();
-    toggleHandler();
-  });
-}
-
-async function loadManagementAccessSettings() {
-  try {
-    const result = await apiRequest("/management/access");
-    const checkbox = document.getElementById("management-allow-remote");
-    const toggleSwitch = document.getElementById("management-allow-remote-switch");
-    const saveBtn = document.getElementById("management-access-save-btn");
-    const sourceEl = document.getElementById("management-access-source");
-    const fileEl = document.getElementById("management-access-file");
-    const noteEl = document.getElementById("management-access-note");
-
-    if (checkbox) checkbox.disabled = false;
-    if (toggleSwitch) toggleSwitch.disabled = false;
-    updateManagementAccessToggle(!!result.allowRemote);
-    if (saveBtn) {
-      saveBtn.disabled = false;
-    }
-    if (sourceEl) {
-      sourceEl.textContent = getManagementAccessSourceLabel(result.source);
-    }
-    if (fileEl) {
-      fileEl.textContent = result.file || "-";
-    }
-    if (noteEl) {
-      noteEl.textContent = result.allowRemote
-        ? "当前为远程可访问模式。请确认网络边界已加固。"
-        : "当前为仅本机访问模式。";
-    }
-    updateManagementAccessBadge(!!result.allowRemote);
-  } catch (error) {
-    console.error("加载管理访问设置失败:", error);
-  }
-}
-
-async function saveManagementAccessSettings() {
-  const checkbox = document.getElementById("management-allow-remote");
-  const noteEl = document.getElementById("management-access-note");
-  if (!checkbox) {
-    showToast("未找到访问设置控件", "error");
-    return;
-  }
-
-  const allowRemote = checkbox.checked === true;
-  if (allowRemote) {
-    const confirmed = confirm(
-      "开启远程访问后，局域网设备可能直接调用管理 API。\n请确认网络环境可信。\n\n确定继续吗？",
-    );
-    if (!confirmed) {
-      return;
-    }
-  }
-
-  try {
-    const result = await apiRequest("/management/access", {
-      method: "POST",
-      body: JSON.stringify({ allowRemote }),
-    });
-    const sourceEl = document.getElementById("management-access-source");
-    if (sourceEl) {
-      sourceEl.textContent = getManagementAccessSourceLabel(result.source);
-    }
-    const fileEl = document.getElementById("management-access-file");
-    if (fileEl) {
-      fileEl.textContent = result.file || "-";
-    }
-    if (noteEl) {
-      noteEl.textContent = allowRemote
-        ? "当前为远程可访问模式。请确认网络边界已加固。"
-        : "当前为仅本机访问模式。";
-    }
-    updateManagementAccessBadge(allowRemote);
-    showToast(
-      allowRemote ? "已启用远程访问" : "已切换为仅本机访问",
-      "success",
-    );
-    await loadManagementAccessSettings();
-  } catch (error) {
-    showToast("保存访问设置失败: " + error.message, "error");
-  }
-}
-
-async function loadToolProfiles() {
-  try {
-    const config = await apiRequest("/config");
-    const toolProfiles = config?.tools?.profile || "full";
-    document.getElementById("tool-profiles").value = toolProfiles;
-  } catch (error) {
-    console.error("加载 Tool Profiles 失败:", error);
-  }
-}
-
-async function saveToolProfiles() {
-  try {
-    const value = document.getElementById("tool-profiles").value;
-    await apiRequest("/tools/profile", {
-      method: "POST",
-      body: JSON.stringify({ profile: value }),
-    });
-    showToast("Tool Profiles 已更新为: " + value, "success");
-  } catch (error) {
-    showToast("保存失败: " + error.message, "error");
-  }
-}
-
-// ============================================================================
-
-async function loadVersionInfo() {
-  try {
-    const current = await apiRequest("/version/current");
-    document.getElementById("ver-current").textContent = current.version;
-    document.getElementById("ver-latest").textContent = "检查中...";
-    document.getElementById("ver-status").textContent = "检查中...";
-
-    // 自动检查最新版本
-    await checkUpdate();
-  } catch (error) {
-    showToast("加载版本信息失败: " + error.message, "error");
-  }
-}
-
-async function checkUpdate() {
-  try {
-    showToast("正在检查更新...", "info");
-
-    const latest = await apiRequest("/version/latest");
-
-    document.getElementById("ver-latest").textContent = latest.version;
-
-    if (latest.available) {
-      document.getElementById("ver-status").textContent = "有新版本可用";
-      document.getElementById("update-btn").disabled = false;
-      showToast("发现新版本: " + latest.version, "success");
-    } else {
-      document.getElementById("ver-status").textContent = "已是最新版本";
-      document.getElementById("update-btn").disabled = true;
-      showToast("当前已是最新版本", "success");
-    }
-  } catch (error) {
-    showToast("检查更新失败: " + error.message, "error");
-  }
-}
-
-async function updateVersion() {
-  const message =
-    "确定要更新 OpenClaw 到最新版本吗？\n\n" +
-    "升级过程将执行以下操作：\n" +
-    "1. 停止 Gateway 服务\n" +
-    "2. 通过 npm 安装最新版本\n" +
-    "3. 重启 Gateway 服务\n\n" +
-    "整个过程大约需要 1-2 分钟，期间服务将暂时不可用。";
-
-  if (!confirm(message)) {
-    return;
-  }
-
-  try {
-    showToast("正在更新版本...", "info");
-    const result = await apiRequest("/version/update", { method: "POST" });
-
-    if (result.success) {
-      showToast("更新成功！", "success");
-      setTimeout(() => location.reload(), 2000);
-    } else {
-      showToast(result.message || "更新失败", "warning");
-    }
-  } catch (error) {
-    showToast("更新失败: " + error.message, "error");
-  }
-}
-
-// ============================================================================
-// 原生控制面板
-// ============================================================================
-
-async function loadConsoleInfo() {
-  try {
-    const info = await apiRequest("/console/url");
-
-    document.getElementById("console-url").textContent = info.url;
-    document.getElementById("console-token").textContent =
-      info.token || "(未设置)";
-
-    // 加载日志
-    refreshLogs();
-  } catch (error) {
-    showToast("加载原生控制面板信息失败: " + error.message, "error");
-  }
-}
-
-async function openConsole() {
-  try {
-    const info = await apiRequest("/console/url");
-
-    if (!info || !info.url) {
-      showToast("获取原生控制面板地址失败，尝试直接打开...", "warning");
-      window.location.href = "/dashboard/";
-      return;
-    }
-
-    if (!info.token) {
-      showToast(
-        "未检测到网关令牌，打开原生控制面板可能需要手动填写",
-        "warning",
-      );
-    }
-
-    // 通过 Management API 代理打开，并尽量在 URL 上携带 token
-    window.location.href = info.url;
-  } catch (error) {
-    showToast("打开原生控制面板失败: " + error.message, "error");
-  }
-}
-
-async function refreshLogs() {
-  try {
-    const result = await apiRequest("/logs?lines=1000");
-    const logContent = document.getElementById("log-content");
-    logContent.textContent = result.logs || "(暂无日志)";
-
-    // 滚动到底部
-    logContent.scrollTop = logContent.scrollHeight;
-  } catch (error) {
-    document.getElementById("log-content").textContent =
-      "加载日志失败: " + error.message;
-  }
-}
-
-// ============================================================================
 // 技能管理
 // ============================================================================
 
@@ -3998,8 +3285,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // 初始化标签页
   initTabs();
   initTooltips();
-  initManagementAccessToggleControl();
-  initApiKeyProtectionToggleControl();
+  window.initManagementAccessToggleControl();
+  window.initApiKeyProtectionToggleControl();
 
   // Skills 事件绑定
   const skillsSearchBtn = refs?.skills.searchBtn || document.getElementById("skills-search-btn");
@@ -4040,7 +3327,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 定时刷新状态（每 5 秒）
   setInterval(() => {
     if (currentTabName === "overview") {
-      refreshDashboard();
+      window.refreshDashboard();
     }
   }, 5000);
 
@@ -4080,7 +3367,7 @@ document.addEventListener("DOMContentLoaded", () => {
     storageSelect.addEventListener("change", handleApiKeyStorageModeChange);
   }
   applyDefaultApiKeyStorageMode();
-  loadApiKeyProtectionSettings();
+  window.loadApiKeyProtectionSettings();
 
   console.log("初始化完成");
 });
