@@ -1,5 +1,11 @@
 const fs = require("fs");
 const path = require("path");
+const {
+  AppError,
+  conflictError,
+  badGatewayError,
+  isAppError,
+} = require("../core/http-errors");
 
 function createPluginService(options) {
   const {
@@ -413,11 +419,14 @@ function createPluginService(options) {
 
     function ensurePluginEnabled(manifestId) {
       if (typeof readJSON !== "function" || typeof writeJSON !== "function") {
-        throw new Error("插件启用失败：配置读写能力不可用");
+        throw new AppError("插件启用失败：配置读写能力不可用", {
+          statusCode: 500,
+          code: "internal_error",
+        });
       }
       const config = readJSON(CONFIG_FILE) || {};
       if (!config || typeof config !== "object" || Array.isArray(config)) {
-        throw new Error("插件启用失败：配置文件结构无效");
+        throw conflictError("插件启用失败：配置文件结构无效");
       }
 
       if (!config.plugins || typeof config.plugins !== "object" || Array.isArray(config.plugins)) {
@@ -454,7 +463,7 @@ function createPluginService(options) {
       config.plugins.allow = Array.from(allowSet);
       const ok = writeJSON(CONFIG_FILE, config);
       if (!ok) {
-        throw new Error("插件启用失败：写入配置文件失败");
+        throw conflictError("插件启用失败：写入配置文件失败");
       }
       return { changed: true };
     }
@@ -563,7 +572,7 @@ function createPluginService(options) {
 
     async function install() {
       if (installing[pluginKey]) {
-        throw new Error(`${plugin.name}插件安装中，请稍后重试`);
+        throw conflictError(`${plugin.name}插件安装中，请稍后重试`);
       }
       const preStatus = await getStatus();
       if (preStatus.state === "installed") {
@@ -599,7 +608,7 @@ function createPluginService(options) {
         const inspected = await waitForInstalledState(5, 600);
         if (inspected.state !== "installed") {
           const runtimeHint = inspected?.message ? ` 详情: ${inspected.message}` : "";
-          throw new Error(
+          throw badGatewayError(
             `${plugin.name}插件安装后仍未通过运行时校验。` +
               `请在 NAS 运行环境检查 openclaw 插件安装路径与日志。${runtimeHint}`,
           );
@@ -619,6 +628,15 @@ function createPluginService(options) {
           restarted,
           installStrategy: installMeta?.strategy || "",
         };
+      } catch (err) {
+        if (isAppError(err)) {
+          throw err;
+        }
+        const details = err?.stderr ? { stderr: String(err.stderr) } : undefined;
+        throw badGatewayError(
+          `${plugin.name}插件安装失败: ${String(err?.stderr || err?.message || "未知错误")}`,
+          details,
+        );
       } finally {
         installing[pluginKey] = false;
       }

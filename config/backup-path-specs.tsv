@@ -6,3 +6,5 @@ qqbot_node_modules	dir	var/node_modules/@tencent-connect/openclaw-qqbot	${TRIM_P
 wecom_node_modules	dir	var/node_modules/@wecom/wecom-openclaw-plugin	${TRIM_PKGVAR}/node_modules/@wecom/wecom-openclaw-plugin
 skillhub_node_modules	dir	var/node_modules/skillhub	${TRIM_PKGVAR}/node_modules/skillhub
 openclaw_skillhub_node_modules	dir	var/node_modules/@openclaw/skillhub	${TRIM_PKGVAR}/node_modules/@openclaw/skillhub
+management_access	file	var/management-access.json	${TRIM_PKGVAR}/management-access.json
+api_key_protection	file	var/api-key-protection.json	${TRIM_PKGVAR}/api-key-protection.json

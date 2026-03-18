@@ -1,6 +1,11 @@
 const fs = require("fs");
 const path = require("path");
 const { migrateLegacyManagedFileProvider } = require("../core/secrets");
+const {
+  badGatewayError,
+  conflictError,
+  isAppError,
+} = require("../core/http-errors");
 
 function createGatewayService(options) {
   const {
@@ -246,10 +251,23 @@ function createGatewayService(options) {
       return { success: true };
     } catch (err) {
       console.error("[management-api] 更新失败:", err);
-      return {
-        success: false,
-        message: err.stderr || err.message || "更新失败",
-      };
+      if (isAppError(err)) {
+        throw err;
+      }
+      const message = String(err?.stderr || err?.message || "更新失败");
+      const details = err?.stderr ? { stderr: String(err.stderr) } : undefined;
+      const normalized = message.toLowerCase();
+      const isNpmOrRegistryError =
+        normalized.includes("npm") ||
+        normalized.includes("registry") ||
+        normalized.includes("eai_") ||
+        normalized.includes("etimedout") ||
+        normalized.includes("econn");
+
+      if (isNpmOrRegistryError) {
+        throw badGatewayError(`更新失败: ${message}`, details);
+      }
+      throw conflictError(`更新失败: ${message}`, details);
     }
   }
 

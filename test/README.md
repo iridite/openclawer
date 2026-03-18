@@ -134,6 +134,20 @@ bash test/frontend-request-entry.sh
 - 其他前端模块不允许直接使用 `fetch`
 - 不允许引入 `XMLHttpRequest` 或 `navigator.sendBeacon` 等额外入口
 
+## 🧭 高优先错误语义回归
+
+用于验证版本升级和插件安装两条高优先链路在失败时返回非 `200` 且语义化错误码：
+
+```bash
+bash test/priority-error-semantics.sh
+```
+
+检查项包含：
+- `/api/version/update` 对 npm/registry 失败归类为 `502 bad_gateway`
+- `/api/version/update` 对网关重启失败归类为 `409 conflict`
+- 插件安装并发冲突归类为 `409 conflict`
+- 插件安装命令失败、运行时校验失败归类为 `502 bad_gateway`
+
 ### 3. 访问测试界面
 
 启动后访问：
