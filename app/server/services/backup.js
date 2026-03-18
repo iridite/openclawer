@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { resolveBackupPathSpecs } = require("../core/backup-specs");
 
 function createBackupService(options) {
   const {
@@ -48,65 +49,10 @@ function createBackupService(options) {
   }
 
   function getBackupPathSpecs() {
-    return [
-      {
-        id: "oc_home",
-        targetPath: OC_HOME,
-        backupPath: ".openclaw",
-        type: "dir",
-      },
-      {
-        id: "pkg_plugins",
-        targetPath: path.join(TRIM_PKGVAR, "plugins"),
-        backupPath: "var/plugins",
-        type: "dir",
-      },
-      {
-        id: "pkg_extensions",
-        targetPath: path.join(TRIM_PKGVAR, "extensions"),
-        backupPath: "var/extensions",
-        type: "dir",
-      },
-      {
-        id: "qqbot_node_modules",
-        targetPath: path.join(
-          TRIM_PKGVAR,
-          "node_modules",
-          "@tencent-connect",
-          "openclaw-qqbot",
-        ),
-        backupPath: "var/node_modules/@tencent-connect/openclaw-qqbot",
-        type: "dir",
-      },
-      {
-        id: "wecom_node_modules",
-        targetPath: path.join(
-          TRIM_PKGVAR,
-          "node_modules",
-          "@wecom",
-          "wecom-openclaw-plugin",
-        ),
-        backupPath: "var/node_modules/@wecom/wecom-openclaw-plugin",
-        type: "dir",
-      },
-      {
-        id: "skillhub_node_modules",
-        targetPath: path.join(TRIM_PKGVAR, "node_modules", "skillhub"),
-        backupPath: "var/node_modules/skillhub",
-        type: "dir",
-      },
-      {
-        id: "openclaw_skillhub_node_modules",
-        targetPath: path.join(
-          TRIM_PKGVAR,
-          "node_modules",
-          "@openclaw",
-          "skillhub",
-        ),
-        backupPath: "var/node_modules/@openclaw/skillhub",
-        type: "dir",
-      },
-    ];
+    return resolveBackupPathSpecs({
+      OC_HOME,
+      TRIM_PKGVAR,
+    });
   }
 
   async function createBackupArchive(mode = "manual-export") {

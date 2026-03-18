@@ -1,0 +1,8 @@
+# id	type	backup_path	target_template
+oc_home	dir	.openclaw	${OC_HOME}
+pkg_plugins	dir	var/plugins	${TRIM_PKGVAR}/plugins
+pkg_extensions	dir	var/extensions	${TRIM_PKGVAR}/extensions
+qqbot_node_modules	dir	var/node_modules/@tencent-connect/openclaw-qqbot	${TRIM_PKGVAR}/node_modules/@tencent-connect/openclaw-qqbot
+wecom_node_modules	dir	var/node_modules/@wecom/wecom-openclaw-plugin	${TRIM_PKGVAR}/node_modules/@wecom/wecom-openclaw-plugin
+skillhub_node_modules	dir	var/node_modules/skillhub	${TRIM_PKGVAR}/node_modules/skillhub
+openclaw_skillhub_node_modules	dir	var/node_modules/@openclaw/skillhub	${TRIM_PKGVAR}/node_modules/@openclaw/skillhub

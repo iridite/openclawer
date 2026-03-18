@@ -5,9 +5,12 @@
 set -euo pipefail
 
 APP_NAME="${TRIM_APPNAME:-oc-deploy}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# 自动检测配置文件位置
-if [ -d "/var/apps/${APP_NAME}/var/.openclaw" ]; then
+# 自动检测配置文件位置（显式 OC_HOME 优先）
+if [ -n "${OC_HOME:-}" ] && [ -d "${OC_HOME}" ]; then
+    SRC_DIR="${OC_HOME}"
+elif [ -d "/var/apps/${APP_NAME}/var/.openclaw" ]; then
     SRC_DIR="/var/apps/${APP_NAME}/var/.openclaw"
 elif [ -d "/root/.openclaw" ]; then
     SRC_DIR="/root/.openclaw"
@@ -16,6 +19,8 @@ else
 fi
 
 PKG_VAR_DIR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+TRIM_PKGVAR="${PKG_VAR_DIR}"
+OC_HOME="${SRC_DIR}"
 BACKUP_ROOT="${OC_DEPLOY_BACKUP_ROOT:-/root/oc-deploy}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_DIR="${BACKUP_ROOT}/${STAMP}-backup"
@@ -23,9 +28,13 @@ MARKER_FILE="${BACKUP_ROOT}/.upgrade_backup_path"
 MANIFEST_FILE="${BACKUP_DIR}/manifest.tsv"
 BACKUP_ITEMS=0
 
+# shellcheck source=cmd/lib/backup_specs.sh
+source "${SCRIPT_DIR}/lib/backup_specs.sh"
+
 backup_entry() {
     local src="$1"
     local rel="$2"
+    local item_type="$3"
 
     if [ ! -e "${src}" ]; then
         echo "[upgrade_init] Skip missing path: ${src}"
@@ -34,35 +43,32 @@ backup_entry() {
 
     BACKUP_ITEMS=$((BACKUP_ITEMS + 1))
 
-    if [ -d "${src}" ]; then
-        mkdir -p "${BACKUP_DIR}/${rel}"
-        cp -a "${src}/." "${BACKUP_DIR}/${rel}/"
-        printf '%s|%s|dir\n' "${src}" "${rel}" >> "${MANIFEST_FILE}"
-    else
+    if [ "${item_type}" = "file" ]; then
         mkdir -p "$(dirname "${BACKUP_DIR}/${rel}")"
         cp -a "${src}" "${BACKUP_DIR}/${rel}"
         printf '%s|%s|file\n' "${src}" "${rel}" >> "${MANIFEST_FILE}"
+    else
+        mkdir -p "${BACKUP_DIR}/${rel}"
+        cp -a "${src}/." "${BACKUP_DIR}/${rel}/"
+        printf '%s|%s|dir\n' "${src}" "${rel}" >> "${MANIFEST_FILE}"
     fi
 
     echo "[upgrade_init] Backed up ${src} -> ${BACKUP_DIR}/${rel}"
 }
 
+backup_spec_entry() {
+    local _id="$1"
+    local item_type="$2"
+    local rel="$3"
+    local target_path="$4"
+
+    backup_entry "${target_path}" "${rel}" "${item_type}"
+}
+
 mkdir -p "${BACKUP_ROOT}" "${BACKUP_DIR}"
 printf '# target|backup_rel|type\n' > "${MANIFEST_FILE}"
 
-# Core OpenClaw data: includes openclaw.json, workspace(memory), extensions/plugins in OC_HOME
-backup_entry "${SRC_DIR}" ".openclaw"
-
-# Extra plugin locations under package var dir (in case plugin payload is outside OC_HOME)
-backup_entry "${PKG_VAR_DIR}/plugins" "var/plugins"
-backup_entry "${PKG_VAR_DIR}/extensions" "var/extensions"
-backup_entry "${PKG_VAR_DIR}/node_modules/@tencent-connect/openclaw-qqbot" \
-    "var/node_modules/@tencent-connect/openclaw-qqbot"
-backup_entry "${PKG_VAR_DIR}/node_modules/@wecom/wecom-openclaw-plugin" \
-    "var/node_modules/@wecom/wecom-openclaw-plugin"
-backup_entry "${PKG_VAR_DIR}/node_modules/skillhub" "var/node_modules/skillhub"
-backup_entry "${PKG_VAR_DIR}/node_modules/@openclaw/skillhub" \
-    "var/node_modules/@openclaw/skillhub"
+each_backup_spec backup_spec_entry
 
 if [ "${BACKUP_ITEMS}" -eq 0 ]; then
     echo "[upgrade_init] No backup sources found, skip."

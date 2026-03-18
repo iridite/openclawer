@@ -64,6 +64,19 @@ SMOKE_READY_MAX_ATTEMPTS=10 SMOKE_READY_INTERVAL_SECONDS=0.05 SMOKE_HTTP_MAX_TIM
 - 这条 smoke 的目标是验证“管理面板主链路仍可工作”，不是覆盖升级、插件安装、技能下载或真实 Gateway 运行时能力。
 - 若后续改动涉及高风险流程，请同时参考 [`docs/MINIMAL_REGRESSION_CHECKLIST.md`](../docs/MINIMAL_REGRESSION_CHECKLIST.md)。
 
+## 🔁 备份/升级边界回归
+
+用于验证升级前备份和升级后恢复是否仍然覆盖同一份共享备份清单：
+
+```bash
+bash test/backup-boundary.sh
+```
+
+检查项包含：
+- 共享备份规格清单可被升级脚本正确读取
+- `upgrade_init` 生成的 manifest 条目数与规格清单一致
+- `upgrade_callback` 可以按 manifest 将所有备份项恢复回来
+
 ### 3. 访问测试界面
 
 启动后访问：

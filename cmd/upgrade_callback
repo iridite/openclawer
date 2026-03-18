@@ -5,9 +5,12 @@
 set -euo pipefail
 
 APP_NAME="${TRIM_APPNAME:-oc-deploy}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# 自动检测配置文件位置
-if [ -d "/var/apps/${APP_NAME}/var/.openclaw" ]; then
+# 自动检测配置文件位置（显式 OC_HOME 优先）
+if [ -n "${OC_HOME:-}" ] && [ -d "${OC_HOME}" ]; then
+    SRC_DIR="${OC_HOME}"
+elif [ -d "/var/apps/${APP_NAME}/var/.openclaw" ]; then
     SRC_DIR="/var/apps/${APP_NAME}/var/.openclaw"
 elif [ -d "/root/.openclaw" ]; then
     SRC_DIR="/root/.openclaw"
@@ -15,10 +18,15 @@ else
     SRC_DIR="${OC_HOME:-/root/.openclaw}"
 fi
 
+TRIM_PKGVAR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+OC_HOME="${SRC_DIR}"
 BACKUP_ROOT="${OC_DEPLOY_BACKUP_ROOT:-/root/oc-deploy}"
 MARKER_FILE="${BACKUP_ROOT}/.upgrade_backup_path"
 RESTORED_ITEMS=0
 NODE_PATH="${NODE_PATH:-/var/apps/nodejs_v22/target/bin/node}"
+
+# shellcheck source=cmd/lib/backup_specs.sh
+source "${SCRIPT_DIR}/lib/backup_specs.sh"
 
 migrate_legacy_config_file() {
     local config_file="$1"
@@ -172,6 +180,15 @@ restore_entry() {
     echo "[upgrade_callback] Restored ${backup_path} -> ${target}"
 }
 
+restore_spec_entry() {
+    local _id="$1"
+    local item_type="$2"
+    local rel="$3"
+    local target_path="$4"
+
+    restore_entry "${target_path}" "${rel}" "${item_type}"
+}
+
 if [ -f "${MARKER_FILE}" ]; then
     BACKUP_DIR="$(cat "${MARKER_FILE}")"
 else
@@ -193,13 +210,8 @@ if [ -f "${MANIFEST_FILE}" ]; then
         restore_entry "${target}" "${rel}" "${item_type:-dir}"
     done < "${MANIFEST_FILE}"
 else
-    # Backward compatibility: restore legacy backup layout
-    if [ -d "${BACKUP_DIR}/.openclaw" ]; then
-        mkdir -p "${SRC_DIR}"
-        cp -a "${BACKUP_DIR}/.openclaw/." "${SRC_DIR}/"
-        RESTORED_ITEMS=$((RESTORED_ITEMS + 1))
-        echo "[upgrade_callback] Restored legacy .openclaw from ${BACKUP_DIR}"
-    fi
+    # Backward compatibility: restore by current shared backup specs.
+    each_backup_spec restore_spec_entry
 fi
 
 if [ "${RESTORED_ITEMS}" -eq 0 ]; then
