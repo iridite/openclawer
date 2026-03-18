@@ -32,6 +32,10 @@ function conflictError(message, details) {
   return createHttpError(409, "conflict", message, details);
 }
 
+function badGatewayError(message, details) {
+  return createHttpError(502, "bad_gateway", message, details);
+}
+
 function isAppError(error) {
   return !!error && error instanceof AppError;
 }
@@ -54,6 +58,7 @@ module.exports = {
   forbiddenError,
   notFoundError,
   conflictError,
+  badGatewayError,
   isAppError,
   normalizeError,
 };

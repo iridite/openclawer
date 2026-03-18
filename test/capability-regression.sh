@@ -466,4 +466,13 @@ request_json POST "/skills/toggle" "${TMP_DIR}/builtin-skill-enable.json" '{"slu
 assert_json_expr "${TMP_DIR}/builtin-skill-enable.json" "data.success === true && data.enabled === true" "启用 builtin 技能失败"
 assert_config_expr "!data.skills || !data.skills.entries || !data.skills.entries['builtin-demo-key']" "启用 builtin 技能后禁用标记未清理"
 
+request_expect_status POST "/skills/install" "400" "${TMP_DIR}/skill-install-invalid.json" '{"slug":"bad slug"}'
+assert_json_expr "${TMP_DIR}/skill-install-invalid.json" "data.status === 400 && data.code === 'bad_request'" "技能安装参数错误未返回 400 bad_request"
+
+request_expect_status POST "/skills/uninstall" "404" "${TMP_DIR}/skill-uninstall-missing.json" '{"slug":"missing-skill"}'
+assert_json_expr "${TMP_DIR}/skill-uninstall-missing.json" "data.status === 404 && data.code === 'not_found'" "技能卸载缺失未返回 404 not_found"
+
+request_expect_status POST "/skills/toggle" "404" "${TMP_DIR}/skill-toggle-missing.json" '{"slug":"missing-skill","enabled":false,"entryKey":"missing-skill","location":"user"}'
+assert_json_expr "${TMP_DIR}/skill-toggle-missing.json" "data.status === 404 && data.code === 'not_found'" "技能切换缺失未返回 404 not_found"
+
 echo "[capability] all checks passed"

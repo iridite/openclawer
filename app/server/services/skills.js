@@ -3,6 +3,13 @@ const fsp = fs.promises;
 const path = require("path");
 const { execSync } = require("child_process");
 const { fetchJSON, downloadFile } = require("../core/http-client");
+const {
+  badRequestError,
+  notFoundError,
+  conflictError,
+  badGatewayError,
+  isAppError,
+} = require("../core/http-errors");
 
 function createSkillsService(options) {
   const { OC_HOME, TRIM_PKGVAR, CONFIG_FILE, readJSON, writeJSON } = options;
@@ -208,35 +215,23 @@ function createSkillsService(options) {
         skills: Array.isArray(data.results) ? data.results : [],
       };
     } catch (err) {
-      return {
-        success: false,
-        error: `搜索失败: ${err.message}`,
-      };
+      throw badGatewayError(`搜索失败: ${err.message}`);
     }
   }
 
   async function install(slug, force = false) {
     const normalizedSlug = String(slug || "").trim();
     if (!isValidSkillSlug(normalizedSlug)) {
-      return {
-        success: false,
-        error: "无效的技能名称格式",
-      };
+      throw badRequestError("无效的技能名称格式");
     }
 
     if (installingSkills.has(normalizedSlug)) {
-      return {
-        success: false,
-        error: `技能 ${normalizedSlug} 正在安装中`,
-      };
+      throw conflictError(`技能 ${normalizedSlug} 正在安装中`);
     }
     const targetDir = path.join(SKILLS_DIR, normalizedSlug);
 
     if ((await pathExists(targetDir)) && !force) {
-      return {
-        success: false,
-        error: `技能 ${normalizedSlug} 已安装，使用 force=true 覆盖安装`,
-      };
+      throw conflictError(`技能 ${normalizedSlug} 已安装，使用 force=true 覆盖安装`);
     }
 
     installingSkills.add(normalizedSlug);
@@ -263,12 +258,12 @@ function createSkillsService(options) {
           downloadSuccess = true;
           usedUrl = fallbackUrl;
         } catch (fallbackErr) {
-          throw new Error(`主源和备用源均下载失败: ${err.message}, ${fallbackErr.message}`);
+          throw badGatewayError(`主源和备用源均下载失败: ${err.message}, ${fallbackErr.message}`);
         }
       }
 
       if (!downloadSuccess) {
-        throw new Error("下载失败");
+        throw badGatewayError("下载失败");
       }
 
       const stageDir = path.join(tmpDir, "stage");
@@ -313,10 +308,10 @@ function createSkillsService(options) {
       if (await pathExists(tmpDir)) {
         await fsp.rm(tmpDir, { recursive: true, force: true });
       }
-      return {
-        success: false,
-        error: `安装失败: ${err.message}`,
-      };
+      if (isAppError(err)) {
+        throw err;
+      }
+      throw new Error(`安装失败: ${err.message}`);
     } finally {
       installingSkills.delete(normalizedSlug);
     }
@@ -454,30 +449,21 @@ function createSkillsService(options) {
         skills: [...userSkills, ...builtinSkills],
       };
     } catch (err) {
-      return {
-        success: false,
-        error: `列表获取失败: ${err.message}`,
-      };
+      throw new Error(`列表获取失败: ${err.message}`);
     }
   }
 
   async function uninstall(slug) {
     const normalizedSlug = String(slug || "").trim();
     if (!isValidSkillSlug(normalizedSlug)) {
-      return {
-        success: false,
-        error: "无效的技能名称格式",
-      };
+      throw badRequestError("无效的技能名称格式");
     }
 
     const targetDir = path.join(SKILLS_DIR, normalizedSlug);
 
     try {
       if (!(await pathExists(targetDir))) {
-        return {
-          success: false,
-          error: `技能 ${normalizedSlug} 未安装`,
-        };
+        throw notFoundError(`技能 ${normalizedSlug} 未安装`);
       }
 
       await fsp.rm(targetDir, { recursive: true, force: true });
@@ -491,10 +477,10 @@ function createSkillsService(options) {
         message: `技能 ${normalizedSlug} 已卸载`,
       };
     } catch (err) {
-      return {
-        success: false,
-        error: `卸载失败: ${err.message}`,
-      };
+      if (isAppError(err)) {
+        throw err;
+      }
+      throw new Error(`卸载失败: ${err.message}`);
     }
   }
 
@@ -504,33 +490,21 @@ function createSkillsService(options) {
     const normalizedLocation = String(options.location || "").trim();
 
     if (!isValidSkillSlug(normalizedSlug)) {
-      return {
-        success: false,
-        error: "无效的技能名称格式",
-      };
+      throw badRequestError("无效的技能名称格式");
     }
 
     if (typeof enabled !== "boolean") {
-      return {
-        success: false,
-        error: "enabled 必须是布尔值",
-      };
+      throw badRequestError("enabled 必须是布尔值");
     }
 
     const skillRecord = await resolveSkillRecord(normalizedSlug, normalizedLocation);
     if (!skillRecord) {
-      return {
-        success: false,
-        error: `未找到技能 ${normalizedSlug}`,
-      };
+      throw notFoundError(`未找到技能 ${normalizedSlug}`);
     }
 
     const entryKey = normalizedEntryKey || skillRecord.entryKey || normalizedSlug;
     if (!isValidSkillEntryKey(entryKey)) {
-      return {
-        success: false,
-        error: "无效的技能配置键（skillKey）",
-      };
+      throw badRequestError("无效的技能配置键（skillKey）");
     }
 
     try {
@@ -568,28 +542,22 @@ function createSkillsService(options) {
         enabled,
       };
     } catch (err) {
-      return {
-        success: false,
-        error: `更新技能状态失败: ${err.message}`,
-      };
+      if (isAppError(err)) {
+        throw err;
+      }
+      throw new Error(`更新技能状态失败: ${err.message}`);
     }
   }
 
   async function update(slug) {
     const normalizedSlug = String(slug || "").trim();
     if (!isValidSkillSlug(normalizedSlug)) {
-      return {
-        success: false,
-        error: "无效的技能名称格式",
-      };
+      throw badRequestError("无效的技能名称格式");
     }
 
     const lock = await loadLockfile();
     if (!lock.skills[normalizedSlug]) {
-      return {
-        success: false,
-        error: `技能 ${normalizedSlug} 不是用户安装技能，无法更新`,
-      };
+      throw notFoundError(`技能 ${normalizedSlug} 不是用户安装技能，无法更新`);
     }
 
     return install(normalizedSlug, true);
