@@ -327,7 +327,43 @@ request_json POST "/plugins/qqbot/install" "${TMP_DIR}/qqbot-install.json"
 assert_json_expr "${TMP_DIR}/qqbot-install.json" "data.success === true" "QQ 插件 allow 修正失败"
 assert_config_expr "Array.isArray(data.plugins.allow) && data.plugins.allow.includes('openclaw-qqbot')" "QQ 插件 allow 未自动修正"
 
-# 技能：列表 + 启用/禁用写入
+# WeCom 插件：状态识别 + plugins.allow 修正
+mkdir -p "${OC_HOME}/plugins/wecom-openclaw-plugin"
+cat > "${OC_HOME}/plugins/wecom-openclaw-plugin/package.json" <<'EOF'
+{
+  "name": "@wecom/wecom-openclaw-plugin",
+  "version": "1.0.0-test",
+  "openclaw": {
+    "channels": ["wecom"]
+  }
+}
+EOF
+cat > "${OC_HOME}/plugins/wecom-openclaw-plugin/openclaw.plugin.json" <<'EOF'
+{
+  "id": "wecom-openclaw-plugin",
+  "version": "1.0.0-test",
+  "channels": ["wecom"]
+}
+EOF
+
+node - "${CONFIG_FILE}" <<'NODE'
+const fs = require("fs");
+const file = process.argv[2];
+const data = JSON.parse(fs.readFileSync(file, "utf8"));
+data.plugins = data.plugins || {};
+data.plugins.enabled = true;
+data.plugins.allow = ["openclaw-qqbot"];
+fs.writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
+NODE
+
+request_json GET "/plugins/wecom/status" "${TMP_DIR}/wecom-status-disabled.json"
+assert_json_expr "${TMP_DIR}/wecom-status-disabled.json" "data.success === true && data.state === 'disabled'" "WeCom 插件 disabled 状态识别失败"
+
+request_json POST "/plugins/wecom/install" "${TMP_DIR}/wecom-install.json"
+assert_json_expr "${TMP_DIR}/wecom-install.json" "data.success === true" "WeCom 插件 allow 修正失败"
+assert_config_expr "Array.isArray(data.plugins.allow) && data.plugins.allow.includes('wecom-openclaw-plugin')" "WeCom 插件 allow 未自动修正"
+
+# 技能：user + builtin 列表识别与启用/禁用写入
 mkdir -p "${OC_HOME}/skills/demo-skill"
 cat > "${OC_HOME}/skills/demo-skill/SKILL.md" <<'EOF'
 ---
@@ -336,6 +372,16 @@ skillKey: demo-skill-key
 ---
 
 Minimal user skill for regression test.
+EOF
+
+mkdir -p "${TRIM_PKGVAR}/node_modules/openclaw/skills/builtin-demo"
+cat > "${TRIM_PKGVAR}/node_modules/openclaw/skills/builtin-demo/SKILL.md" <<'EOF'
+---
+name: Builtin Demo
+skillKey: builtin-demo-key
+---
+
+Minimal builtin skill for regression test.
 EOF
 
 cat > "${OC_HOME}/skills/.skills_store_lock.json" <<'EOF'
@@ -354,6 +400,7 @@ EOF
 
 request_json GET "/skills/list" "${TMP_DIR}/skills-list.json"
 assert_json_expr "${TMP_DIR}/skills-list.json" "data.success === true && data.skills.some((skill) => skill.slug === 'demo-skill' && skill.location === 'user' && skill.enabled === true)" "技能列表未识别用户技能"
+assert_json_expr "${TMP_DIR}/skills-list.json" "data.success === true && data.skills.some((skill) => skill.slug === 'builtin-demo' && skill.location === 'builtin' && skill.enabled === true)" "技能列表未识别 builtin 技能"
 
 request_json POST "/skills/toggle" "${TMP_DIR}/skill-disable.json" '{"slug":"demo-skill","enabled":false,"entryKey":"demo-skill-key","location":"user"}'
 assert_json_expr "${TMP_DIR}/skill-disable.json" "data.success === true && data.enabled === false" "禁用技能失败"
@@ -362,5 +409,13 @@ assert_config_expr "data.skills.entries['demo-skill-key'].enabled === false" "�
 request_json POST "/skills/toggle" "${TMP_DIR}/skill-enable.json" '{"slug":"demo-skill","enabled":true,"entryKey":"demo-skill-key","location":"user"}'
 assert_json_expr "${TMP_DIR}/skill-enable.json" "data.success === true && data.enabled === true" "启用技能失败"
 assert_config_expr "!data.skills || !data.skills.entries || !data.skills.entries['demo-skill-key']" "启用技能后禁用标记未清理"
+
+request_json POST "/skills/toggle" "${TMP_DIR}/builtin-skill-disable.json" '{"slug":"builtin-demo","enabled":false,"entryKey":"builtin-demo-key","location":"builtin"}'
+assert_json_expr "${TMP_DIR}/builtin-skill-disable.json" "data.success === true && data.enabled === false" "禁用 builtin 技能失败"
+assert_config_expr "data.skills.entries['builtin-demo-key'].enabled === false" "禁用 builtin 技能后配置未写入"
+
+request_json POST "/skills/toggle" "${TMP_DIR}/builtin-skill-enable.json" '{"slug":"builtin-demo","enabled":true,"entryKey":"builtin-demo-key","location":"builtin"}'
+assert_json_expr "${TMP_DIR}/builtin-skill-enable.json" "data.success === true && data.enabled === true" "启用 builtin 技能失败"
+assert_config_expr "!data.skills || !data.skills.entries || !data.skills.entries['builtin-demo-key']" "启用 builtin 技能后禁用标记未清理"
 
 echo "[capability] all checks passed"
