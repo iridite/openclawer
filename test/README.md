@@ -77,6 +77,21 @@ bash test/backup-boundary.sh
 - `upgrade_init` 生成的 manifest 条目数与规格清单一致
 - `upgrade_callback` 可以按 manifest 将所有备份项恢复回来
 
+## 🔗 关键能力链路回归
+
+用于验证高风险但不依赖外网的核心能力链路：
+
+```bash
+bash test/capability-regression.sh
+```
+
+检查项包含：
+- 模型添加、编辑、主模型切换、删除
+- 渠道添加、编辑、删除
+- API Key 防护切换与 `managed-file` SecretRef 写入
+- QQ 插件状态识别与 `plugins.allow` 自动修正
+- 技能列表识别与启用/禁用写入
+
 ### 3. 访问测试界面
 
 启动后访问：
