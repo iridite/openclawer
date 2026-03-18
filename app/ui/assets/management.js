@@ -1472,19 +1472,10 @@ async function setPrimaryModel(modelKey) {
     }
 
     showToast("正在设置当前模型...", "info");
-
-    const config = await apiRequest("/config");
-    config.agents = config.agents || {};
-    config.agents.defaults = config.agents.defaults || {};
-    config.agents.defaults.model = config.agents.defaults.model || {};
-    config.agents.defaults.model.primary = modelKey;
-
-    await apiRequest("/config", {
+    await apiRequest("/models/primary", {
       method: "POST",
-      body: JSON.stringify(config),
+      body: JSON.stringify({ modelKey }),
     });
-
-    currentConfig = config;
     showToast("当前模型已更新", "success");
 
     await loadModelsList();
@@ -2039,47 +2030,36 @@ async function submitChannelForm(event) {
       "info",
     );
 
-    // 获取当前配置
-    const config = await apiRequest("/config");
-
-    // 确保 channels 对象存在
-    if (!config.channels) {
-      config.channels = {};
-    }
-
     const channelId = editKey || channelType;
-
-    // 如果是编辑模式且渠道类型改变了，删除旧的
-    if (editKey && editKey !== channelId) {
-      delete config.channels[editKey];
-    }
+    let channelPayload = null;
 
     // 使用 handler 构建配置
     if (handler) {
       const channelConfig = handler.buildConfig();
-      config.channels[channelId] = {
+      channelPayload = {
         enabled: enabled,
-        ...channelConfig
+        ...channelConfig,
       };
 
       // 添加通用 token（如果需要）
       if (handler.needsToken && token) {
-        config.channels[channelId].botToken = token;
+        channelPayload.botToken = token;
       }
     } else {
       // 未知渠道类型，使用通用配置
-      config.channels[channelId] = {
+      channelPayload = {
         enabled: enabled,
-        botToken: token
+        botToken: token,
       };
     }
 
-    showToast(isEditMode ? "正在保存渠道修改..." : "正在添加消息渠道...", "info");
-
-    // 保存整个配置
-    await apiRequest("/config", {
+    await apiRequest("/channels/upsert", {
       method: "POST",
-      body: JSON.stringify(config),
+      body: JSON.stringify({
+        channelId,
+        editKey,
+        channel: channelPayload,
+      }),
     });
 
     showToast(isEditMode ? "渠道修改成功！" : "消息渠道添加成功！", "success");
@@ -2491,22 +2471,9 @@ async function deleteChannel(channelId) {
 
   try {
     showToast("正在删除渠道...", "info");
-
-    // 获取当前配置
-    const config = await apiRequest("/config");
-
-    // 删除指定渠道
-    if (config.channels && config.channels[channelId]) {
-      delete config.channels[channelId];
-    } else {
-      showToast("渠道不存在", "error");
-      return;
-    }
-
-    // 保存配置
-    await apiRequest("/config", {
+    await apiRequest("/channels/delete", {
       method: "POST",
-      body: JSON.stringify(config),
+      body: JSON.stringify({ channelId }),
     });
 
     showToast("渠道删除成功！", "success");
@@ -3490,12 +3457,10 @@ async function loadToolProfiles() {
 async function saveToolProfiles() {
   try {
     const value = document.getElementById("tool-profiles").value;
-    const config = await apiRequest("/config");
-
-    config.tools = config.tools || {};
-    config.tools.profile = value;
-
-    await apiRequest("/config", { method: "POST", body: JSON.stringify(config) });
+    await apiRequest("/tools/profile", {
+      method: "POST",
+      body: JSON.stringify({ profile: value }),
+    });
     showToast("Tool Profiles 已更新为: " + value, "success");
   } catch (error) {
     showToast("保存失败: " + error.message, "error");

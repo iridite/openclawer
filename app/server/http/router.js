@@ -11,6 +11,9 @@ function createRouter(deps) {
     analyzeConfigImpact,
     addModel,
     deleteModel,
+    setPrimaryModel,
+    upsertChannel,
+    deleteChannel,
     testModel,
     startGateway,
     stopGateway,
@@ -38,6 +41,7 @@ function createRouter(deps) {
     setManagementAccess,
     getApiKeyProtection,
     setApiKeyProtection,
+    updateToolProfile,
   } = deps;
 
   async function parseJsonBody(req) {
@@ -124,11 +128,24 @@ function createRouter(deps) {
       "POST /api/config/validate": async () => validateConfig(await parseJsonBody(req)),
       "POST /api/config/analyze-impact": async () => analyzeConfigImpact(await parseJsonBody(req)),
       "POST /api/models/add": async () => addModel(await parseJsonBody(req)),
+      "POST /api/models/primary": async () => {
+        const data = await parseJsonBody(req);
+        return setPrimaryModel(data.modelKey);
+      },
       "POST /api/models/delete": async () => {
         const data = await parseJsonBody(req);
         return deleteModel(data.modelKey);
       },
       "POST /api/models/test": async () => testModel(await parseJsonBody(req)),
+      "POST /api/channels/upsert": async () => upsertChannel(await parseJsonBody(req)),
+      "POST /api/channels/delete": async () => {
+        const data = await parseJsonBody(req);
+        return deleteChannel(data.channelId);
+      },
+      "POST /api/tools/profile": async () => {
+        const data = await parseJsonBody(req);
+        return updateToolProfile(data.profile);
+      },
       "POST /api/gateway/start": startGateway,
       "POST /api/gateway/stop": stopGateway,
       "POST /api/gateway/restart": restartGateway,

@@ -39,6 +39,10 @@ function createConfigService(deps) {
     return value === true || value === "true";
   }
 
+  function isPlainObject(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+
   function normalizeStorageMode(value) {
     const raw = String(value || "").trim();
     if (!raw) {
@@ -608,6 +612,161 @@ function createConfigService(deps) {
     }
   }
 
+  async function setPrimaryModel(modelKey) {
+    const normalizedModelKey = String(modelKey || "").trim();
+    if (!normalizedModelKey) {
+      throw new Error("模型标识不能为空");
+    }
+
+    const [providerName, ...modelIdParts] = normalizedModelKey.split("/");
+    const modelId = modelIdParts.join("/");
+    if (!providerName || !modelId) {
+      throw new Error("模型标识格式错误，应为 providerName/modelId");
+    }
+
+    const config = readJSON(CONFIG_FILE);
+    if (!isPlainObject(config)) {
+      throw new Error("配置文件不存在或格式错误");
+    }
+
+    const provider = config.models?.providers?.[providerName];
+    if (!isPlainObject(provider) || !Array.isArray(provider.models)) {
+      throw new Error(`供应商 "${providerName}" 不存在`);
+    }
+
+    const exists = provider.models.some((model) => {
+      const candidateId = model?.id || "";
+      const candidateName = model?.name || "";
+      const candidateModel = model?.model || "";
+      return candidateId === modelId || candidateName === modelId || candidateModel === modelId;
+    });
+    if (!exists) {
+      throw new Error(`模型 "${normalizedModelKey}" 不存在`);
+    }
+
+    config.agents = isPlainObject(config.agents) ? config.agents : {};
+    config.agents.defaults = isPlainObject(config.agents.defaults)
+      ? config.agents.defaults
+      : {};
+    config.agents.defaults.model = isPlainObject(config.agents.defaults.model)
+      ? config.agents.defaults.model
+      : {};
+    config.agents.defaults.models = isPlainObject(config.agents.defaults.models)
+      ? config.agents.defaults.models
+      : {};
+    config.agents.defaults.models[normalizedModelKey] = {};
+    config.agents.defaults.model.primary = normalizedModelKey;
+
+    const success = writeJSON(CONFIG_FILE, config);
+    if (!success) {
+      throw new Error("保存配置失败");
+    }
+
+    return {
+      success: true,
+      modelKey: normalizedModelKey,
+      message: "当前模型已更新",
+    };
+  }
+
+  async function upsertChannel(payload = {}) {
+    const channelId = String(payload.channelId || "").trim();
+    const editKey = String(payload.editKey || "").trim();
+    const channel = payload.channel;
+
+    if (!channelId) {
+      throw new Error("渠道标识不能为空");
+    }
+    if (!isPlainObject(channel)) {
+      throw new Error("渠道配置格式错误");
+    }
+
+    const config = readJSON(CONFIG_FILE);
+    if (!isPlainObject(config)) {
+      throw new Error("配置文件不存在或格式错误");
+    }
+
+    config.channels = isPlainObject(config.channels) ? config.channels : {};
+    if (editKey && editKey !== channelId) {
+      delete config.channels[editKey];
+    }
+    config.channels[channelId] = channel;
+
+    const validationErrors = [];
+    validateChannels({ channels: { [channelId]: channel } }, validationErrors);
+    if (validationErrors.length > 0) {
+      throw new Error(validationErrors.join("\n"));
+    }
+
+    const success = writeJSON(CONFIG_FILE, config);
+    if (!success) {
+      throw new Error("保存配置失败");
+    }
+
+    return {
+      success: true,
+      channelId,
+      previousChannelId: editKey || null,
+      message: editKey ? "渠道修改成功" : "消息渠道添加成功",
+    };
+  }
+
+  async function deleteChannel(channelId) {
+    const normalizedChannelId = String(channelId || "").trim();
+    if (!normalizedChannelId) {
+      throw new Error("渠道标识不能为空");
+    }
+
+    const config = readJSON(CONFIG_FILE);
+    if (!isPlainObject(config)) {
+      throw new Error("配置文件不存在或格式错误");
+    }
+    if (!isPlainObject(config.channels) || !config.channels[normalizedChannelId]) {
+      throw new Error("渠道不存在");
+    }
+
+    delete config.channels[normalizedChannelId];
+
+    const success = writeJSON(CONFIG_FILE, config);
+    if (!success) {
+      throw new Error("保存配置失败");
+    }
+
+    return {
+      success: true,
+      channelId: normalizedChannelId,
+      message: "渠道删除成功",
+    };
+  }
+
+  async function updateToolProfile(profile) {
+    const normalizedProfile = String(profile || "").trim();
+    const allowedProfiles = new Set(["minimal", "messaging", "coding", "full"]);
+
+    if (!allowedProfiles.has(normalizedProfile)) {
+      throw new Error("不支持的 Tool Profile");
+    }
+
+    const config = readJSON(CONFIG_FILE) || {};
+    if (!isPlainObject(config)) {
+      throw new Error("配置文件格式错误");
+    }
+
+    config.tools = isPlainObject(config.tools) ? config.tools : {};
+    config.tools.profile = normalizedProfile;
+
+    const success = writeJSON(CONFIG_FILE, config);
+    if (!success) {
+      throw new Error("保存配置失败");
+    }
+
+    return {
+      success: true,
+      profile: normalizedProfile,
+      message: `Tool Profiles 已更新为: ${normalizedProfile}`,
+    };
+  }
+
   async function clearAllModelConfigs(options = {}) {
     const reason = String(options?.reason || "").trim() || "manual-reset";
 
@@ -805,6 +964,10 @@ function createConfigService(deps) {
     resetConfig,
     addModel,
     deleteModel,
+    setPrimaryModel,
+    upsertChannel,
+    deleteChannel,
+    updateToolProfile,
     clearAllModelConfigs,
     validateConfig,
     analyzeConfigImpact: (newConfig) => {

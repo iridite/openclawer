@@ -138,6 +138,10 @@ const {
   validateConfig,
   addModel,
   deleteModel,
+  setPrimaryModel,
+  upsertChannel,
+  deleteChannel,
+  updateToolProfile,
   clearAllModelConfigs,
   analyzeConfigImpact,
 } = configService;
@@ -305,6 +309,9 @@ const router = createRouter({
   analyzeConfigImpact,
   addModel,
   deleteModel,
+  setPrimaryModel,
+  upsertChannel,
+  deleteChannel,
   testModel,
   startGateway,
   stopGateway,
@@ -332,6 +339,7 @@ const router = createRouter({
   setManagementAccess,
   getApiKeyProtection,
   setApiKeyProtection,
+  updateToolProfile,
 });
 const { handleApiRoutes } = router;
 

@@ -234,9 +234,21 @@ GET  /api/console/url
 
 ```text
 POST /api/models/add
+POST /api/models/primary
 POST /api/models/delete
 POST /api/models/test
+POST /api/channels/upsert
+POST /api/channels/delete
+POST /api/tools/profile
 ```
+
+高频写回说明：
+
+- 模型主模型切换已走 `POST /api/models/primary`
+- 渠道新增/编辑已走 `POST /api/channels/upsert`
+- 渠道删除已走 `POST /api/channels/delete`
+- Tool Profiles 切换已走 `POST /api/tools/profile`
+- `POST /api/config` 继续保留给 JSON 编辑器、配置导入和高级用户全量编辑
 
 ### 网关控制
 
