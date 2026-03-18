@@ -53,6 +53,18 @@ const DEFAULT_COMMAND_TIMEOUT = 30000;
 const NPM_INSTALL_TIMEOUT = 120000;
 const NPM_VIEW_TIMEOUT = 10000;
 const GATEWAY_RESTART_DELAY = 2000;
+const MODEL_TEST_TIMEOUT_MS = parseInt(
+  process.env.MODEL_TEST_TIMEOUT_MS || "15000",
+  10,
+);
+const SKILLS_SEARCH_API =
+  process.env.SKILLS_SEARCH_API || "https://lightmake.site/api/v1/search";
+const SKILLS_PRIMARY_DOWNLOAD_API =
+  process.env.SKILLS_PRIMARY_DOWNLOAD_API ||
+  "https://lightmake.site/api/v1/download";
+const SKILLS_FALLBACK_DOWNLOAD_BASE =
+  process.env.SKILLS_FALLBACK_DOWNLOAD_BASE ||
+  "https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com/skills";
 
 // Cache constants
 const STATUS_CACHE_TTL = 2000; // 2 seconds
@@ -93,5 +105,9 @@ module.exports = {
   NPM_INSTALL_TIMEOUT,
   NPM_VIEW_TIMEOUT,
   GATEWAY_RESTART_DELAY,
+  MODEL_TEST_TIMEOUT_MS,
+  SKILLS_SEARCH_API,
+  SKILLS_PRIMARY_DOWNLOAD_API,
+  SKILLS_FALLBACK_DOWNLOAD_BASE,
   STATUS_CACHE_TTL,
 };

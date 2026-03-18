@@ -20,6 +20,9 @@ function createSkillsService(options) {
     OC_HOME,
     TRIM_PKGVAR,
     CONFIG_FILE,
+    SKILLS_SEARCH_API,
+    SKILLS_PRIMARY_DOWNLOAD_API,
+    SKILLS_FALLBACK_DOWNLOAD_BASE,
     readJSON,
     writeJSON,
     execCommand,
@@ -31,10 +34,24 @@ function createSkillsService(options) {
   const SKILLS_DIR = path.join(OC_HOME, "skills");
   const BUILTIN_SKILLS_DIR = path.join(TRIM_PKGVAR, "node_modules", "openclaw", "skills");
   const LOCKFILE_PATH = path.join(SKILLS_DIR, ".skills_store_lock.json");
-  const SEARCH_API = "https://lightmake.site/api/v1/search";
-  const PRIMARY_DOWNLOAD = "https://lightmake.site/api/v1/download";
-  const FALLBACK_DOWNLOAD = "https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com/skills";
+  const SEARCH_API = pickTextOption(
+    SKILLS_SEARCH_API,
+    "https://lightmake.site/api/v1/search",
+  );
+  const PRIMARY_DOWNLOAD = pickTextOption(
+    SKILLS_PRIMARY_DOWNLOAD_API,
+    "https://lightmake.site/api/v1/download",
+  );
+  const FALLBACK_DOWNLOAD = pickTextOption(
+    SKILLS_FALLBACK_DOWNLOAD_BASE,
+    "https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com/skills",
+  ).replace(/\/+$/, "");
   const SKILL_SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*$/i;
+
+  function pickTextOption(value, fallback) {
+    const raw = String(value || "").trim();
+    return raw || fallback;
+  }
 
   async function pathExists(targetPath) {
     try {
@@ -602,13 +619,26 @@ function createSkillsService(options) {
     const results = [];
     for (const slug of userSkillSlugs) {
       // 顺序更新可避免并发安装争用 unzip / 目录覆盖。
-      // eslint-disable-next-line no-await-in-loop
-      const result = await install(slug, true);
-      results.push({
-        slug,
-        success: !!result?.success,
-        error: result?.success ? "" : (result?.error || "未知错误"),
-      });
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await install(slug, true);
+        results.push({
+          slug,
+          success: !!result?.success,
+          error: result?.success ? "" : (result?.error || "未知错误"),
+        });
+      } catch (err) {
+        results.push({
+          slug,
+          success: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : typeof err === "string"
+                ? err
+                : "未知错误",
+        });
+      }
     }
 
     const failed = results.filter(item => !item.success);

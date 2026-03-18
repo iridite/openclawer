@@ -15,6 +15,7 @@ let currentTabName = "overview";
 let qqbotPluginInstalling = false;
 let wecomPluginInstalling = false;
 let apiKeyProtectionEnabled = false;
+let systemPaths = null;
 
 // 快速添加模型预设
 const QUICK_ADD_MODELS = {

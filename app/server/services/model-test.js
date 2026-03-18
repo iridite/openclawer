@@ -47,6 +47,11 @@ function isJsonEqual(left, right) {
 
 function createModelTestService(options = {}) {
   const { CONFIG_FILE, readJSON, isApiKeyProtectionEnabled } = options;
+  const configuredTimeout = parseInt(String(options.timeoutMs || "5000"), 10);
+  const TEST_TIMEOUT_MS =
+    Number.isFinite(configuredTimeout) && configuredTimeout >= 1000
+      ? configuredTimeout
+      : 5000;
 
   function loadCurrentConfig() {
     if (!CONFIG_FILE || typeof readJSON !== "function") {
@@ -288,9 +293,10 @@ function createModelTestService(options = {}) {
     return `${raw.slice(0, 8)}...`;
   }
 
-  function buildMaskedCurlPreview(request) {
+  function buildMaskedCurlPreview(request, timeoutMs = TEST_TIMEOUT_MS) {
     const { endpoint, protocol, headers, payload } = request;
     const payloadText = JSON.stringify(payload);
+    const timeoutSeconds = Math.max(1, Math.ceil(timeoutMs / 1000));
 
     if (protocol === "anthropic") {
       return (
@@ -298,7 +304,7 @@ function createModelTestService(options = {}) {
         `-H 'x-api-key: ${maskApiKey(headers["x-api-key"])}' ` +
         `-H 'anthropic-version: 2023-06-01' ` +
         `-H 'Content-Type: application/json' ` +
-        `-d '${payloadText}' --max-time 5`
+        `-d '${payloadText}' --max-time ${timeoutSeconds}`
       );
     }
 
@@ -306,7 +312,7 @@ function createModelTestService(options = {}) {
       `curl -X POST '${endpoint}' ` +
       `-H 'Authorization: Bearer ${maskApiKey(String(headers.Authorization || "").replace(/^Bearer\s+/i, ""))}' ` +
       `-H 'Content-Type: application/json' ` +
-      `-d '${payloadText}' --max-time 5`
+      `-d '${payloadText}' --max-time ${timeoutSeconds}`
     );
   }
 
@@ -322,7 +328,7 @@ function createModelTestService(options = {}) {
     return masked;
   }
 
-  function buildRuntimeRequestDebug(request, timeoutMs = 5000) {
+  function buildRuntimeRequestDebug(request, timeoutMs = TEST_TIMEOUT_MS) {
     const endpoint = String(request?.endpoint || "").trim();
     if (!endpoint) {
       return {};
@@ -364,7 +370,7 @@ function createModelTestService(options = {}) {
     };
   }
 
-  function requestJson(endpoint, method, headers, payload, timeoutMs = 5000) {
+  function requestJson(endpoint, method, headers, payload, timeoutMs = TEST_TIMEOUT_MS) {
     return new Promise((resolve, reject) => {
       const startedAt = Date.now();
       let target;
@@ -423,10 +429,10 @@ function createModelTestService(options = {}) {
     });
   }
 
-  function buildPreparedTestContext(config, timeoutMs = 5000) {
+  function buildPreparedTestContext(config, timeoutMs = TEST_TIMEOUT_MS) {
     const validation = validateTestConfig(config);
     const request = buildRequest(config, validation.currentConfig);
-    const maskedCommand = buildMaskedCurlPreview(request);
+    const maskedCommand = buildMaskedCurlPreview(request, timeoutMs);
     const runtimeDebug = buildRuntimeRequestDebug(request, timeoutMs);
 
     return {
@@ -441,16 +447,22 @@ function createModelTestService(options = {}) {
   }
 
   async function prepareModelTest(config) {
-    const { preview } = buildPreparedTestContext(config, 5000);
+    const { preview } = buildPreparedTestContext(config, TEST_TIMEOUT_MS);
     return preview;
   }
 
   async function testModel(config) {
-    const { request, preview } = buildPreparedTestContext(config, 5000);
+    const { request, preview } = buildPreparedTestContext(config, TEST_TIMEOUT_MS);
     const { endpoint, protocol, endpointSuffix, headers, payload } = request;
 
     try {
-      const result = await requestJson(endpoint, "POST", headers, payload, 5000);
+      const result = await requestJson(
+        endpoint,
+        "POST",
+        headers,
+        payload,
+        TEST_TIMEOUT_MS,
+      );
 
       let success = false;
       try {

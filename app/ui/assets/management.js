@@ -206,6 +206,79 @@ function copyToClipboard(text, label = "内容") {
   fallbackCopy();
 }
 
+const STATIC_OC_HOME = "/root/.openclaw";
+const STATIC_RUNTIME_DIR = "/var/apps/oc-deploy/var";
+const STATIC_APP_DIR = "/var/apps/oc-deploy/target";
+
+function replaceStaticPathPrefix(rawPath, staticPrefix, runtimePrefix) {
+  const source = String(rawPath || "");
+  const from = String(staticPrefix || "");
+  const to = String(runtimePrefix || "").trim();
+  if (!source || !from || !to || !source.startsWith(from)) {
+    return source;
+  }
+
+  const suffix = source.slice(from.length);
+  if (!suffix) {
+    return to;
+  }
+
+  const normalizedTo = to.endsWith("/") && to.length > 1
+    ? to.slice(0, -1)
+    : to;
+  const normalizedSuffix = suffix.startsWith("/") ? suffix : `/${suffix}`;
+  return `${normalizedTo}${normalizedSuffix}`;
+}
+
+function resolveSystemPath(rawPath) {
+  let resolved = String(rawPath || "").trim();
+  if (!resolved || !systemPaths || typeof systemPaths !== "object") {
+    return resolved;
+  }
+
+  resolved = replaceStaticPathPrefix(resolved, STATIC_OC_HOME, systemPaths.ocHome);
+  resolved = replaceStaticPathPrefix(
+    resolved,
+    STATIC_RUNTIME_DIR,
+    systemPaths.runtimeDir,
+  );
+  resolved = replaceStaticPathPrefix(resolved, STATIC_APP_DIR, systemPaths.appDir);
+
+  return resolved;
+}
+
+function refreshSystemPathTexts() {
+  const selectors = ["#tab-console .path-value", "#tab-skills .form-hint code"];
+
+  selectors.forEach((selector) => {
+    document.querySelectorAll(selector).forEach((el) => {
+      const template = String(el.dataset.pathTemplate || el.textContent || "").trim();
+      if (!template) return;
+      if (!el.dataset.pathTemplate) {
+        el.dataset.pathTemplate = template;
+      }
+      el.textContent = resolveSystemPath(template);
+    });
+  });
+}
+
+async function loadSystemPaths() {
+  try {
+    const result = await apiRequest("/system/paths", { retries: 0 });
+    if (!result || typeof result !== "object") {
+      return;
+    }
+    systemPaths = result;
+    refreshSystemPathTexts();
+  } catch (err) {
+    console.warn("加载系统路径信息失败，使用默认展示路径:", err);
+  }
+}
+
+function copyPath(pathValue) {
+  copyToClipboard(resolveSystemPath(pathValue), "路径");
+}
+
 function isLikelyPolicyBlock(text) {
   const raw = String(text || "").trim().toLowerCase();
   if (!raw) return false;
@@ -1200,6 +1273,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (window.initDomRefs) {
     window.initDomRefs();
   }
+
+  loadSystemPaths();
 
   // 初始化标签页
   initTabs();

@@ -246,6 +246,7 @@ GET  /api/security/api-key-protection
 POST /api/security/api-key-protection
 GET  /api/logs?lines=100
 GET  /api/console/url
+GET  /api/system/paths
 ```
 
 管理访问说明：
@@ -329,6 +330,10 @@ POST /api/skills/update
 | `TRIM_APPDEST` | `/var/apps/oc-deploy/target` | 应用静态资源根目录（管理界面位于 `${TRIM_APPDEST}/ui`） |
 | `USER_BACKUP_ROOT` | `/root/oc-deploy/user-backups` | 手动导出/导入前备份的持久化目录 |
 | `MAX_BACKUP_UPLOAD_BYTES` | `536870912` | 完整备份导入的最大上传体积限制（字节） |
+| `MODEL_TEST_TIMEOUT_MS` | `15000` | 模型连通性测试超时时间（毫秒） |
+| `SKILLS_SEARCH_API` | `https://lightmake.site/api/v1/search` | 技能搜索接口地址 |
+| `SKILLS_PRIMARY_DOWNLOAD_API` | `https://lightmake.site/api/v1/download` | 技能主下载接口地址 |
+| `SKILLS_FALLBACK_DOWNLOAD_BASE` | `https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com/skills` | 技能备用下载地址前缀 |
 
 #### 本地运行
 

@@ -58,6 +58,10 @@ const {
   GATEWAY_RESTART_DELAY,
   NPM_VIEW_TIMEOUT,
   NPM_INSTALL_TIMEOUT,
+  MODEL_TEST_TIMEOUT_MS,
+  SKILLS_SEARCH_API,
+  SKILLS_PRIMARY_DOWNLOAD_API,
+  SKILLS_FALLBACK_DOWNLOAD_BASE,
   STATUS_CACHE_TTL,
 } = env;
 
@@ -79,6 +83,25 @@ function getTokenFromConfig() {
   } catch (err) {
     return "";
   }
+}
+
+function getSystemPaths() {
+  return {
+    ocHome: OC_HOME,
+    configFile: CONFIG_FILE,
+    initialConfigFile: INITIAL_CONFIG_FILE,
+    configBackupDir: path.dirname(CONFIG_FILE),
+    skillsDir: path.join(OC_HOME, "skills"),
+    skillsLockFile: path.join(OC_HOME, "skills", ".skills_store_lock.json"),
+    pluginsDir: path.join(OC_HOME, "plugins"),
+    runtimeDir: TRIM_PKGVAR,
+    appDir: TRIM_APPDEST,
+    logFile: LOG_FILE,
+    infoLogFile: path.join(TRIM_PKGVAR, "info.log"),
+    ocBinPath: OC_BIN_PATH,
+    dashboardPidFile: DASHBOARD_PID_FILE,
+    gatewayPidFile: GATEWAY_PID_FILE,
+  };
 }
 
 const gatewayService = createGatewayService({
@@ -231,6 +254,7 @@ const modelTestService = createModelTestService({
   CONFIG_FILE,
   readJSON,
   isApiKeyProtectionEnabled,
+  timeoutMs: MODEL_TEST_TIMEOUT_MS,
 });
 const { prepareModelTest, testModel } = modelTestService;
 
@@ -273,6 +297,9 @@ const skillsService = createSkillsService({
   OC_HOME,
   TRIM_PKGVAR,
   CONFIG_FILE,
+  SKILLS_SEARCH_API,
+  SKILLS_PRIMARY_DOWNLOAD_API,
+  SKILLS_FALLBACK_DOWNLOAD_BASE,
   readJSON,
   writeJSON,
   execCommand,
@@ -332,6 +359,7 @@ const router = createRouter({
   installWecomPlugin,
   getConsoleUrl,
   getLogs,
+  getSystemPaths,
   createBackupArchive,
   importBackupArchiveFromRequest,
   cleanupPathQuietly,

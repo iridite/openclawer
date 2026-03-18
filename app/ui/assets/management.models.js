@@ -154,6 +154,21 @@
     resetModelForm();
   }
 
+  function toggleAdvanced(forceVisible) {
+    const advancedConfig = document.getElementById("advanced-config");
+    const toggleIcon = document.getElementById("advanced-toggle");
+    if (!advancedConfig || !toggleIcon) {
+      return;
+    }
+
+    const currentlyVisible = advancedConfig.style.display !== "none";
+    const shouldShow =
+      typeof forceVisible === "boolean" ? forceVisible : !currentlyVisible;
+
+    advancedConfig.style.display = shouldShow ? "block" : "none";
+    toggleIcon.textContent = shouldShow ? "▲" : "▼";
+  }
+
   function getApiKeyStorageElements() {
     return {
       apiKeyInput: document.getElementById("api-key"),
@@ -920,6 +935,7 @@
       existingRefInput.value = "";
     }
     handleApiKeyStorageModeChange();
+    toggleAdvanced(false);
   }
 
   async function testModelConnection() {
@@ -1190,6 +1206,7 @@
     quickAddModel,
     toggleModelForm,
     cancelModelForm,
+    toggleAdvanced,
     getApiKeyStorageElements,
     isSecretRefStorageMode,
     parseExistingApiKeyRefFromForm,
