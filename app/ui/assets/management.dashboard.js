@@ -3,10 +3,18 @@
 (function attachDashboardModule(global) {
   async function refreshDashboard() {
     try {
-      const [status, config] = await Promise.all([
+      const [statusResult, configResult] = await Promise.allSettled([
         apiRequest("/status"),
         apiRequest("/config"),
       ]);
+
+      if (statusResult.status !== "fulfilled") {
+        throw statusResult.reason || new Error("状态接口请求失败");
+      }
+
+      const status = statusResult.value;
+      const config =
+        configResult.status === "fulfilled" ? configResult.value : null;
 
       currentStatus = status;
       updateStatusBadge(status.gateway);
@@ -55,7 +63,16 @@
         }
       }
 
-      updateConfigSummary(config);
+      if (config) {
+        updateConfigSummary(config);
+      } else {
+        const summaryEl = document.getElementById("config-summary");
+        if (summaryEl) {
+          summaryEl.innerHTML =
+            '<div class="empty-state">配置摘要暂不可用（/api/config 请求失败），可稍后重试。</div>';
+        }
+        console.warn("加载配置摘要失败:", configResult.reason);
+      }
     } catch (error) {
       showToast("加载状态失败: " + error.message, "error");
     }
