@@ -19,6 +19,7 @@ function createRouter(deps) {
     setPrimaryModel,
     upsertChannel,
     deleteChannel,
+    prepareModelTest,
     testModel,
     startGateway,
     stopGateway,
@@ -142,6 +143,8 @@ function createRouter(deps) {
         const data = await parseJsonBody(req);
         return deleteModel(data.modelKey);
       },
+      "POST /api/models/test/prepare": async () =>
+        prepareModelTest(await parseJsonBody(req)),
       "POST /api/models/test": async () => testModel(await parseJsonBody(req)),
       "POST /api/channels/upsert": async () => upsertChannel(await parseJsonBody(req)),
       "POST /api/channels/delete": async () => {

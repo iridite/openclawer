@@ -261,6 +261,7 @@ GET  /api/console/url
 POST /api/models/add
 POST /api/models/primary
 POST /api/models/delete
+POST /api/models/test/prepare
 POST /api/models/test
 POST /api/channels/upsert
 POST /api/channels/delete

@@ -232,7 +232,7 @@ const modelTestService = createModelTestService({
   readJSON,
   isApiKeyProtectionEnabled,
 });
-const { testModel } = modelTestService;
+const { prepareModelTest, testModel } = modelTestService;
 
 const backupService = createBackupService({
   OC_HOME,
@@ -318,6 +318,7 @@ const router = createRouter({
   setPrimaryModel,
   upsertChannel,
   deleteChannel,
+  prepareModelTest,
   testModel,
   startGateway,
   stopGateway,

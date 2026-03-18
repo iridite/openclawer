@@ -1036,75 +1036,6 @@
     const commandEl = modal.querySelector("#test-command");
     const runtimeEl = modal.querySelector("#test-runtime");
 
-    function normalizeTestBaseUrl(rawBaseUrl, protocol) {
-      let normalized = String(rawBaseUrl || "").trim().replace(/\/+$/, "");
-      if (protocol === "anthropic") {
-        normalized = normalized.replace(/\/v1\/messages$/i, "");
-        normalized = normalized.replace(/\/v1$/i, "");
-        return normalized;
-      }
-      normalized = normalized.replace(/\/chat\/completions$/i, "");
-      normalized = normalized.replace(/\/responses$/i, "");
-      return normalized;
-    }
-
-    function resolveOpenAiEndpointSuffix(type) {
-      const value = String(type || "").trim().toLowerCase();
-      if (value === "openai-responses" || value === "openai-codex-responses") {
-        return "/responses";
-      }
-      return "/chat/completions";
-    }
-
-    function maskTestApiKey(value) {
-      const raw = String(value || "").trim();
-      if (!raw) {
-        return "";
-      }
-      if (raw.length <= 8) {
-        return "****";
-      }
-      return `${raw.slice(0, 8)}...`;
-    }
-
-    function buildLocalTestPayload(protocol, suffix, targetModelId) {
-      if (protocol === "anthropic") {
-        return {
-          model: targetModelId,
-          max_tokens: 10,
-          messages: [{ role: "user", content: "test" }],
-        };
-      }
-      if (suffix === "/responses") {
-        return {
-          model: targetModelId,
-          input: "test",
-          max_output_tokens: 10,
-        };
-      }
-      return {
-        model: targetModelId,
-        max_tokens: 10,
-        messages: [{ role: "user", content: "test" }],
-      };
-    }
-
-    function resolveMaskedAuthHint() {
-      if (apiKey) {
-        return maskTestApiKey(apiKey);
-      }
-      if (storageMode === "env" && apiKeyEnvVar) {
-        return `<from env:${apiKeyEnvVar}>`;
-      }
-      if (apiKeyRef && typeof apiKeyRef === "object") {
-        return "<from SecretRef>";
-      }
-      if (storageMode === "managed-file") {
-        return "<from managed secret>";
-      }
-      return "<resolved on server>";
-    }
-
     function formatRuntimeDebug(runtime) {
       if (!runtime || typeof runtime !== "object") {
         return "服务端未返回底层调试信息";
@@ -1146,53 +1077,51 @@
       return lines.join("\n");
     }
 
-    const protocol = (apiProtocol || providerName).toLowerCase();
-    const endpointSuffix = protocol === "anthropic"
-      ? "/v1/messages"
-      : resolveOpenAiEndpointSuffix(apiType);
-    const protocolName = protocol === "anthropic"
-      ? "Anthropic Messages API"
-      : endpointSuffix === "/responses"
-        ? "OpenAI Responses API"
-        : "OpenAI Chat Completions API";
-    const normalizedBaseUrl = normalizeTestBaseUrl(baseUrl, protocol);
-    const endpoint = `${normalizedBaseUrl}${endpointSuffix}`;
-
     if (methodEl) {
-      methodEl.textContent = `POST (${protocolName})`;
+      methodEl.textContent = "POST (server-resolved)";
     }
     if (endpointEl) {
-      endpointEl.textContent = endpoint;
+      endpointEl.textContent = "等待服务端解析...";
     }
-
-    const payload = buildLocalTestPayload(protocol, endpointSuffix, modelId);
-    const payloadText = JSON.stringify(payload);
-    const authHint = resolveMaskedAuthHint();
-    const basicCurl = protocol === "anthropic"
-      ? `curl -X POST '${endpoint}' \\\n  -H 'x-api-key: ${authHint}' \\\n  -H 'anthropic-version: 2023-06-01' \\\n  -H 'Content-Type: application/json' \\\n  -d '${payloadText}' --max-time 5`
-      : `curl -X POST '${endpoint}' \\\n  -H 'Authorization: Bearer ${authHint}' \\\n  -H 'Content-Type: application/json' \\\n  -d '${payloadText}' --max-time 5`;
     if (commandEl) {
-      commandEl.textContent = basicCurl;
+      commandEl.textContent = "等待服务端返回实际请求预览...";
     }
     if (runtimeEl) {
       runtimeEl.textContent =
         "transport: Node.js http(s).request\nstatus: pending";
     }
 
+    const testPayload = {
+      providerName,
+      modelId,
+      baseUrl,
+      apiKey,
+      apiKeyRef,
+      apiKeyStorageMode: storageMode,
+      apiKeyEnvVar,
+      apiProtocol,
+      apiType,
+    };
+
     try {
+      const preview = await apiRequest("/models/test/prepare", {
+        method: "POST",
+        body: JSON.stringify(testPayload),
+      });
+
+      if (preview?.endpoint && endpointEl) {
+        endpointEl.textContent = preview.endpoint;
+      }
+      if (preview?.curlCommand && commandEl) {
+        commandEl.textContent = preview.curlCommand;
+      }
+      if (runtimeEl) {
+        runtimeEl.textContent = `${formatRuntimeDebug(preview?.runtime)}\nstatus: pending`;
+      }
+
       const result = await apiRequest("/models/test", {
         method: "POST",
-        body: JSON.stringify({
-          providerName,
-          modelId,
-          baseUrl,
-          apiKey,
-          apiKeyRef,
-          apiKeyStorageMode: storageMode,
-          apiKeyEnvVar,
-          apiProtocol,
-          apiType,
-        }),
+        body: JSON.stringify(testPayload),
       });
 
       if (result.curlCommand && commandEl) {

@@ -423,11 +423,30 @@ function createModelTestService(options = {}) {
     });
   }
 
-  async function testModel(config) {
+  function buildPreparedTestContext(config, timeoutMs = 5000) {
     const validation = validateTestConfig(config);
     const request = buildRequest(config, validation.currentConfig);
     const maskedCommand = buildMaskedCurlPreview(request);
-    const runtimeDebug = buildRuntimeRequestDebug(request, 5000);
+    const runtimeDebug = buildRuntimeRequestDebug(request, timeoutMs);
+
+    return {
+      request,
+      preview: {
+        success: true,
+        endpoint: request.endpoint,
+        curlCommand: maskedCommand,
+        runtime: runtimeDebug,
+      },
+    };
+  }
+
+  async function prepareModelTest(config) {
+    const { preview } = buildPreparedTestContext(config, 5000);
+    return preview;
+  }
+
+  async function testModel(config) {
+    const { request, preview } = buildPreparedTestContext(config, 5000);
     const { endpoint, protocol, endpointSuffix, headers, payload } = request;
 
     try {
@@ -458,10 +477,10 @@ function createModelTestService(options = {}) {
       return {
         success,
         endpoint,
-        curlCommand: maskedCommand,
+        curlCommand: preview.curlCommand,
         response: result.body,
         runtime: {
-          ...runtimeDebug,
+          ...preview.runtime,
           statusCode: result.statusCode,
           durationMs: result.durationMs,
           responseBytes: Buffer.byteLength(String(result.body || ""), "utf8"),
@@ -471,10 +490,10 @@ function createModelTestService(options = {}) {
       return {
         success: false,
         endpoint,
-        curlCommand: maskedCommand,
+        curlCommand: preview.curlCommand,
         response: err?.message || String(err),
         runtime: {
-          ...runtimeDebug,
+          ...preview.runtime,
           statusCode: 0,
           durationMs: typeof err?.durationMs === "number" ? err.durationMs : null,
           responseBytes: 0,
@@ -484,7 +503,7 @@ function createModelTestService(options = {}) {
     }
   }
 
-  return { testModel };
+  return { prepareModelTest, testModel };
 }
 
 module.exports = { createModelTestService };
