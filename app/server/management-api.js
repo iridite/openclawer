@@ -275,6 +275,7 @@ const skillsService = createSkillsService({
   CONFIG_FILE,
   readJSON,
   writeJSON,
+  execCommand,
 });
 const {
   search: searchSkills,

@@ -107,6 +107,20 @@ bash test/capability-regression.sh
 - user / builtin 技能列表识别与启用/禁用写入
 - 常见 `400 / 404` 错误语义返回
 
+## 🧩 本地技能安装回归
+
+用于验证技能安装/更新/卸载链路在本地 zip 包场景下仍可工作，重点覆盖异步解压与锁文件更新：
+
+```bash
+bash test/skills-install-local.sh
+```
+
+检查项包含：
+- 本地 zip 技能包可成功安装到 `OC_HOME/skills`
+- `list()` 可识别已安装技能
+- `update()` 可复用安装链路完成覆盖更新
+- `uninstall()` 可清理技能目录与锁文件记录
+
 ## 🌐 前端请求入口约束回归
 
 用于验证前端网络请求仍然通过统一 helper 进入，而不是在各模块中散落裸 `fetch`：

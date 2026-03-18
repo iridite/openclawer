@@ -1,8 +1,10 @@
 const fs = require("fs");
 const fsp = fs.promises;
 const path = require("path");
-const { execSync } = require("child_process");
-const { fetchJSON, downloadFile } = require("../core/http-client");
+const {
+  fetchJSON: fetchJSONDefault,
+  downloadFile: downloadFileDefault,
+} = require("../core/http-client");
 const {
   badRequestError,
   notFoundError,
@@ -11,8 +13,19 @@ const {
   isAppError,
 } = require("../core/http-errors");
 
+const SKILL_UNZIP_TIMEOUT_MS = 120000;
+
 function createSkillsService(options) {
-  const { OC_HOME, TRIM_PKGVAR, CONFIG_FILE, readJSON, writeJSON } = options;
+  const {
+    OC_HOME,
+    TRIM_PKGVAR,
+    CONFIG_FILE,
+    readJSON,
+    writeJSON,
+    execCommand,
+    fetchJSON: fetchJSONImpl = fetchJSONDefault,
+    downloadFile: downloadFileImpl = downloadFileDefault,
+  } = options;
 
   const installingSkills = new Set();
   const SKILLS_DIR = path.join(OC_HOME, "skills");
@@ -174,6 +187,15 @@ function createSkillsService(options) {
     }
   }
 
+  async function runUnzip(zipPath, targetDir) {
+    if (typeof execCommand !== "function") {
+      throw new Error("未配置技能安装所需的命令执行器");
+    }
+
+    const cmd = `unzip -q -o "${zipPath}" -d "${targetDir}"`;
+    await execCommand(cmd, { timeout: SKILL_UNZIP_TIMEOUT_MS });
+  }
+
   async function resolveSkillRecord(slug, location) {
     const normalizedSlug = String(slug || "").trim();
     if (!normalizedSlug) {
@@ -209,7 +231,7 @@ function createSkillsService(options) {
   async function search(query, limit = 20) {
     try {
       const url = `${SEARCH_API}?q=${encodeURIComponent(query)}&limit=${limit}`;
-      const data = await fetchJSON(url);
+      const data = await fetchJSONImpl(url);
       return {
         success: true,
         skills: Array.isArray(data.results) ? data.results : [],
@@ -249,12 +271,12 @@ function createSkillsService(options) {
       let usedUrl = "";
 
       try {
-        await downloadFile(primaryUrl, zipPath);
+        await downloadFileImpl(primaryUrl, zipPath);
         downloadSuccess = true;
         usedUrl = primaryUrl;
       } catch (err) {
         try {
-          await downloadFile(fallbackUrl, zipPath);
+          await downloadFileImpl(fallbackUrl, zipPath);
           downloadSuccess = true;
           usedUrl = fallbackUrl;
         } catch (fallbackErr) {
@@ -268,7 +290,7 @@ function createSkillsService(options) {
 
       const stageDir = path.join(tmpDir, "stage");
       await fsp.mkdir(stageDir, { recursive: true });
-      execSync(`unzip -q -o "${zipPath}" -d "${stageDir}"`, { stdio: 'inherit' });
+      await runUnzip(zipPath, stageDir);
 
       // 智能检测 ZIP 结构：如果只有一个子目录，提取其内容
       const entries = await fsp.readdir(stageDir);
