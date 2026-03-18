@@ -501,7 +501,7 @@ body {
     left: 0;
     min-width: 160px;
     background: var(--bg-white);
-    border: 1px solid var(--color-neutral-200);
+    border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 4px 12px var(--shadow);
     padding: var(--space-1) 0;
@@ -522,18 +522,18 @@ body {
     background: none;
     text-align: left;
     font-size: var(--text-sm);
-    color: var(--color-neutral-900);
+    color: var(--text-dark);
     cursor: pointer;
     transition: background 0.15s ease;
 }
 
 .dropdown-item:hover {
-    background: var(--color-neutral-50);
+    background: var(--bg-light);
 }
 
 .dropdown-divider {
     height: 1px;
-    background: var(--color-neutral-200);
+    background: var(--border);
     margin: var(--space-1) 0;
 }
 
