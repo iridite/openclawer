@@ -41,6 +41,7 @@ function createConfigService(deps) {
     path.dirname(CONFIG_FILE),
     OC_DEPLOY_SECRETS_FILENAME,
   );
+  let configMutationQueue = Promise.resolve();
 
   function normalizeBool(value) {
     return value === true || value === "true";
@@ -71,6 +72,13 @@ function createConfigService(deps) {
       providerName,
       secretFilePath: SECRET_FILE_PATH,
     });
+  }
+
+  function runSerializedConfigMutation(mutator) {
+    const run = () => Promise.resolve().then(mutator);
+    const next = configMutationQueue.then(run, run);
+    configMutationQueue = next.catch(() => {});
+    return next;
   }
 
   function wrapContextError(error, prefix) {
@@ -216,109 +224,115 @@ function createConfigService(deps) {
   }
 
   async function getConfig() {
-    const config = readJSON(CONFIG_FILE);
-    if (!config) {
-      return applyManagedConfigPatch({
-        models: {},
-        channels: {},
-      }, {
-        gatewayPort: GATEWAY_PORT,
-        ocHome: OC_HOME,
-        allowedPlugins: DEFAULT_ALLOWED_PLUGINS,
-        preservedToken: getTokenFromConfig(),
-      });
-    }
-
-    const providerMigrationChanged = migrateLegacyManagedFileProvider(config);
-    if (providerMigrationChanged) {
-      const writeOk = writeJSON(CONFIG_FILE, config);
-      if (!writeOk) {
-        throw conflictError("配置自动迁移失败：无法写入配置文件");
+    return runSerializedConfigMutation(async () => {
+      const config = readJSON(CONFIG_FILE);
+      if (!config) {
+        return applyManagedConfigPatch({
+          models: {},
+          channels: {},
+        }, {
+          gatewayPort: GATEWAY_PORT,
+          ocHome: OC_HOME,
+          allowedPlugins: DEFAULT_ALLOWED_PLUGINS,
+          preservedToken: getTokenFromConfig(),
+        });
       }
-    }
 
-    return config;
+      const providerMigrationChanged = migrateLegacyManagedFileProvider(config);
+      if (providerMigrationChanged) {
+        const writeOk = writeJSON(CONFIG_FILE, config);
+        if (!writeOk) {
+          throw conflictError("配置自动迁移失败：无法写入配置文件");
+        }
+      }
+
+      return config;
+    });
   }
 
   async function saveConfig(newConfig) {
-    if (!newConfig || typeof newConfig !== "object") {
-      throw badRequestError("无效的配置格式");
-    }
-
-    migrateLegacyManagedFileProvider(newConfig);
-
-    const validation = await validateConfig(newConfig);
-    if (!validation.valid) {
-      const errorList = validation.errors.map((e, i) => `${i + 1}. ${e}`).join('\n');
-      throw badRequestError(`配置验证失败:\n${errorList}`);
-    }
-
-    if (fs.existsSync(CONFIG_FILE)) {
-      const backupFile = CONFIG_FILE + ".backup." + Date.now();
-      fs.copyFileSync(CONFIG_FILE, backupFile);
-      if (!fs.existsSync(backupFile) || fs.statSync(backupFile).size === 0) {
-        throw conflictError("备份创建失败");
+    return runSerializedConfigMutation(async () => {
+      if (!newConfig || typeof newConfig !== "object") {
+        throw badRequestError("无效的配置格式");
       }
-    }
 
-    const success = writeJSON(CONFIG_FILE, newConfig);
-    if (!success) {
-      throw conflictError("写入配置文件失败");
-    }
+      migrateLegacyManagedFileProvider(newConfig);
 
-    return { success: true };
+      const validation = await validateConfig(newConfig);
+      if (!validation.valid) {
+        const errorList = validation.errors.map((e, i) => `${i + 1}. ${e}`).join('\n');
+        throw badRequestError(`配置验证失败:\n${errorList}`);
+      }
+
+      if (fs.existsSync(CONFIG_FILE)) {
+        const backupFile = CONFIG_FILE + ".backup." + Date.now();
+        fs.copyFileSync(CONFIG_FILE, backupFile);
+        if (!fs.existsSync(backupFile) || fs.statSync(backupFile).size === 0) {
+          throw conflictError("备份创建失败");
+        }
+      }
+
+      const success = writeJSON(CONFIG_FILE, newConfig);
+      if (!success) {
+        throw conflictError("写入配置文件失败");
+      }
+
+      return { success: true };
+    });
   }
 
   async function resetConfig() {
-    const timestamp = Date.now();
-    const backupFile = `${CONFIG_FILE}.backup.reset.${timestamp}`;
-    const hasExistingConfig = fs.existsSync(CONFIG_FILE);
-    const existingConfig = readJSON(CONFIG_FILE) || {};
+    return runSerializedConfigMutation(async () => {
+      const timestamp = Date.now();
+      const backupFile = `${CONFIG_FILE}.backup.reset.${timestamp}`;
+      const hasExistingConfig = fs.existsSync(CONFIG_FILE);
+      const existingConfig = readJSON(CONFIG_FILE) || {};
 
-    if (hasExistingConfig) {
-      fs.copyFileSync(CONFIG_FILE, backupFile);
-    }
-
-    let source = "initial-snapshot";
-    let configToRestore = null;
-
-    if (fs.existsSync(INITIAL_CONFIG_FILE)) {
-      configToRestore = readJSON(INITIAL_CONFIG_FILE);
-      if (!configToRestore || typeof configToRestore !== "object") {
-        throw conflictError("初始配置快照损坏，无法恢复");
+      if (hasExistingConfig) {
+        fs.copyFileSync(CONFIG_FILE, backupFile);
       }
-    } else {
-      source = "fallback-default";
-      configToRestore = buildFallbackResetConfig(existingConfig);
-    }
 
-    const success = writeJSON(CONFIG_FILE, configToRestore);
-    if (!success) {
-      throw conflictError("恢复配置失败：写入配置文件失败");
-    }
+      let source = "initial-snapshot";
+      let configToRestore = null;
 
-    let restarted = false;
-    let restartError = "";
+      if (fs.existsSync(INITIAL_CONFIG_FILE)) {
+        configToRestore = readJSON(INITIAL_CONFIG_FILE);
+        if (!configToRestore || typeof configToRestore !== "object") {
+          throw conflictError("初始配置快照损坏，无法恢复");
+        }
+      } else {
+        source = "fallback-default";
+        configToRestore = buildFallbackResetConfig(existingConfig);
+      }
 
-    try {
-      const restartResult = await restartGateway();
-      restarted = !!restartResult?.success;
-    } catch (err) {
-      restartError =
-        err instanceof Error
-          ? err.message
-          : typeof err === "string"
-            ? err
-            : "未知错误";
-    }
+      const success = writeJSON(CONFIG_FILE, configToRestore);
+      if (!success) {
+        throw conflictError("恢复配置失败：写入配置文件失败");
+      }
 
-    return {
-      success: true,
-      source,
-      backupFile: hasExistingConfig ? backupFile : null,
-      restarted,
-      restartError: restartError || undefined,
-    };
+      let restarted = false;
+      let restartError = "";
+
+      try {
+        const restartResult = await restartGateway();
+        restarted = !!restartResult?.success;
+      } catch (err) {
+        restartError =
+          err instanceof Error
+            ? err.message
+            : typeof err === "string"
+              ? err
+              : "未知错误";
+      }
+
+      return {
+        success: true,
+        source,
+        backupFile: hasExistingConfig ? backupFile : null,
+        restarted,
+        restartError: restartError || undefined,
+      };
+    });
   }
 
   function validateModelData(modelData) {
@@ -446,100 +460,103 @@ function createConfigService(deps) {
   async function addModel(modelData) {
     const isEditOperation = modelData?.isEditMode === true || modelData?.isEditMode === "true";
 
-    try {
-      const config = readJSON(CONFIG_FILE);
-      if (!config) throw conflictError("配置文件不存在");
+    return runSerializedConfigMutation(async () => {
+      try {
+        const config = readJSON(CONFIG_FILE);
+        if (!config) throw conflictError("配置文件不存在");
 
-      config.models = config.models || {};
-      config.models.mode = config.models.mode || "merge";
-      config.models.providers = config.models.providers || {};
-      config.agents = config.agents || {};
-      config.agents.defaults = config.agents.defaults || {};
-      config.agents.defaults.models = config.agents.defaults.models || {};
-      migrateLegacyManagedFileProvider(config);
+        config.models = config.models || {};
+        config.models.mode = config.models.mode || "merge";
+        config.models.providers = config.models.providers || {};
+        config.agents = config.agents || {};
+        config.agents.defaults = config.agents.defaults || {};
+        config.agents.defaults.models = config.agents.defaults.models || {};
+        migrateLegacyManagedFileProvider(config);
 
-      const {
-        providerName,
-        modelId,
-        apiProtocol,
-        apiType,
-        advanced,
-        isEditMode,
-        editModelKey,
-      } = modelData;
-      const baseUrl = String(modelData?.baseUrl || "").trim();
+        const {
+          providerName,
+          modelId,
+          apiProtocol,
+          apiType,
+          advanced,
+          isEditMode,
+          editModelKey,
+        } = modelData;
+        const baseUrl = String(modelData?.baseUrl || "").trim();
 
-      validateModelData(modelData);
+        validateModelData(modelData);
 
-      const existingApiKey = config.models.providers[providerName]?.apiKey;
-      const providerApiKeyPayload = buildProviderApiKeyForSave(
-        config,
-        providerName,
-        modelData,
-        existingApiKey,
-      );
+        const existingApiKey = config.models.providers[providerName]?.apiKey;
+        const providerApiKeyPayload = buildProviderApiKeyForSave(
+          config,
+          providerName,
+          modelData,
+          existingApiKey,
+        );
 
-      let oldModelCleanup = null;
-      if (isEditMode && editModelKey) {
-        oldModelCleanup = removeOldModel(config, editModelKey, {
-          cleanupProviderSecret: false,
-        });
+        let oldModelCleanup = null;
+        if (isEditMode && editModelKey) {
+          oldModelCleanup = removeOldModel(config, editModelKey, {
+            cleanupProviderSecret: false,
+          });
+        }
+
+        ensureProvider(
+          config,
+          providerName,
+          baseUrl,
+          providerApiKeyPayload.value,
+          apiType,
+          apiProtocol,
+        );
+        const modelConfig = buildModelConfig(modelId, advanced);
+        upsertModel(config, providerName, modelId, modelConfig);
+
+        if (providerApiKeyPayload.storageMode !== "managed-file") {
+          cleanupManagedProviderSecretIfNeeded(providerName);
+        }
+        if (
+          oldModelCleanup?.providerRemoved &&
+          oldModelCleanup.oldProvider &&
+          oldModelCleanup.oldProvider !== providerName
+        ) {
+          cleanupManagedProviderSecretIfNeeded(oldModelCleanup.oldProvider);
+        }
+
+        const agentModelKey = `${providerName}/${modelId}`;
+        config.agents.defaults.models[agentModelKey] = {};
+        updatePrimaryModel(config, agentModelKey, isEditMode, editModelKey);
+
+        const success = writeJSON(CONFIG_FILE, config);
+        if (!success) throw conflictError("保存配置失败");
+
+        return {
+          success: true,
+          message: isEditMode ? "模型修改成功" : "模型添加成功",
+          modelKey: agentModelKey,
+          apiKeyStorage: providerApiKeyPayload.storageMode,
+        };
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : typeof err === "string" ? err : JSON.stringify(err);
+        console.error("[addModel] failed", { isEditOperation, rawError: err, errorMessage });
+        throw wrapContextError(
+          err,
+          isEditOperation ? "修改模型失败" : "添加模型失败",
+        );
       }
-
-      ensureProvider(
-        config,
-        providerName,
-        baseUrl,
-        providerApiKeyPayload.value,
-        apiType,
-        apiProtocol,
-      );
-      const modelConfig = buildModelConfig(modelId, advanced);
-      upsertModel(config, providerName, modelId, modelConfig);
-
-      if (providerApiKeyPayload.storageMode !== "managed-file") {
-        cleanupManagedProviderSecretIfNeeded(providerName);
-      }
-      if (
-        oldModelCleanup?.providerRemoved &&
-        oldModelCleanup.oldProvider &&
-        oldModelCleanup.oldProvider !== providerName
-      ) {
-        cleanupManagedProviderSecretIfNeeded(oldModelCleanup.oldProvider);
-      }
-
-      const agentModelKey = `${providerName}/${modelId}`;
-      config.agents.defaults.models[agentModelKey] = {};
-      updatePrimaryModel(config, agentModelKey, isEditMode, editModelKey);
-
-      const success = writeJSON(CONFIG_FILE, config);
-      if (!success) throw conflictError("保存配置失败");
-
-      return {
-        success: true,
-        message: isEditMode ? "模型修改成功" : "模型添加成功",
-        modelKey: agentModelKey,
-        apiKeyStorage: providerApiKeyPayload.storageMode,
-      };
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : typeof err === "string" ? err : JSON.stringify(err);
-      console.error("[addModel] failed", { isEditOperation, rawError: err, errorMessage });
-      throw wrapContextError(
-        err,
-        isEditOperation ? "修改模型失败" : "添加模型失败",
-      );
-    }
+    });
   }
 
   async function deleteModel(modelKey) {
-    try {
-      console.log(`[deleteModel] 接收到的 modelKey: "${modelKey}"`);
+    return runSerializedConfigMutation(async () => {
+      try {
+        console.log(`[deleteModel] 接收到的 modelKey: "${modelKey}"`);
 
-      const config = readJSON(CONFIG_FILE);
-      if (!config || !config.models) {
-        throw conflictError("配置文件不存在或格式错误");
-      }
-      migrateLegacyManagedFileProvider(config);
+        const config = readJSON(CONFIG_FILE);
+        if (!config || !config.models) {
+          throw conflictError("配置文件不存在或格式错误");
+        }
+        migrateLegacyManagedFileProvider(config);
 
       const [providerName, ...modelIdParts] = modelKey.split("/");
       const modelId = modelIdParts.join("/");
@@ -620,33 +637,35 @@ function createConfigService(deps) {
         }
       }
 
-      const success = writeJSON(CONFIG_FILE, config);
-      if (!success) {
-        throw conflictError("保存配置失败");
-      }
+        const success = writeJSON(CONFIG_FILE, config);
+        if (!success) {
+          throw conflictError("保存配置失败");
+        }
 
-      return { success: true, message: `模型 "${modelKey}" 已删除` };
-    } catch (err) {
-      throw wrapContextError(err, "删除模型失败");
-    }
+        return { success: true, message: `模型 "${modelKey}" 已删除` };
+      } catch (err) {
+        throw wrapContextError(err, "删除模型失败");
+      }
+    });
   }
 
   async function setPrimaryModel(modelKey) {
-    const normalizedModelKey = String(modelKey || "").trim();
-    if (!normalizedModelKey) {
-      throw badRequestError("模型标识不能为空");
-    }
+    return runSerializedConfigMutation(async () => {
+      const normalizedModelKey = String(modelKey || "").trim();
+      if (!normalizedModelKey) {
+        throw badRequestError("模型标识不能为空");
+      }
 
-    const [providerName, ...modelIdParts] = normalizedModelKey.split("/");
-    const modelId = modelIdParts.join("/");
-    if (!providerName || !modelId) {
-      throw badRequestError("模型标识格式错误，应为 providerName/modelId");
-    }
+      const [providerName, ...modelIdParts] = normalizedModelKey.split("/");
+      const modelId = modelIdParts.join("/");
+      if (!providerName || !modelId) {
+        throw badRequestError("模型标识格式错误，应为 providerName/modelId");
+      }
 
-    const config = readJSON(CONFIG_FILE);
-    if (!isPlainObject(config)) {
-      throw conflictError("配置文件不存在或格式错误");
-    }
+      const config = readJSON(CONFIG_FILE);
+      if (!isPlainObject(config)) {
+        throw conflictError("配置文件不存在或格式错误");
+      }
 
     const provider = config.models?.providers?.[providerName];
     if (!isPlainObject(provider) || !Array.isArray(provider.models)) {
@@ -676,124 +695,132 @@ function createConfigService(deps) {
     config.agents.defaults.models[normalizedModelKey] = {};
     config.agents.defaults.model.primary = normalizedModelKey;
 
-    const success = writeJSON(CONFIG_FILE, config);
-    if (!success) {
-      throw conflictError("保存配置失败");
-    }
+      const success = writeJSON(CONFIG_FILE, config);
+      if (!success) {
+        throw conflictError("保存配置失败");
+      }
 
-    return {
-      success: true,
-      modelKey: normalizedModelKey,
-      message: "当前模型已更新",
-    };
+      return {
+        success: true,
+        modelKey: normalizedModelKey,
+        message: "当前模型已更新",
+      };
+    });
   }
 
   async function upsertChannel(payload = {}) {
-    const channelId = String(payload.channelId || "").trim();
-    const editKey = String(payload.editKey || "").trim();
-    const channel = payload.channel;
+    return runSerializedConfigMutation(async () => {
+      const channelId = String(payload.channelId || "").trim();
+      const editKey = String(payload.editKey || "").trim();
+      const channel = payload.channel;
 
-    if (!channelId) {
-      throw badRequestError("渠道标识不能为空");
-    }
-    if (!isPlainObject(channel)) {
-      throw badRequestError("渠道配置格式错误");
-    }
+      if (!channelId) {
+        throw badRequestError("渠道标识不能为空");
+      }
+      if (!isPlainObject(channel)) {
+        throw badRequestError("渠道配置格式错误");
+      }
 
-    const config = readJSON(CONFIG_FILE);
-    if (!isPlainObject(config)) {
-      throw conflictError("配置文件不存在或格式错误");
-    }
+      const config = readJSON(CONFIG_FILE);
+      if (!isPlainObject(config)) {
+        throw conflictError("配置文件不存在或格式错误");
+      }
 
-    config.channels = isPlainObject(config.channels) ? config.channels : {};
-    if (editKey && editKey !== channelId) {
-      delete config.channels[editKey];
-    }
-    config.channels[channelId] = channel;
+      config.channels = isPlainObject(config.channels) ? config.channels : {};
+      if (editKey && editKey !== channelId) {
+        delete config.channels[editKey];
+      }
+      config.channels[channelId] = channel;
 
-    const validationErrors = [];
-    validateChannels({ channels: { [channelId]: channel } }, validationErrors);
-    if (validationErrors.length > 0) {
-      throw badRequestError(validationErrors.join("\n"));
-    }
+      const validationErrors = [];
+      validateChannels({ channels: { [channelId]: channel } }, validationErrors);
+      if (validationErrors.length > 0) {
+        throw badRequestError(validationErrors.join("\n"));
+      }
 
-    const success = writeJSON(CONFIG_FILE, config);
-    if (!success) {
-      throw conflictError("保存配置失败");
-    }
+      const success = writeJSON(CONFIG_FILE, config);
+      if (!success) {
+        throw conflictError("保存配置失败");
+      }
 
-    return {
-      success: true,
-      channelId,
-      previousChannelId: editKey || null,
-      message: editKey ? "渠道修改成功" : "消息渠道添加成功",
-    };
+      return {
+        success: true,
+        channelId,
+        previousChannelId: editKey || null,
+        message: editKey ? "渠道修改成功" : "消息渠道添加成功",
+      };
+    });
   }
 
   async function deleteChannel(channelId) {
-    const normalizedChannelId = String(channelId || "").trim();
-    if (!normalizedChannelId) {
-      throw badRequestError("渠道标识不能为空");
-    }
+    return runSerializedConfigMutation(async () => {
+      const normalizedChannelId = String(channelId || "").trim();
+      if (!normalizedChannelId) {
+        throw badRequestError("渠道标识不能为空");
+      }
 
-    const config = readJSON(CONFIG_FILE);
-    if (!isPlainObject(config)) {
-      throw conflictError("配置文件不存在或格式错误");
-    }
-    if (!isPlainObject(config.channels) || !config.channels[normalizedChannelId]) {
-      throw notFoundError("渠道不存在");
-    }
+      const config = readJSON(CONFIG_FILE);
+      if (!isPlainObject(config)) {
+        throw conflictError("配置文件不存在或格式错误");
+      }
+      if (!isPlainObject(config.channels) || !config.channels[normalizedChannelId]) {
+        throw notFoundError("渠道不存在");
+      }
 
-    delete config.channels[normalizedChannelId];
+      delete config.channels[normalizedChannelId];
 
-    const success = writeJSON(CONFIG_FILE, config);
-    if (!success) {
-      throw conflictError("保存配置失败");
-    }
+      const success = writeJSON(CONFIG_FILE, config);
+      if (!success) {
+        throw conflictError("保存配置失败");
+      }
 
-    return {
-      success: true,
-      channelId: normalizedChannelId,
-      message: "渠道删除成功",
-    };
+      return {
+        success: true,
+        channelId: normalizedChannelId,
+        message: "渠道删除成功",
+      };
+    });
   }
 
   async function updateToolProfile(profile) {
-    const normalizedProfile = String(profile || "").trim();
-    const allowedProfiles = new Set(["minimal", "messaging", "coding", "full"]);
+    return runSerializedConfigMutation(async () => {
+      const normalizedProfile = String(profile || "").trim();
+      const allowedProfiles = new Set(["minimal", "messaging", "coding", "full"]);
 
-    if (!allowedProfiles.has(normalizedProfile)) {
-      throw badRequestError("不支持的 Tool Profile");
-    }
+      if (!allowedProfiles.has(normalizedProfile)) {
+        throw badRequestError("不支持的 Tool Profile");
+      }
 
-    const config = readJSON(CONFIG_FILE) || {};
-    if (!isPlainObject(config)) {
-      throw conflictError("配置文件格式错误");
-    }
+      const config = readJSON(CONFIG_FILE) || {};
+      if (!isPlainObject(config)) {
+        throw conflictError("配置文件格式错误");
+      }
 
-    config.tools = isPlainObject(config.tools) ? config.tools : {};
-    config.tools.profile = normalizedProfile;
+      config.tools = isPlainObject(config.tools) ? config.tools : {};
+      config.tools.profile = normalizedProfile;
 
-    const success = writeJSON(CONFIG_FILE, config);
-    if (!success) {
-      throw conflictError("保存配置失败");
-    }
+      const success = writeJSON(CONFIG_FILE, config);
+      if (!success) {
+        throw conflictError("保存配置失败");
+      }
 
-    return {
-      success: true,
-      profile: normalizedProfile,
-      message: `Tool Profiles 已更新为: ${normalizedProfile}`,
-    };
+      return {
+        success: true,
+        profile: normalizedProfile,
+        message: `Tool Profiles 已更新为: ${normalizedProfile}`,
+      };
+    });
   }
 
   async function clearAllModelConfigs(options = {}) {
-    const reason = String(options?.reason || "").trim() || "manual-reset";
+    return runSerializedConfigMutation(async () => {
+      const reason = String(options?.reason || "").trim() || "manual-reset";
 
-    const config = readJSON(CONFIG_FILE);
-    if (!config || typeof config !== "object" || Array.isArray(config)) {
-      throw conflictError("配置文件不存在或格式错误");
-    }
-    migrateLegacyManagedFileProvider(config);
+      const config = readJSON(CONFIG_FILE);
+      if (!config || typeof config !== "object" || Array.isArray(config)) {
+        throw conflictError("配置文件不存在或格式错误");
+      }
+      migrateLegacyManagedFileProvider(config);
 
     let backupFile = null;
     if (fs.existsSync(CONFIG_FILE)) {
@@ -858,10 +885,10 @@ function createConfigService(deps) {
       delete config.agents.defaults.model.primary;
     }
 
-    const success = writeJSON(CONFIG_FILE, config);
-    if (!success) {
-      throw conflictError("清空模型配置失败");
-    }
+      const success = writeJSON(CONFIG_FILE, config);
+      if (!success) {
+        throw conflictError("清空模型配置失败");
+      }
 
     let secretCleanupErrors = 0;
     providerNames.forEach((providerName) => {
@@ -872,17 +899,18 @@ function createConfigService(deps) {
       }
     });
 
-    return {
-      success: true,
-      reason,
-      backupFile,
-      secretFilePath: SECRET_FILE_PATH,
-      secretBackupFile,
-      providersCleared: providerNames.length,
-      modelsCleared,
-      agentMappingsCleared,
-      secretCleanupErrors,
-    };
+      return {
+        success: true,
+        reason,
+        backupFile,
+        secretFilePath: SECRET_FILE_PATH,
+        secretBackupFile,
+        providersCleared: providerNames.length,
+        modelsCleared,
+        agentMappingsCleared,
+        secretCleanupErrors,
+      };
+    });
   }
 
   function validateModels(config, errors) {
