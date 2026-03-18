@@ -14,13 +14,30 @@ NPM_PATH="/var/apps/nodejs_v22/target/bin/npm"
 
 OPENCLAW_BIN="${PKGVAR}/node_modules/.bin/openclaw" # openclaw bin 路径
 GATEWAY_PORT="${GATEWAY_PORT:-18789}"
-CONFIG_PATCH_SCRIPT="${TARGET}/app/server/scripts/apply-default-config.js"
+CONFIG_PATCH_SCRIPT="${TARGET}/server/scripts/apply-default-config.js"
 
 
 # 记录日志消息
 # 参数: $1 - 要记录的消息内容
 log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
+}
+
+resolve_config_patch_script() {
+    if [ -f "${CONFIG_PATCH_SCRIPT}" ]; then
+        log_msg "Using config patch script: ${CONFIG_PATCH_SCRIPT}"
+        return 0
+    fi
+
+    local legacy_path="${TARGET}/app/server/scripts/apply-default-config.js"
+    if [ -f "${legacy_path}" ]; then
+        CONFIG_PATCH_SCRIPT="${legacy_path}"
+        log_msg "Using legacy config patch script: ${CONFIG_PATCH_SCRIPT}"
+        return 0
+    fi
+
+    log_msg "Config patch script not found in expected paths"
+    return 1
 }
 
 # 根据用户选择设置配置路径（兼容缺省值）
@@ -214,6 +231,13 @@ setup_openclaw_config() {
     fi
 
     log_msg "Injecting gateway.mode=local into configuration..."
+
+    if ! resolve_config_patch_script; then
+        log_msg "Failed to locate config patch script under ${TARGET}"
+        echo "Failed to locate config patch script under ${TARGET}" >> "${TRIM_TEMP_LOGFILE}"
+        tail -n 20 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
+        exit 1
+    fi
 
     ${NODE_PATH} "${CONFIG_PATCH_SCRIPT}" >> ${LOG_FILE} 2>&1
 
