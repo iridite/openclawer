@@ -214,6 +214,15 @@ install_openclaw() {
 # 初始化 openclaw 配置
 # 运行 openclaw setup 命令生成配置文件
 setup_openclaw_config() {
+    local CONFIG_FILE="${OPENCLAW_CONFIG_PATH}"
+    local CLEAN_OLD_CONFIG="${TRIM_WIZARD_clean_old_config:-yes}"
+
+    # 用户选择“不覆盖”且目标配置已存在时，跳过 setup/patch，避免覆盖已有配置。
+    if [ "${CLEAN_OLD_CONFIG}" != "yes" ] && [ -f "${CONFIG_FILE}" ]; then
+        log_msg "Preserving existing config (${CONFIG_FILE}), skip openclaw setup and default patch"
+        return 0
+    fi
+
     log_msg "Running openclaw setup to initialize configuration..."
 
     # 2. 执行基础初始化
