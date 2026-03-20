@@ -23,6 +23,40 @@ log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
 }
 
+run_with_timeout() {
+    local limit="$1"
+    shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "${limit}" "$@"
+    else
+        "$@"
+    fi
+}
+
+resolve_runtime_binaries() {
+    if [ -x "${NODE_PATH}" ]; then
+        NODE_BIN="${NODE_PATH}"
+    else
+        NODE_BIN="$(command -v node || true)"
+    fi
+
+    if [ -x "${NPM_PATH}" ]; then
+        NPM_BIN="${NPM_PATH}"
+    else
+        NPM_BIN="$(command -v npm || true)"
+    fi
+
+    if [ -z "${NODE_BIN}" ] || [ -z "${NPM_BIN}" ]; then
+        echo "Node.js/npm not found in install_callback" > "${TRIM_TEMP_LOGFILE}"
+        echo "NODE_PATH=${NODE_PATH}" >> "${TRIM_TEMP_LOGFILE}"
+        echo "NPM_PATH=${NPM_PATH}" >> "${TRIM_TEMP_LOGFILE}"
+        exit 1
+    fi
+
+    log_msg "Using node binary: ${NODE_BIN}"
+    log_msg "Using npm binary: ${NPM_BIN}"
+}
+
 resolve_config_patch_script() {
     if [ -f "${CONFIG_PATCH_SCRIPT}" ]; then
         log_msg "Using config patch script: ${CONFIG_PATCH_SCRIPT}"
@@ -66,6 +100,8 @@ export GATEWAY_PORT
 # 支持多镜像源切换和重试机制
 install_openclaw() {
     local OPENCLAW_BIN="${PKGVAR}/node_modules/.bin/openclaw"
+    local INSTALL_TIMEOUT_SECONDS="${OC_INSTALL_TIMEOUT_SECONDS:-300}"
+    local DISCOVERY_TIMEOUT_SECONDS="${OC_INSTALL_DISCOVERY_TIMEOUT_SECONDS:-20}"
     log_msg "Installing openclaw@latest in ${PKGVAR}..."
 
     local REGISTRIES=(
@@ -76,13 +112,16 @@ install_openclaw() {
 
     local INSTALL_SUCCESS=0
 
-    # 快速连通性检测（3s 超时）
+    # 连通性检测：优先用 npm view（更贴近真实安装链路），失败时退回 curl 首页探测。
     log_msg "Testing registry connectivity..."
     local WORKING_REGISTRIES=()
     for REGISTRY in "${REGISTRIES[@]}"; do
-        if timeout 3 curl -sf "${REGISTRY}" >/dev/null 2>&1; then
+        if run_with_timeout "${DISCOVERY_TIMEOUT_SECONDS}" "${NPM_BIN}" view openclaw version --registry="${REGISTRY}" >/dev/null 2>&1; then
             WORKING_REGISTRIES+=("${REGISTRY}")
-            log_msg "✓ ${REGISTRY} reachable"
+            log_msg "✓ ${REGISTRY} reachable (npm view)"
+        elif run_with_timeout 3 curl -sf "${REGISTRY}" >/dev/null 2>&1; then
+            WORKING_REGISTRIES+=("${REGISTRY}")
+            log_msg "✓ ${REGISTRY} reachable (curl fallback)"
         else
             log_msg "✗ ${REGISTRY} unreachable, skipping"
         fi
@@ -94,12 +133,12 @@ install_openclaw() {
         WORKING_REGISTRIES=("${REGISTRIES[@]}")
     fi
 
-    # 快速尝试可用镜像源（45s 超时，快速失败）
+    # 尝试可用镜像源（默认 300s，可通过 OC_INSTALL_TIMEOUT_SECONDS 覆盖）
     for REGISTRY in "${WORKING_REGISTRIES[@]}"; do
         log_msg "Trying ${REGISTRY}..."
         rm -rf "${PKGVAR}/node_modules/openclaw" "${PKGVAR}/package-lock.json" 2>/dev/null
 
-        cd "${PKGVAR}" && timeout 45 npm install openclaw@latest \
+        cd "${PKGVAR}" && run_with_timeout "${INSTALL_TIMEOUT_SECONDS}" "${NPM_BIN}" install openclaw@latest \
             --registry="${REGISTRY}" \
             --no-audit \
             --no-fund \
@@ -118,18 +157,30 @@ install_openclaw() {
     if [ $INSTALL_SUCCESS -eq 0 ]; then
         log_msg "Trying version fallback..."
 
-        local VERSIONS=$(cd "${PKGVAR}" && timeout 15 npm view openclaw versions --json --registry="${REGISTRIES[0]}" 2>>"${LOG_FILE}" | \
-            grep -oP '"\K[0-9]{4}\.[0-9]+\.[0-9]+(-[0-9]+)?(?=")' | \
-            grep -v 'beta' | \
-            tail -n 2 | \
-            tac)
+        local VERSIONS_JSON
+        local VERSIONS
+        VERSIONS_JSON="$(cd "${PKGVAR}" && run_with_timeout "${DISCOVERY_TIMEOUT_SECONDS}" "${NPM_BIN}" view openclaw versions --json --registry="${REGISTRIES[0]}" 2>>"${LOG_FILE}" || true)"
+        VERSIONS="$(printf '%s' "${VERSIONS_JSON}" | "${NODE_BIN}" -e '
+const fs = require("fs");
+let raw = "";
+try { raw = fs.readFileSync(0, "utf8"); } catch (_) {}
+if (!raw.trim()) process.exit(0);
+let parsed;
+try { parsed = JSON.parse(raw); } catch (_) { process.exit(0); }
+const list = Array.isArray(parsed) ? parsed : [parsed];
+const stable = list
+  .map((v) => String(v || "").trim())
+  .filter((v) => v && !/beta|alpha|rc/i.test(v));
+const picked = stable.slice(-2).reverse();
+process.stdout.write(picked.join("\n"));
+' 2>/dev/null)"
 
         if [ -n "$VERSIONS" ]; then
             for VERSION in $VERSIONS; do
                 log_msg "Trying openclaw@${VERSION}..."
                 rm -rf "${PKGVAR}/node_modules/openclaw" "${PKGVAR}/package-lock.json" 2>/dev/null
 
-                cd "${PKGVAR}" && timeout 45 npm install openclaw@${VERSION} \
+                cd "${PKGVAR}" && run_with_timeout "${INSTALL_TIMEOUT_SECONDS}" "${NPM_BIN}" install openclaw@${VERSION} \
                     --registry="${REGISTRIES[0]}" \
                     --no-audit \
                     --no-fund \
@@ -155,8 +206,10 @@ install_openclaw() {
         echo "" >> "$TRIM_TEMP_LOGFILE"
         echo "【镜像源连通性测试结果】" >> "$TRIM_TEMP_LOGFILE"
         for REGISTRY in "${REGISTRIES[@]}"; do
-            if timeout 3 curl -sf "${REGISTRY}" >/dev/null 2>&1; then
-                echo "  ✓ ${REGISTRY} - 可访问" >> "$TRIM_TEMP_LOGFILE"
+            if run_with_timeout "${DISCOVERY_TIMEOUT_SECONDS}" "${NPM_BIN}" view openclaw version --registry="${REGISTRY}" >/dev/null 2>&1; then
+                echo "  ✓ ${REGISTRY} - npm view 可访问" >> "$TRIM_TEMP_LOGFILE"
+            elif run_with_timeout 3 curl -sf "${REGISTRY}" >/dev/null 2>&1; then
+                echo "  ✓ ${REGISTRY} - curl 可访问（npm view 失败）" >> "$TRIM_TEMP_LOGFILE"
             else
                 echo "  ✗ ${REGISTRY} - 无法访问" >> "$TRIM_TEMP_LOGFILE"
             fi
@@ -184,10 +237,10 @@ install_openclaw() {
     # 验证步骤：
     # a. 检查二进制文件是否存在
     # b. 使用指定的 NODE_PATH 尝试运行该文件并获取版本信息
-    if [ -f "$OPENCLAW_BIN" ] && node "$OPENCLAW_BIN" --version >> ${LOG_FILE} 2>&1; then
+    if [ -f "$OPENCLAW_BIN" ] && "${NODE_BIN}" "$OPENCLAW_BIN" --version >> ${LOG_FILE} 2>&1; then
         log_msg "openclaw@latest installed and verified successfully"
         # 获取具体的版本号并记录到日志中
-        local VERSION=$(node "$OPENCLAW_BIN" --version 2>/dev/null)
+        local VERSION=$("${NODE_BIN}" "$OPENCLAW_BIN" --version 2>/dev/null)
         log_msg "Detected version: $VERSION"
         return 0
     else
@@ -226,7 +279,7 @@ setup_openclaw_config() {
     log_msg "Running openclaw setup to initialize configuration..."
 
     # 2. 执行基础初始化
-    node ${OPENCLAW_BIN} setup >> ${LOG_FILE} 2>&1
+    "${NODE_BIN}" "${OPENCLAW_BIN}" setup >> ${LOG_FILE} 2>&1
     # 将配置写入到当前用户的目录中，并且确保它能被后续的 Node.js 脚本访问到
 
     if [ $? -eq 0 ]; then
@@ -248,7 +301,7 @@ setup_openclaw_config() {
         exit 1
     fi
 
-    ${NODE_PATH} "${CONFIG_PATCH_SCRIPT}" >> ${LOG_FILE} 2>&1
+    "${NODE_BIN}" "${CONFIG_PATCH_SCRIPT}" >> ${LOG_FILE} 2>&1
 
     if [ $? -eq 0 ]; then
         log_msg "openclaw configuration initialized and patched successfully"
@@ -263,9 +316,15 @@ setup_openclaw_config() {
 
 generate_oc_token() {
     log_msg "Starting OpenClaw gateway via nohup to generate token..."
+    local TOKEN_WAIT_SECONDS="${OC_TOKEN_WAIT_SECONDS:-30}"
 
     # 1. 定义真实的 JS 入口路径（绕过 .bin 软链接，防止环境问题）
     local OC_JS_PATH="${PKGVAR}/node_modules/openclaw/dist/index.js"
+    if [ ! -f "${OC_JS_PATH}" ]; then
+        log_msg "Gateway entry not found: ${OC_JS_PATH}"
+        echo "Gateway entry not found: ${OC_JS_PATH}" > "${TRIM_TEMP_LOGFILE}"
+        exit 1
+    fi
 
     # 2. 杀掉可能残留的旧进程，确保端口清空
     pkill -f "openclaw/dist/index.js gateway" 2>/dev/null
@@ -273,29 +332,28 @@ generate_oc_token() {
 
     # 3. 使用 nohup 在后台启动，绑定 Gateway 端口，日志追加到 LOG_FILE
     nohup env HOME="${HOME}" OPENCLAW_CONFIG_PATH="${OPENCLAW_CONFIG_PATH}" GATEWAY_PORT="${GATEWAY_PORT}" \
-    ${NODE_PATH} ${OC_JS_PATH} gateway --port "${GATEWAY_PORT}" >> "${LOG_FILE}" 2>&1 &
+    "${NODE_BIN}" "${OC_JS_PATH}" gateway --port "${GATEWAY_PORT}" >> "${LOG_FILE}" 2>&1 &
 
     # 4. 抓取刚才放入后台的进程 PID
     local GW_PID=$!
     log_msg "Gateway started in background with PID: $GW_PID"
 
-    # 5. 等待 5 秒，给网关充足的时间去初始化、绑定端口和写入 token 文件
-    log_msg "Waiting 5 seconds for initialization and token generation..."
-    sleep 5
+    # 5. 等待最多 TOKEN_WAIT_SECONDS 秒，兼容慢机器/慢存储环境
+    log_msg "Waiting up to ${TOKEN_WAIT_SECONDS}s for gateway stabilization..."
+    local i
+    for i in $(seq 1 "${TOKEN_WAIT_SECONDS}"); do
+        if kill -0 "${GW_PID}" 2>/dev/null || pgrep -f "openclaw/dist/index.js gateway" >/dev/null 2>&1; then
+            log_msg "OpenClaw gateway process detected as running"
+            return 0
+        fi
+        sleep 1
+    done
 
-    # 6. 检查该 PID 是否依然存活 (kill -0 只是探测，不会真的杀进程)
-    if kill -0 $GW_PID 2>/dev/null; then
-        log_msg "OpenClaw token generated and gateway is running stably"
-        return 0
-    else
-        # 如果 PID 没了，说明启动瞬间就崩溃了
-        log_msg "Failed to start OpenClaw gateway or generate token"
-        echo "Failed to start OpenClaw gateway. Process crashed shortly after startup." > "${TRIM_TEMP_LOGFILE}"
-
-        # 抓取最后的日志找出死因
-        tail -n 30 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
-        exit 1
-    fi
+    # 如果到了这里仍未检测到进程，说明启动后很快崩溃了
+    log_msg "Failed to start OpenClaw gateway or generate token"
+    echo "Failed to start OpenClaw gateway. Process crashed shortly after startup." > "${TRIM_TEMP_LOGFILE}"
+    tail -n 30 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
+    exit 1
 }
 
 snapshot_initial_config() {
@@ -350,6 +408,8 @@ ENVEOF
 }
 
 # entry point
+resolve_runtime_binaries
+
 # 步骤 2: 安装 openclaw
 install_openclaw
 
