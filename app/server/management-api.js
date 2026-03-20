@@ -427,6 +427,15 @@ function isPrivateLanIp(ip) {
 }
 
 function getClientIp(req) {
+  const socketIp = normalizeRemoteIp(req?.socket?.remoteAddress || "");
+  const trustForwardedHeaders = isLoopbackIp(socketIp);
+
+  // Security boundary: forwarded IP headers are only trusted when the immediate
+  // peer is local loopback (typically an on-box reverse proxy).
+  if (!trustForwardedHeaders) {
+    return socketIp;
+  }
+
   const forwardedFor = String(req?.headers?.["x-forwarded-for"] || "").trim();
   if (forwardedFor) {
     const tokens = forwardedFor.split(",");
@@ -443,7 +452,7 @@ function getClientIp(req) {
     return realIp;
   }
 
-  return normalizeRemoteIp(req?.socket?.remoteAddress || "");
+  return socketIp;
 }
 
 function getRequestHost(req) {
