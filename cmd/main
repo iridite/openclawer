@@ -37,13 +37,19 @@ log_msg() {
 
 resolve_runtime_config_env() {
     local explicit_config="${OPENCLAW_CONFIG_PATH:-}"
+    local appdir_config="${TRIM_PKGVAR}/.openclaw/openclaw.json"
+    local root_config="/root/.openclaw/openclaw.json"
 
     if [ -n "${explicit_config}" ]; then
         RUNTIME_CONFIG_FILE="${explicit_config}"
-    elif [ -f "${TRIM_PKGVAR}/.openclaw/openclaw.json" ] || [ -d "${TRIM_PKGVAR}/.openclaw" ]; then
-        RUNTIME_CONFIG_FILE="${TRIM_PKGVAR}/.openclaw/openclaw.json"
+    elif [ -f "${appdir_config}" ]; then
+        RUNTIME_CONFIG_FILE="${appdir_config}"
+    elif [ -f "${root_config}" ]; then
+        RUNTIME_CONFIG_FILE="${root_config}"
+    elif [ -d "${TRIM_PKGVAR}/.openclaw" ]; then
+        RUNTIME_CONFIG_FILE="${appdir_config}"
     else
-        RUNTIME_CONFIG_FILE="/root/.openclaw/openclaw.json"
+        RUNTIME_CONFIG_FILE="${root_config}"
     fi
 
     local runtime_home

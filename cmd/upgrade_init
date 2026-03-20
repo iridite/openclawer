@@ -7,15 +7,24 @@ set -euo pipefail
 APP_NAME="${TRIM_APPNAME:-oc-deploy}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# 自动检测配置文件位置（显式 OC_HOME 优先）
-if [ -n "${OC_HOME:-}" ] && [ -d "${OC_HOME}" ]; then
+# 自动检测配置文件位置（优先匹配已存在的 openclaw.json，避免目录残留误判）
+APPDIR_OC_HOME="/var/apps/${APP_NAME}/var/.openclaw"
+ROOT_OC_HOME="/root/.openclaw"
+
+if [ -n "${OC_HOME:-}" ] && [ -f "${OC_HOME}/openclaw.json" ]; then
     SRC_DIR="${OC_HOME}"
-elif [ -d "/var/apps/${APP_NAME}/var/.openclaw" ]; then
-    SRC_DIR="/var/apps/${APP_NAME}/var/.openclaw"
-elif [ -d "/root/.openclaw" ]; then
-    SRC_DIR="/root/.openclaw"
+elif [ -f "${APPDIR_OC_HOME}/openclaw.json" ]; then
+    SRC_DIR="${APPDIR_OC_HOME}"
+elif [ -f "${ROOT_OC_HOME}/openclaw.json" ]; then
+    SRC_DIR="${ROOT_OC_HOME}"
+elif [ -n "${OC_HOME:-}" ] && [ -d "${OC_HOME}" ]; then
+    SRC_DIR="${OC_HOME}"
+elif [ -d "${APPDIR_OC_HOME}" ]; then
+    SRC_DIR="${APPDIR_OC_HOME}"
+elif [ -d "${ROOT_OC_HOME}" ]; then
+    SRC_DIR="${ROOT_OC_HOME}"
 else
-    SRC_DIR="${OC_HOME:-/root/.openclaw}"
+    SRC_DIR="${OC_HOME:-${ROOT_OC_HOME}}"
 fi
 
 PKG_VAR_DIR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
