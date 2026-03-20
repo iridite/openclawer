@@ -6,6 +6,7 @@ TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${TEST_DIR}/.." && pwd)"
 UI_DIR="${PROJECT_ROOT}/app/ui/assets"
 MAIN_ENTRY="${UI_DIR}/management.js"
+API_ENTRY="${UI_DIR}/management.api.js"
 
 if [ ! -f "${MAIN_ENTRY}" ]; then
   echo "[frontend-request-entry] missing main entry: ${MAIN_ENTRY}"
@@ -15,13 +16,24 @@ fi
 raw_fetch_hits="$(
   rg -n "fetch\\(" "${UI_DIR}" \
     -g '!management.js' \
+    -g '!management.api.js' \
     -g '!vendor/**' \
     || true
 )"
 
 if [ -n "${raw_fetch_hits}" ]; then
-  echo "[frontend-request-entry] found direct fetch usage outside management.js"
+  echo "[frontend-request-entry] found direct fetch usage outside allowed API entry files"
   echo "${raw_fetch_hits}"
+  exit 1
+fi
+
+if [ ! -f "${API_ENTRY}" ]; then
+  echo "[frontend-request-entry] missing API entry: ${API_ENTRY}"
+  exit 1
+fi
+
+if ! rg -q "fetch\\(" "${API_ENTRY}"; then
+  echo "[frontend-request-entry] API entry does not contain fetch usage"
   exit 1
 fi
 

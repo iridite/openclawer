@@ -6,50 +6,18 @@ const {
 } = require("../core/http-errors");
 
 function createRouter(deps) {
+  const { readBody, services } = deps;
   const {
-    readBody,
-    getStatus,
-    getConfig,
-    saveConfig,
-    resetConfig,
-    validateConfig,
-    analyzeConfigImpact,
-    addModel,
-    deleteModel,
-    setPrimaryModel,
-    upsertChannel,
-    deleteChannel,
-    prepareModelTest,
-    testModel,
-    startGateway,
-    stopGateway,
-    restartGateway,
-    getCurrentVersion,
-    getLatestVersion,
-    updateVersion,
-    getQqbotPluginStatus,
-    installQqbotPlugin,
-    getWecomPluginStatus,
-    installWecomPlugin,
-    getConsoleUrl,
-    getLogs,
-    getSystemPaths,
-    createBackupArchive,
-    importBackupArchiveFromRequest,
-    cleanupPathQuietly,
-    searchSkills,
-    installSkill,
-    listSkills,
-    uninstallSkill,
-    toggleSkill,
-    updateSkill,
-    updateAllSkills,
-    getManagementAccess,
-    setManagementAccess,
-    getApiKeyProtection,
-    setApiKeyProtection,
-    updateToolProfile,
-  } = deps;
+    gateway,
+    config,
+    modelTest,
+    plugins,
+    backup,
+    skills,
+    managementAccess,
+    apiKeyProtection,
+    system,
+  } = services;
 
   async function parseJsonBody(req) {
     const body = await readBody(req);
@@ -85,13 +53,13 @@ function createRouter(deps) {
 
   function handleApiRoutes(req, res, pathname, method, url) {
     if (method === "GET" && pathname === "/api/backup/export") {
-      createBackupArchive("manual-export")
+      backup.createBackupArchive("manual-export")
         .then((backup) => {
           let cleaned = false;
           const cleanup = () => {
             if (cleaned) return;
             cleaned = true;
-            cleanupPathQuietly(backup.workDir);
+            services.backup.cleanupPathQuietly(backup.workDir);
           };
 
           const stat = fs.statSync(backup.archivePath);
@@ -120,7 +88,7 @@ function createRouter(deps) {
     }
 
     if (method === "POST" && pathname === "/api/backup/import") {
-      importBackupArchiveFromRequest(req)
+      backup.importBackupArchiveFromRequest(req)
         .then((result) => {
           sendJson(res, 200, result);
         })
@@ -129,63 +97,64 @@ function createRouter(deps) {
     }
 
     const routes = {
-      "GET /api/status": getStatus,
-      "GET /api/config": getConfig,
-      "POST /api/config": async () => saveConfig(await parseJsonBody(req)),
-      "POST /api/config/reset": resetConfig,
-      "POST /api/config/validate": async () => validateConfig(await parseJsonBody(req)),
-      "POST /api/config/analyze-impact": async () => analyzeConfigImpact(await parseJsonBody(req)),
-      "POST /api/models/add": async () => addModel(await parseJsonBody(req)),
+      "GET /api/status": gateway.getStatus,
+      "GET /api/config": config.getConfig,
+      "POST /api/config": async () => config.saveConfig(await parseJsonBody(req)),
+      "POST /api/config/reset": config.resetConfig,
+      "POST /api/config/validate": async () => config.validateConfig(await parseJsonBody(req)),
+      "POST /api/config/analyze-impact": async () =>
+        config.analyzeConfigImpact(await parseJsonBody(req)),
+      "POST /api/models/add": async () => config.addModel(await parseJsonBody(req)),
       "POST /api/models/primary": async () => {
         const data = await parseJsonBody(req);
-        return setPrimaryModel(data.modelKey);
+        return config.setPrimaryModel(data.modelKey);
       },
       "POST /api/models/delete": async () => {
         const data = await parseJsonBody(req);
-        return deleteModel(data.modelKey);
+        return config.deleteModel(data.modelKey);
       },
       "POST /api/models/test/prepare": async () =>
-        prepareModelTest(await parseJsonBody(req)),
-      "POST /api/models/test": async () => testModel(await parseJsonBody(req)),
-      "POST /api/channels/upsert": async () => upsertChannel(await parseJsonBody(req)),
+        modelTest.prepareModelTest(await parseJsonBody(req)),
+      "POST /api/models/test": async () => modelTest.testModel(await parseJsonBody(req)),
+      "POST /api/channels/upsert": async () => config.upsertChannel(await parseJsonBody(req)),
       "POST /api/channels/delete": async () => {
         const data = await parseJsonBody(req);
-        return deleteChannel(data.channelId);
+        return config.deleteChannel(data.channelId);
       },
       "POST /api/tools/profile": async () => {
         const data = await parseJsonBody(req);
-        return updateToolProfile(data.profile);
+        return config.updateToolProfile(data.profile);
       },
-      "POST /api/gateway/start": startGateway,
-      "POST /api/gateway/stop": stopGateway,
-      "POST /api/gateway/restart": restartGateway,
-      "GET /api/version/current": getCurrentVersion,
-      "GET /api/version/latest": getLatestVersion,
-      "POST /api/version/update": updateVersion,
-      "GET /api/plugins/qqbot/status": getQqbotPluginStatus,
-      "POST /api/plugins/qqbot/install": installQqbotPlugin,
-      "GET /api/plugins/wecom/status": getWecomPluginStatus,
-      "POST /api/plugins/wecom/install": installWecomPlugin,
-      "GET /api/console/url": () => getConsoleUrl(req),
-      "GET /api/system/paths": getSystemPaths,
-      "GET /api/logs": () => getLogs(parseInt(url.searchParams.get("lines") || "1000", 10)),
+      "POST /api/gateway/start": gateway.startGateway,
+      "POST /api/gateway/stop": gateway.stopGateway,
+      "POST /api/gateway/restart": gateway.restartGateway,
+      "GET /api/version/current": gateway.getCurrentVersion,
+      "GET /api/version/latest": gateway.getLatestVersion,
+      "POST /api/version/update": gateway.updateVersion,
+      "GET /api/plugins/qqbot/status": plugins.getQqbotPluginStatus,
+      "POST /api/plugins/qqbot/install": plugins.installQqbotPlugin,
+      "GET /api/plugins/wecom/status": plugins.getWecomPluginStatus,
+      "POST /api/plugins/wecom/install": plugins.installWecomPlugin,
+      "GET /api/console/url": () => gateway.getConsoleUrl(req),
+      "GET /api/system/paths": system.getSystemPaths,
+      "GET /api/logs": () => gateway.getLogs(parseInt(url.searchParams.get("lines") || "1000", 10)),
       "GET /api/skills/search": () => {
         const query = url.searchParams.get("q") || "";
         const limit = parseInt(url.searchParams.get("limit") || "20", 10);
-        return searchSkills(query, limit);
+        return skills.search(query, limit);
       },
-      "GET /api/skills/list": listSkills,
+      "GET /api/skills/list": skills.list,
       "POST /api/skills/install": async () => {
         const data = await parseJsonBody(req);
-        return installSkill(data.slug, data.force || false);
+        return skills.install(data.slug, data.force || false);
       },
       "POST /api/skills/uninstall": async () => {
         const data = await parseJsonBody(req);
-        return uninstallSkill(data.slug);
+        return skills.uninstall(data.slug);
       },
       "POST /api/skills/toggle": async () => {
         const data = await parseJsonBody(req);
-        return toggleSkill(data.slug, data.enabled, {
+        return skills.toggle(data.slug, data.enabled, {
           entryKey: data.entryKey,
           location: data.location,
         });
@@ -193,19 +162,19 @@ function createRouter(deps) {
       "POST /api/skills/update": async () => {
         const data = await parseJsonBody(req);
         if (data?.all === true) {
-          return updateAllSkills();
+          return skills.updateAll();
         }
         if (!data?.slug) {
           throw badRequestError("缺少技能名称");
         }
-        return updateSkill(data.slug);
+        return skills.update(data.slug);
       },
-      "GET /api/management/access": getManagementAccess,
+      "GET /api/management/access": managementAccess.getManagementAccess,
       "POST /api/management/access": async () =>
-        setManagementAccess(await parseJsonBody(req)),
-      "GET /api/security/api-key-protection": getApiKeyProtection,
+        managementAccess.setManagementAccess(await parseJsonBody(req)),
+      "GET /api/security/api-key-protection": apiKeyProtection.getApiKeyProtection,
       "POST /api/security/api-key-protection": async () =>
-        setApiKeyProtection(await parseJsonBody(req)),
+        apiKeyProtection.setApiKeyProtection(await parseJsonBody(req)),
     };
 
     const routeKey = `${method} ${pathname}`;
