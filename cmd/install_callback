@@ -23,6 +23,33 @@ log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
 }
 
+append_install_runtime_diag() {
+    {
+        echo "【运行时二进制】"
+        echo "  node: ${NODE_BIN:-<unset>}"
+        if [ -n "${NODE_BIN:-}" ] && [ -x "${NODE_BIN}" ]; then
+            echo "  node version: $("${NODE_BIN}" --version 2>/dev/null || echo '<failed>')"
+        fi
+        echo "  npm: ${NPM_BIN:-<unset>}"
+        if [ -n "${NPM_BIN:-}" ] && [ -x "${NPM_BIN}" ]; then
+            echo "  npm version: $("${NPM_BIN}" --version 2>/dev/null || echo '<failed>')"
+            echo "  npm registry: $("${NPM_BIN}" config get registry 2>/dev/null || echo '<failed>')"
+        fi
+    } >> "${TRIM_TEMP_LOGFILE}"
+}
+
+append_recent_npm_error_hints() {
+    {
+        echo ""
+        echo "【npm 关键错误摘录（最近 30 条）】"
+        if [ -f "${LOG_FILE}" ]; then
+            grep -E -i "npm ERR!|error|EAI_|ECONN|ENOTFOUND|ETIMEDOUT|ECONNRESET|certificate|SSL|fetch|tarball|integrity|EACCES|ENOENT|ENOSPC|permission denied" "${LOG_FILE}" | tail -n 30
+        else
+            echo "(log file not found)"
+        fi
+    } >> "${TRIM_TEMP_LOGFILE}"
+}
+
 run_with_timeout() {
     local limit="$1"
     shift
@@ -50,6 +77,7 @@ resolve_runtime_binaries() {
         echo "Node.js/npm not found in install_callback" > "${TRIM_TEMP_LOGFILE}"
         echo "NODE_PATH=${NODE_PATH}" >> "${TRIM_TEMP_LOGFILE}"
         echo "NPM_PATH=${NPM_PATH}" >> "${TRIM_TEMP_LOGFILE}"
+        append_install_runtime_diag
         exit 1
     fi
 
@@ -226,6 +254,8 @@ process.stdout.write(picked.join("\n"));
         echo "" >> "$TRIM_TEMP_LOGFILE"
         echo "【详细日志（最后 50 行）】" >> "$TRIM_TEMP_LOGFILE"
         tail -n 50 "${LOG_FILE}" >> "$TRIM_TEMP_LOGFILE"
+        append_install_runtime_diag
+        append_recent_npm_error_hints
         echo "" >> "$TRIM_TEMP_LOGFILE"
         echo "完整日志: ${LOG_FILE}" >> "$TRIM_TEMP_LOGFILE"
         exit 1
@@ -258,6 +288,8 @@ process.stdout.write(picked.join("\n"));
         echo "  - Incomplete installation" >> "$TRIM_TEMP_LOGFILE"
         echo "  - Node.js version mismatch" >> "$TRIM_TEMP_LOGFILE"
         echo "  - Missing dependencies" >> "$TRIM_TEMP_LOGFILE"
+        append_install_runtime_diag
+        append_recent_npm_error_hints
         echo "" >> "$TRIM_TEMP_LOGFILE"
         echo "Full log: ${LOG_FILE}" >> "$TRIM_TEMP_LOGFILE"
         exit 1
