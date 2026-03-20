@@ -5,6 +5,7 @@
 // ===========================================================================
 
 const http = require("http");
+const net = require("net");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -367,12 +368,81 @@ function normalizeRemoteIp(ip) {
   return raw;
 }
 
+function normalizeForwardedToken(rawToken) {
+  const token = String(rawToken || "").trim();
+  if (!token) return "";
+
+  // RFC 7239 style: for=1.2.3.4
+  const forwarded = token.match(/^for=(.+)$/i);
+  const value = forwarded ? String(forwarded[1] || "").trim() : token;
+  const unquoted = value.replace(/^"|"$/g, "").trim();
+
+  if (unquoted.startsWith("[") && unquoted.includes("]")) {
+    return unquoted.slice(1, unquoted.indexOf("]")).trim();
+  }
+
+  // 仅处理 IPv4:port；IPv6 直接交给 net.isIP 判断。
+  if (unquoted.includes(".") && unquoted.includes(":")) {
+    const maybeIpv4 = unquoted.split(":")[0];
+    if (net.isIP(maybeIpv4) === 4) {
+      return maybeIpv4;
+    }
+  }
+
+  return unquoted;
+}
+
 function isLoopbackIp(ip) {
   const normalized = normalizeRemoteIp(ip);
   return normalized === "127.0.0.1" || normalized === "::1";
 }
 
+function isPrivateLanIp(ip) {
+  const normalized = normalizeRemoteIp(ip);
+  if (!normalized) {
+    return false;
+  }
+
+  if (net.isIP(normalized) === 4) {
+    const parts = normalized.split(".").map((part) => parseInt(part, 10));
+    if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
+      return false;
+    }
+    const [a, b] = parts;
+    return (
+      a === 10 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254) ||
+      (a === 100 && b >= 64 && b <= 127)
+    );
+  }
+
+  if (net.isIP(normalized) === 6) {
+    const lower = normalized.toLowerCase();
+    return lower.startsWith("fc") || lower.startsWith("fd") || lower.startsWith("fe8") || lower.startsWith("fe9") || lower.startsWith("fea") || lower.startsWith("feb");
+  }
+
+  return false;
+}
+
 function getClientIp(req) {
+  const forwardedFor = String(req?.headers?.["x-forwarded-for"] || "").trim();
+  if (forwardedFor) {
+    const tokens = forwardedFor.split(",");
+    for (const token of tokens) {
+      const parsed = normalizeRemoteIp(normalizeForwardedToken(token));
+      if (net.isIP(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  const realIp = normalizeRemoteIp(normalizeForwardedToken(req?.headers?.["x-real-ip"] || ""));
+  if (net.isIP(realIp)) {
+    return realIp;
+  }
+
   return normalizeRemoteIp(req?.socket?.remoteAddress || "");
 }
 
@@ -396,7 +466,8 @@ function parseRequestUrl(req) {
 }
 
 function isAccessAllowed(req) {
-  if (isLoopbackIp(getClientIp(req))) {
+  const clientIp = getClientIp(req);
+  if (isLoopbackIp(clientIp) || isPrivateLanIp(clientIp)) {
     return true;
   }
   return isRemoteAccessEnabled();
@@ -432,7 +503,7 @@ function handleRequest(req, res) {
 
     if (!isAccessAllowed(req)) {
       const message =
-        "Forbidden: Management API is local-only. Enable remote access from System -> Management Access in WebUI.";
+        "Forbidden: Management API only allows localhost/LAN by default. For public network access, enable remote access in WebUI System -> Management Access.";
       if (pathname.startsWith("/api/")) {
         res.writeHead(403, { "Content-Type": "application/json" });
         const error = forbiddenError(message);
