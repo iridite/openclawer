@@ -4,20 +4,11 @@ set -euo pipefail
 
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${TEST_DIR}/.." && pwd)"
+source "${TEST_DIR}/lib/server-test-helpers.sh"
 READY_MAX_ATTEMPTS="${SMOKE_READY_MAX_ATTEMPTS:-20}"
 READY_INTERVAL_SECONDS="${SMOKE_READY_INTERVAL_SECONDS:-0.1}"
 HTTP_CONNECT_TIMEOUT_SECONDS="${SMOKE_CONNECT_TIMEOUT_SECONDS:-0.5}"
 HTTP_MAX_TIME_SECONDS="${SMOKE_HTTP_MAX_TIME_SECONDS:-2}"
-
-find_free_port() {
-  python - <<'PY'
-import socket
-s = socket.socket()
-s.bind(('', 0))
-print(s.getsockname()[1])
-s.close()
-PY
-}
 
 PORT="${MANAGEMENT_PORT:-}"
 if [ -z "${PORT}" ]; then
@@ -54,32 +45,20 @@ curl_status_only=(
 )
 
 cleanup() {
-  if [ -n "${API_PID:-}" ]; then
-    kill "${API_PID}" 2>/dev/null || true
-  fi
+  stop_process_if_running "${API_PID:-}"
   rm -rf "${TMP_DIR}" || true
 }
 trap cleanup EXIT
 
-node "${PROJECT_ROOT}/app/server/management-api.js" > "${API_LOG}" 2>&1 &
-API_PID=$!
-
-READY=0
-for _ in $(seq 1 "${READY_MAX_ATTEMPTS}"); do
-  if curl "${curl_common[@]}" "http://127.0.0.1:${PORT}/api/status" >/dev/null 2>&1; then
-    READY=1
-    break
-  fi
-  sleep "${READY_INTERVAL_SECONDS}"
-done
-
-if [ "${READY}" -ne 1 ]; then
-  echo "API 未启动，日志如下:"
-  tail -n 50 "${API_LOG}" || true
-  exit 1
-fi
-
-echo "[smoke] API ready on ${PORT}"
+API_PID="$(start_management_api "${PROJECT_ROOT}" "${API_LOG}")"
+wait_http_ready \
+  "http://127.0.0.1:${PORT}/api/status" \
+  "smoke" \
+  "${API_LOG}" \
+  "${READY_MAX_ATTEMPTS}" \
+  "${READY_INTERVAL_SECONDS}" \
+  "${HTTP_CONNECT_TIMEOUT_SECONDS}" \
+  "${HTTP_MAX_TIME_SECONDS}"
 
 # 静态入口与缓存协商
 curl "${curl_common[@]}" -I "http://127.0.0.1:${PORT}/" >/dev/null

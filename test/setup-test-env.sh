@@ -6,9 +6,18 @@
 
 set -e
 
-echo "=========================================="
+print_divider() {
+    echo "=========================================="
+}
+
+print_step() {
+    echo ""
+    echo "$1"
+}
+
+print_divider
 echo "OpenClaw 本地测试环境准备"
-echo "=========================================="
+print_divider
 
 # 获取项目根目录
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,44 +28,39 @@ echo "项目根目录: ${PROJECT_ROOT}"
 echo "测试数据目录: ${TEST_DATA}"
 
 # 创建测试目录结构
-echo ""
-echo "📁 创建测试目录结构..."
-mkdir -p "${TEST_DATA}"
-mkdir -p "${TEST_DATA}/data/.openclaw"
-mkdir -p "${TEST_DATA}/logs"
-mkdir -p "${TEST_DATA}/.pm2"
+print_step "📁 创建测试目录结构..."
+mkdir -p \
+    "${TEST_DATA}" \
+    "${TEST_DATA}/data/.openclaw" \
+    "${TEST_DATA}/logs" \
+    "${TEST_DATA}/.pm2"
 
 # 安装 OpenClaw (如果未安装)
 if [ ! -d "${TEST_DATA}/node_modules/openclaw" ]; then
-    echo ""
-    echo "📦 安装 OpenClaw & pm2..."
+    print_step "📦 安装 OpenClaw & pm2..."
     cd "${TEST_DATA}"
     npm install openclaw@latest
     npm install pm2
     echo "✅ OpenClaw 安装完成"
 else
-    echo ""
-    echo "✅ OpenClaw 已安装，跳过"
+    print_step "✅ OpenClaw 已安装，跳过"
 fi
 
 # 生成测试 token
 TOKEN_FILE="${TEST_DATA}/gateway_token"
 if [ ! -f "${TOKEN_FILE}" ]; then
-    echo ""
-    echo "🔑 生成测试 token..."
+    print_step "🔑 生成测试 token..."
     TEST_TOKEN=$(openssl rand -hex 32 2>/dev/null || echo "test-token-$(date +%s)")
     echo "${TEST_TOKEN}" > "${TOKEN_FILE}"
     echo "✅ Token 已生成: ${TEST_TOKEN}"
 else
-    echo ""
-    echo "✅ Token 已存在: $(cat ${TOKEN_FILE})"
+    print_step "✅ Token 已存在: $(cat "${TOKEN_FILE}")"
 fi
 
 # 初始化 OpenClaw 配置
 CONFIG_FILE="${TEST_DATA}/data/.openclaw/openclaw.json"
 if [ ! -f "${CONFIG_FILE}" ]; then
-    echo ""
-    echo "⚙️  初始化 OpenClaw 配置..."
+    print_step "⚙️  初始化 OpenClaw 配置..."
 
     # 方法 1: 使用 openclaw setup (如果支持)
     if [ -x "${TEST_DATA}/node_modules/.bin/openclaw" ]; then
@@ -75,7 +79,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
     "bind": "0.0.0.0",
     "auth": {
       "mode": "token",
-      "token": "$(cat ${TOKEN_FILE})"
+      "token": "$(cat "${TOKEN_FILE}")"
     }
   },
   "models": {
@@ -91,14 +95,12 @@ EOF
     fi
     echo "✅ 配置已创建"
 else
-    echo ""
-    echo "✅ 配置已存在"
+    print_step "✅ 配置已存在"
 fi
 
 # 创建环境变量文件
 ENV_FILE="${TEST_DIR}/.env.test"
-echo ""
-echo "📝 创建环境变量文件..."
+print_step "📝 创建环境变量文件..."
 cat > "${ENV_FILE}" <<EOF
 # OpenClaw 本地测试环境变量
 # 由 setup-test-env.sh 自动生成
@@ -118,8 +120,8 @@ export OPENCLAW_CONFIG_DIR="${TEST_DATA}/data/.openclaw"
 export OPENCLAW_WORKSPACE_DIR="${TEST_DATA}/data/.openclaw/workspace"
 
 # Node.js 路径 (使用系统 Node.js)
-export NODE_BIN="$(which node)"
-export NPM_BIN="$(which npm)"
+export NODE_BIN="$(command -v node)"
+export NPM_BIN="$(command -v npm)"
 export NODE_PATH="${TEST_DATA}/node_modules"
 
 # 添加 openclaw bin 到 PATH
@@ -129,9 +131,9 @@ EOF
 echo "✅ 环境变量文件已创建: ${ENV_FILE}"
 
 echo ""
-echo "=========================================="
+print_divider
 echo "✅ 测试环境准备完成！"
-echo "=========================================="
+print_divider
 echo ""
 echo "下一步："
 echo "1. 启动测试: bash test/local-test.sh"

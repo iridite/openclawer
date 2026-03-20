@@ -11,6 +11,45 @@ TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${TEST_DIR}/.." && pwd)"
 ENV_FILE="${TEST_DIR}/.env.test"
 
+print_divider() {
+    echo "=========================================="
+}
+
+print_json_or_raw() {
+    local url="$1"
+    curl -s "${url}" | python3 -m json.tool 2>/dev/null || curl -s "${url}"
+}
+
+start_management_api() {
+    node "${PROJECT_ROOT}/app/server/management-api.js"
+}
+
+start_gateway() {
+    openclaw gateway --port "${GATEWAY_PORT}" --token "$(cat "${TRIM_PKGVAR}/gateway_token")"
+}
+
+stop_all_services() {
+    pkill -f "management-api.js" 2>/dev/null && echo "✅ Management API 已停止" || echo "ℹ️  Management API 未运行"
+
+    if [ -f "${TRIM_PKGVAR}/gateway.pid" ]; then
+        kill "$(cat "${TRIM_PKGVAR}/gateway.pid")" 2>/dev/null && echo "✅ Gateway 已停止 (PID)" || true
+        rm -f "${TRIM_PKGVAR}/gateway.pid"
+    fi
+    pkill -f "openclaw.*gateway" 2>/dev/null && echo "✅ Gateway 已停止 (pkill)" || echo "ℹ️  Gateway 未运行"
+}
+
+show_menu() {
+    echo "请选择操作:"
+    echo "1. 启动 Management API (Web 管理界面)"
+    echo "2. 启动 OpenClaw Gateway"
+    echo "3. 同时启动两者"
+    echo "4. 测试 API 连接"
+    echo "5. 查看日志"
+    echo "6. 停止所有服务"
+    echo "0. 退出"
+    echo ""
+}
+
 # 检查环境是否准备好
 if [ ! -f "${ENV_FILE}" ]; then
     echo "❌ 测试环境未准备，请先运行:"
@@ -22,37 +61,28 @@ fi
 echo "📦 加载测试环境变量..."
 source "${ENV_FILE}"
 
-echo "=========================================="
+print_divider
 echo "OpenClaw 本地测试环境"
-echo "=========================================="
+print_divider
 echo "项目根目录: ${PROJECT_ROOT}"
 echo "测试数据目录: ${TRIM_PKGVAR}"
 echo "Management API: http://localhost:${MANAGEMENT_PORT}"
 echo "Gateway: http://localhost:${GATEWAY_PORT}"
-echo "=========================================="
+print_divider
 echo ""
 
-# 显示菜单
-echo "请选择操作:"
-echo "1. 启动 Management API (Web 管理界面)"
-echo "2. 启动 OpenClaw Gateway"
-echo "3. 同时启动两者"
-echo "4. 测试 API 连接"
-echo "5. 查看日志"
-echo "6. 停止所有服务"
-echo "0. 退出"
-echo ""
+show_menu
 
 read -p "请输入选项 [0-6]: " choice
 
-case $choice in
+case "${choice}" in
     1)
         echo ""
         echo "🚀 启动 Management API..."
         echo "访问地址: http://localhost:${MANAGEMENT_PORT}"
         echo "按 Ctrl+C 停止"
         echo ""
-        node "${PROJECT_ROOT}/app/server/management-api.js"
+        start_management_api
         ;;
     2)
         echo ""
@@ -60,7 +90,7 @@ case $choice in
         echo "访问地址: http://localhost:${GATEWAY_PORT}"
         echo "按 Ctrl+C 停止"
         echo ""
-        openclaw gateway --port ${GATEWAY_PORT} --token "$(cat ${TRIM_PKGVAR}/gateway_token)"
+        start_gateway
         ;;
     3)
         echo ""
@@ -69,7 +99,7 @@ case $choice in
 
         # 在后台启动 Gateway
         echo "启动 Gateway (后台)..."
-        openclaw gateway --port ${GATEWAY_PORT} --token "$(cat ${TRIM_PKGVAR}/gateway_token)" \
+        start_gateway \
             >> "${TRIM_PKGVAR}/logs/gateway.log" 2>&1 &
         GATEWAY_PID=$!
         echo "Gateway PID: ${GATEWAY_PID}"
@@ -85,9 +115,16 @@ case $choice in
         echo ""
 
         # 设置退出时清理
-        trap "echo ''; echo '停止服务...'; kill ${GATEWAY_PID} 2>/dev/null; rm -f ${TRIM_PKGVAR}/gateway.pid; exit" INT TERM
+        cleanup_gateway_on_exit() {
+            echo ""
+            echo "停止服务..."
+            kill "${GATEWAY_PID}" 2>/dev/null || true
+            rm -f "${TRIM_PKGVAR}/gateway.pid"
+            exit
+        }
+        trap cleanup_gateway_on_exit INT TERM
 
-        node "${PROJECT_ROOT}/app/server/management-api.js"
+        start_management_api
         ;;
     4)
         echo ""
@@ -95,25 +132,25 @@ case $choice in
         echo ""
 
         # 启动临时服务器
-        node "${PROJECT_ROOT}/app/server/management-api.js" &
+        start_management_api &
         API_PID=$!
 
         sleep 3
 
         # 测试接口
         echo "测试 /api/status..."
-        curl -s http://localhost:${MANAGEMENT_PORT}/api/status | python3 -m json.tool 2>/dev/null || curl -s http://localhost:${MANAGEMENT_PORT}/api/status
+        print_json_or_raw "http://localhost:${MANAGEMENT_PORT}/api/status"
 
         echo ""
         echo "测试 /api/version/current..."
-        curl -s http://localhost:${MANAGEMENT_PORT}/api/version/current | python3 -m json.tool 2>/dev/null || curl -s http://localhost:${MANAGEMENT_PORT}/api/version/current
+        print_json_or_raw "http://localhost:${MANAGEMENT_PORT}/api/version/current"
 
         echo ""
         echo ""
         echo "✅ API 测试完成"
 
         # 停止服务器
-        kill ${API_PID}
+        kill "${API_PID}"
         ;;
     5)
         echo ""
@@ -138,17 +175,7 @@ case $choice in
     6)
         echo ""
         echo "🛑 停止所有服务..."
-
-        # 停止 Management API
-        pkill -f "management-api.js" 2>/dev/null && echo "✅ Management API 已停止" || echo "ℹ️  Management API 未运行"
-
-        # 停止 Gateway
-        if [ -f "${TRIM_PKGVAR}/gateway.pid" ]; then
-            kill $(cat "${TRIM_PKGVAR}/gateway.pid") 2>/dev/null && echo "✅ Gateway 已停止 (PID)" || true
-            rm -f "${TRIM_PKGVAR}/gateway.pid"
-        fi
-        pkill -f "openclaw.*gateway" 2>/dev/null && echo "✅ Gateway 已停止 (pkill)" || echo "ℹ️  Gateway 未运行"
-
+        stop_all_services
         echo ""
         echo "✅ 所有服务已停止"
         ;;

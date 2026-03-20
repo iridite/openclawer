@@ -4,6 +4,7 @@ set -euo pipefail
 
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${TEST_DIR}/.." && pwd)"
+source "${TEST_DIR}/lib/server-test-helpers.sh"
 READY_MAX_ATTEMPTS="${BACKUP_IMPORT_READY_MAX_ATTEMPTS:-20}"
 READY_INTERVAL_SECONDS="${BACKUP_IMPORT_READY_INTERVAL_SECONDS:-0.1}"
 HTTP_CONNECT_TIMEOUT_SECONDS="${BACKUP_IMPORT_CONNECT_TIMEOUT_SECONDS:-0.5}"
@@ -38,9 +39,7 @@ curl_common=(
 )
 
 cleanup() {
-  if [ -n "${API_PID:-}" ]; then
-    kill "${API_PID}" 2>/dev/null || true
-  fi
+  stop_process_if_running "${API_PID:-}"
   rm -rf "${TMP_DIR}" || true
 }
 trap cleanup EXIT
@@ -49,19 +48,7 @@ assert_json_expr() {
   local file="$1"
   local expr="$2"
   local message="$3"
-  node - "${file}" "${expr}" "${message}" <<'NODE'
-const fs = require("fs");
-
-const [file, expr, message] = process.argv.slice(2);
-const data = JSON.parse(fs.readFileSync(file, "utf8"));
-const ok = Function("data", `return (${expr});`)(data);
-
-if (!ok) {
-  console.error(`[backup-import] ${message}`);
-  console.error(JSON.stringify(data, null, 2));
-  process.exit(1);
-}
-NODE
+  node "${TEST_DIR}/lib/assert-json-expr.js" "${file}" "${expr}" "${message}" "backup-import"
 }
 
 mkdir -p "${TRIM_PKGVAR}" "${OC_HOME}"
@@ -69,25 +56,15 @@ cat > "${OC_JS_PATH}" <<'EOF'
 process.exit(0);
 EOF
 
-node "${PROJECT_ROOT}/app/server/management-api.js" > "${API_LOG}" 2>&1 &
-API_PID=$!
-
-READY=0
-for _ in $(seq 1 "${READY_MAX_ATTEMPTS}"); do
-  if curl "${curl_common[@]}" "${API_BASE}/status" >/dev/null 2>&1; then
-    READY=1
-    break
-  fi
-  sleep "${READY_INTERVAL_SECONDS}"
-done
-
-if [ "${READY}" -ne 1 ]; then
-  echo "[backup-import] API 未启动，日志如下:"
-  tail -n 50 "${API_LOG}" || true
-  exit 1
-fi
-
-echo "[backup-import] API ready on ${MANAGEMENT_PORT}"
+API_PID="$(start_management_api "${PROJECT_ROOT}" "${API_LOG}")"
+wait_http_ready \
+  "${API_BASE}/status" \
+  "backup-import" \
+  "${API_LOG}" \
+  "${READY_MAX_ATTEMPTS}" \
+  "${READY_INTERVAL_SECONDS}" \
+  "${HTTP_CONNECT_TIMEOUT_SECONDS}" \
+  "${HTTP_MAX_TIME_SECONDS}"
 
 mkdir -p "${OC_HOME}/memory" "${TRIM_PKGVAR}/plugins/demo-plugin"
 cat > "${CONFIG_FILE}" <<'EOF'
