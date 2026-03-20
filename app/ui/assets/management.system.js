@@ -181,7 +181,7 @@
         return "WebUI 设置";
       case "default":
       default:
-        return "默认值（远程可访问）";
+        return "默认值（仅内网可访问）";
     }
   }
 
@@ -192,12 +192,12 @@
     badge.classList.remove("access-state-local", "access-state-remote");
     if (allowRemote) {
       badge.classList.add("access-state-remote");
-      badge.textContent = "远程可访问";
+      badge.textContent = "允许非内网访问";
       return;
     }
 
     badge.classList.add("access-state-local");
-    badge.textContent = "仅本机";
+    badge.textContent = "仅内网可访问";
   }
 
   function updateManagementAccessToggle(allowRemote) {
@@ -216,8 +216,8 @@
     toggleSwitch.setAttribute("aria-checked", allowRemote === true ? "true" : "false");
     toggleSwitch.setAttribute("aria-pressed", allowRemote === true ? "true" : "false");
     toggleSwitch.title = allowRemote === true
-      ? "当前已开启远程访问，点击切换为仅本机访问"
-      : "当前仅本机访问，点击切换为远程可访问";
+      ? "当前已允许非内网访问，点击切换为仅内网可访问"
+      : "当前仅内网可访问，点击切换为允许非内网访问";
   }
 
   function initManagementAccessToggleControl() {
@@ -268,8 +268,8 @@
       }
       if (noteEl) {
         noteEl.textContent = result.allowRemote
-          ? "当前为远程可访问模式。请确认网络边界已加固。"
-          : "当前为仅本机访问模式。";
+          ? "当前已允许非内网地址访问。请确认边界网络与反向代理策略已加固。"
+          : "当前仅允许本机与局域网访问。";
       }
       updateManagementAccessBadge(!!result.allowRemote);
     } catch (error) {
@@ -288,7 +288,7 @@
     const allowRemote = checkbox.checked === true;
     if (allowRemote) {
       const confirmed = confirm(
-        "开启远程访问后，局域网设备可能直接调用管理 API。\n请确认网络环境可信。\n\n确定继续吗？",
+        "开启后，将允许非内网地址（例如互联网/WAN）访问管理面板/API。\n本机和局域网本来就可访问。\n\n确定继续吗？",
       );
       if (!confirmed) {
         return;
@@ -310,12 +310,12 @@
       }
       if (noteEl) {
         noteEl.textContent = allowRemote
-          ? "当前为远程可访问模式。请确认网络边界已加固。"
-          : "当前为仅本机访问模式。";
+          ? "当前已允许非内网地址访问。请确认边界网络与反向代理策略已加固。"
+          : "当前仅允许本机与局域网访问。";
       }
       updateManagementAccessBadge(allowRemote);
       showToast(
-        allowRemote ? "已启用远程访问" : "已切换为仅本机访问",
+        allowRemote ? "已允许非内网访问" : "已切换为仅内网可访问",
         "success",
       );
       await loadManagementAccessSettings();
