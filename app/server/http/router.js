@@ -51,6 +51,26 @@ function createRouter(deps) {
     sendJson(res, normalized.statusCode, payload);
   }
 
+  function parseExpectedConfigVersion(req) {
+    const ifMatchRaw = req.headers["if-match"];
+    if (typeof ifMatchRaw === "string" && ifMatchRaw.trim()) {
+      const normalized = ifMatchRaw
+        .trim()
+        .replace(/^W\//i, "")
+        .replace(/^"|"$/g, "");
+      if (normalized && normalized !== "*") {
+        return normalized;
+      }
+    }
+
+    const headerVersion = req.headers["x-config-version"];
+    if (typeof headerVersion === "string" && headerVersion.trim()) {
+      return headerVersion.trim();
+    }
+
+    return "";
+  }
+
   function handleApiRoutes(req, res, pathname, method, url) {
     if (method === "GET" && pathname === "/api/backup/export") {
       backup.createBackupArchive("manual-export")
@@ -96,10 +116,38 @@ function createRouter(deps) {
       return true;
     }
 
+    if (method === "GET" && pathname === "/api/config") {
+      config.getConfigWithVersion()
+        .then((result) => {
+          const version = String(result?.version || "");
+          const headers = {
+            "Content-Type": "application/json",
+          };
+          if (version) {
+            headers.ETag = `"${version}"`;
+            headers["X-Config-Version"] = version;
+          }
+          res.writeHead(200, headers);
+          res.end(JSON.stringify(result?.config || {}));
+        })
+        .catch((err) => sendError(res, err));
+      return true;
+    }
+
+    if (method === "POST" && pathname === "/api/config") {
+      parseJsonBody(req)
+        .then((payload) => config.saveConfig(payload, {
+          expectedVersion: parseExpectedConfigVersion(req),
+        }))
+        .then((result) => {
+          sendJson(res, 200, result);
+        })
+        .catch((err) => sendError(res, err));
+      return true;
+    }
+
     const routes = {
       "GET /api/status": gateway.getStatus,
-      "GET /api/config": config.getConfig,
-      "POST /api/config": async () => config.saveConfig(await parseJsonBody(req)),
       "POST /api/config/reset": config.resetConfig,
       "POST /api/config/validate": async () => config.validateConfig(await parseJsonBody(req)),
       "POST /api/config/analyze-impact": async () =>

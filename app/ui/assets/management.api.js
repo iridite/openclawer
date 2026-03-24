@@ -94,6 +94,15 @@
     }
 
     if (response.status === 409) {
+      if (apiCode === "config_version_conflict") {
+        return [
+          baseMessage,
+          "配置已被其他页面或操作更新。",
+          "请先刷新当前页面重新加载最新配置，再重新应用你的修改。",
+          "错误码: config_version_conflict",
+        ].join("\n");
+      }
+
       return [
         baseMessage,
         "当前状态与执行条件冲突。通常是配置文件缺失、目标已变化，或需要先完成前置步骤。",
@@ -133,6 +142,24 @@
 
     if (!response.ok) {
       throw new Error(buildApiErrorMessage(endpoint, response, data));
+    }
+
+    if (endpoint === "/config" && data && typeof data === "object" && !Array.isArray(data)) {
+      const version = String(
+        response.headers.get("x-config-version") ||
+        response.headers.get("etag") || "",
+      )
+        .trim()
+        .replace(/^W\//i, "")
+        .replace(/^"|"$/g, "");
+      if (version) {
+        Object.defineProperty(data, "__ocConfigVersion", {
+          value: version,
+          writable: true,
+          configurable: true,
+          enumerable: false,
+        });
+      }
     }
 
     return data;

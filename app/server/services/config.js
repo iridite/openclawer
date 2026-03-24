@@ -43,6 +43,11 @@ function createConfigService(deps) {
   );
   let configMutationQueue = Promise.resolve();
 
+  function computeConfigVersion(config) {
+    const serialized = JSON.stringify(config || {});
+    return crypto.createHash("sha256").update(serialized).digest("hex");
+  }
+
   function normalizeBool(value) {
     return value === true || value === "true";
   }
@@ -223,11 +228,11 @@ function createConfigService(deps) {
     });
   }
 
-  async function getConfig() {
+  async function getConfigWithVersion() {
     return runSerializedConfigMutation(async () => {
       const config = readJSON(CONFIG_FILE);
       if (!config) {
-        return applyManagedConfigPatch({
+        const fallbackConfig = applyManagedConfigPatch({
           models: {},
           channels: {},
         }, {
@@ -236,6 +241,10 @@ function createConfigService(deps) {
           allowedPlugins: DEFAULT_ALLOWED_PLUGINS,
           preservedToken: getTokenFromConfig(),
         });
+        return {
+          config: fallbackConfig,
+          version: computeConfigVersion(fallbackConfig),
+        };
       }
 
       const providerMigrationChanged = migrateLegacyManagedFileProvider(config);
@@ -246,14 +255,48 @@ function createConfigService(deps) {
         }
       }
 
-      return config;
+      return {
+        config,
+        version: computeConfigVersion(config),
+      };
     });
   }
 
-  async function saveConfig(newConfig) {
+  async function getConfig() {
+    const result = await getConfigWithVersion();
+    return result.config;
+  }
+
+  async function saveConfig(newConfig, options = {}) {
     return runSerializedConfigMutation(async () => {
       if (!newConfig || typeof newConfig !== "object") {
         throw badRequestError("无效的配置格式");
+      }
+
+      const expectedVersion = String(options.expectedVersion || "").trim();
+      if (!expectedVersion) {
+        throw badRequestError("缺少配置版本，请先重新加载配置后再保存");
+      }
+
+      const currentConfig = readJSON(CONFIG_FILE) || applyManagedConfigPatch({
+        models: {},
+        channels: {},
+      }, {
+        gatewayPort: GATEWAY_PORT,
+        ocHome: OC_HOME,
+        allowedPlugins: DEFAULT_ALLOWED_PLUGINS,
+        preservedToken: getTokenFromConfig(),
+      });
+      const currentVersion = computeConfigVersion(currentConfig);
+      if (expectedVersion !== currentVersion) {
+        throw new AppError("配置已被其他操作更新，请刷新后重试", {
+          statusCode: 409,
+          code: "config_version_conflict",
+          details: {
+            expectedVersion,
+            currentVersion,
+          },
+        });
       }
 
       migrateLegacyManagedFileProvider(newConfig);
@@ -277,7 +320,10 @@ function createConfigService(deps) {
         throw conflictError("写入配置文件失败");
       }
 
-      return { success: true };
+      return {
+        success: true,
+        version: computeConfigVersion(newConfig),
+      };
     });
   }
 
@@ -1007,6 +1053,7 @@ function createConfigService(deps) {
 
   return {
     getConfig,
+    getConfigWithVersion,
     saveConfig,
     resetConfig,
     addModel,

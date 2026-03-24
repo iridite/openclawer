@@ -69,9 +69,48 @@ async function toggleEditorMode() {
   validateConfigInput();
 }
 
+function setConfigVersionMeta(config, version) {
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return;
+  }
+  const normalizedVersion = String(version || "").trim();
+  if (!normalizedVersion) {
+    return;
+  }
+  Object.defineProperty(config, "__ocConfigVersion", {
+    value: normalizedVersion,
+    writable: true,
+    configurable: true,
+    enumerable: false,
+  });
+}
+
+function getCurrentConfigVersion() {
+  const directVersion = String(currentConfig?.__ocConfigVersion || "").trim();
+  if (directVersion) {
+    return directVersion;
+  }
+  return "";
+}
+
+function buildConfigSaveHeaders() {
+  const version = getCurrentConfigVersion();
+  if (!version) {
+    throw new Error("当前配置版本已失效，请先重新加载配置后再保存");
+  }
+  return {
+    "If-Match": `"${version}"`,
+    "X-Config-Version": version,
+  };
+}
+
 async function loadConfig() {
   try {
     const config = await apiRequest("/config");
+    const version = String(config?.__ocConfigVersion || "").trim();
+    if (version) {
+      setConfigVersionMeta(config, version);
+    }
     currentConfig = config;
     const jsonStr = JSON.stringify(config, null, 2);
 
@@ -141,11 +180,16 @@ async function saveConfig() {
     }
 
     // 保存配置
-    await apiRequest("/config", {
+    const saveResult = await apiRequest("/config", {
       method: "POST",
+      headers: buildConfigSaveHeaders(),
       body: JSON.stringify(config),
     });
 
+    const nextVersion = String(saveResult?.version || "").trim();
+    if (nextVersion) {
+      setConfigVersionMeta(config, nextVersion);
+    }
     currentConfig = config;
     showToast("配置保存成功！请重启 Gateway 使配置生效。", "success");
   } catch (error) {
@@ -311,10 +355,16 @@ async function applyImportedConfig() {
       );
     }
 
-    await apiRequest("/config", {
+    const saveResult = await apiRequest("/config", {
       method: "POST",
+      headers: buildConfigSaveHeaders(),
       body: JSON.stringify(parsed.data),
     });
+
+    const nextVersion = String(saveResult?.version || "").trim();
+    if (nextVersion) {
+      setConfigVersionMeta(parsed.data, nextVersion);
+    }
 
     let restartSucceeded = true;
     let restartError = "";
