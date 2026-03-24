@@ -443,7 +443,7 @@ button {
     return true;
   }
 
-  function handleDashboardUpgrade(req, socket) {
+  function handleDashboardUpgrade(req, socket, head) {
     const url = parseRequestUrl(req);
     const pathname = url.pathname;
 
@@ -474,6 +474,9 @@ button {
     proxyHeaders.host = `127.0.0.1:${GATEWAY_PORT}`;
     proxyHeaders.origin = `http://127.0.0.1:${GATEWAY_PORT}`;
     proxyHeaders.referer = `http://127.0.0.1:${GATEWAY_PORT}/`;
+    // WebSocket 升级头必须显式透传，否则上游不会完成 101 upgrade。
+    proxyHeaders.connection = "Upgrade";
+    proxyHeaders.upgrade = req.headers.upgrade || "websocket";
 
     console.log(
       `[WebSocket] Upgrading: ${pathname} -> Gateway:${GATEWAY_PORT}${proxyPath}`,
@@ -512,6 +515,16 @@ button {
       if (proxyHead && proxyHead.length) {
         socket.write(proxyHead);
       }
+      // client upgrade 事件里可能已携带首包，必须转发到上游。
+      if (head && head.length) {
+        proxySocket.write(head);
+      }
+
+      // 升级成功后移除握手超时，避免空闲 15s 被误杀导致 1006。
+      socket.setTimeout(0);
+      proxySocket.setTimeout(0);
+      socket.setNoDelay(true);
+      proxySocket.setNoDelay(true);
 
       proxySocket.pipe(socket);
       socket.pipe(proxySocket);

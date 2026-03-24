@@ -229,7 +229,8 @@ function createRouter(deps) {
     const handler = routes[routeKey];
 
     if (handler) {
-      handler()
+      Promise.resolve()
+        .then(() => handler())
         .then((result) => {
           sendJson(res, 200, result);
         })
