@@ -49,33 +49,43 @@ request_json() {
   local path="$2"
   local outfile="$3"
   local body="${4:-}"
+  local extra_header="${5:-}"
   local status
 
-  if [ -n "${body}" ]; then
-    status="$(
-      curl -sS -o "${outfile}" -w "%{http_code}" \
-        --connect-timeout "${HTTP_CONNECT_TIMEOUT_SECONDS}" \
-        --max-time "${HTTP_MAX_TIME_SECONDS}" \
-        -X "${method}" \
-        -H "Content-Type: application/json" \
-        --data "${body}" \
-        "${API_BASE}${path}"
-    )"
-  else
-    status="$(
-      curl -sS -o "${outfile}" -w "%{http_code}" \
-        --connect-timeout "${HTTP_CONNECT_TIMEOUT_SECONDS}" \
-        --max-time "${HTTP_MAX_TIME_SECONDS}" \
-        -X "${method}" \
-        "${API_BASE}${path}"
-    )"
+  local curl_args=(
+    -sS -o "${outfile}" -w "%{http_code}"
+    --connect-timeout "${HTTP_CONNECT_TIMEOUT_SECONDS}"
+    --max-time "${HTTP_MAX_TIME_SECONDS}"
+    -X "${method}"
+  )
+
+  if [ -n "${extra_header}" ]; then
+    curl_args+=( -H "${extra_header}" )
   fi
+
+  if [ -n "${body}" ]; then
+    curl_args+=( -H "Content-Type: application/json" --data "${body}" )
+  fi
+
+  status="$(curl "${curl_args[@]}" "${API_BASE}${path}")"
 
   if [ "${status}" != "200" ]; then
     echo "[capability] unexpected HTTP ${status} for ${method} ${path}"
     cat "${outfile}" || true
     exit 1
   fi
+}
+
+get_config_version() {
+  local headers_file="$1"
+  local outfile="$2"
+
+  curl -sS -D "${headers_file}" -o "${outfile}" \
+    --connect-timeout "${HTTP_CONNECT_TIMEOUT_SECONDS}" \
+    --max-time "${HTTP_MAX_TIME_SECONDS}" \
+    "${API_BASE}/config" >/dev/null
+
+  awk 'BEGIN{IGNORECASE=1} /^x-config-version:/ {gsub(/\r/, "", $2); print $2; exit}' "${headers_file}"
 }
 
 request_expect_status() {
@@ -149,8 +159,13 @@ wait_http_ready \
   "${HTTP_MAX_TIME_SECONDS}"
 
 # 初始化 openclaw.json
-request_json GET "/config" "${TMP_DIR}/config-default.json"
-request_json POST "/config" "${TMP_DIR}/config-save.json" "$(cat "${TMP_DIR}/config-default.json")"
+CONFIG_HEADERS_FILE="${TMP_DIR}/config-default.headers"
+CONFIG_VERSION="$(get_config_version "${CONFIG_HEADERS_FILE}" "${TMP_DIR}/config-default.json")"
+if [ -z "${CONFIG_VERSION}" ]; then
+  echo "[capability] missing x-config-version header from GET /config"
+  exit 1
+fi
+request_json POST "/config" "${TMP_DIR}/config-save.json" "$(cat "${TMP_DIR}/config-default.json")" "If-Match: \"${CONFIG_VERSION}\""
 assert_json_expr "${TMP_DIR}/config-save.json" "data.success === true" "初始化配置失败"
 
 # 模型：添加、编辑、切换主模型、删除
