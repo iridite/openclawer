@@ -47,6 +47,8 @@
 ## 插件与技能检查
 
 - [ ] 插件状态检查仍能区分 `installed / disabled / missing / unverified`
+- [ ] 插件安装链路在 HTTPS registry 场景可用，不依赖本机 GitHub SSH 密钥
+- [ ] 遇到 `git@github.com / Permission denied (publickey)` 时，错误提示可指向 Git `url.insteadOf` 排查
 - [ ] 技能列表仍能区分 `builtin / user`
 - [ ] 技能启用/禁用仍通过 `skills.entries` 生效
 

@@ -438,17 +438,30 @@ tail -n 100 /var/apps/oc-deploy/var/openclaw.log
 
 是否与供应商文档一致。
 
-### QQ 插件安装失败
+### QQ / WeCom 插件安装失败
 
 若出现 `plugins.allow is empty`，在 `openclaw.json` 中加入：
 
 ```json
 {
   "plugins": {
-    "allow": ["openclaw-qqbot"]
+    "allow": ["openclaw-qqbot", "wecom-openclaw-plugin"]
   }
 }
 ```
+
+若报错包含 `git@github.com`、`Permission denied (publickey)`、`git+ssh`：
+
+- 通常不是插件包本身要求 SSH，而是系统 Git 配置把 `https://github.com` 重写成了 SSH
+- 可先检查：
+
+```bash
+git config --global --get-regexp '^url\\..*\\.insteadof$'
+git config --system --get-regexp '^url\\..*\\.insteadof$'
+```
+
+- 若存在将 GitHub 改写到 SSH 的规则，移除后再重试插件安装
+- OC-Deploy 当前已在插件安装链路中强制优先使用 HTTPS registry，并屏蔽全局 Git rewrite 以降低该类失败概率
 
 ## 📚 文档
 
