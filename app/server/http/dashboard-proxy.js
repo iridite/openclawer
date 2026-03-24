@@ -36,13 +36,14 @@ function createDashboardProxyService(options) {
 
   function getInjectionScript(token) {
     if (!token) return "";
+    const safeTokenLiteral = JSON.stringify(String(token));
     return `<script>
 (function(){
   // 自动配置 OpenClaw Control UI 连接参数
   var SETTINGS_KEY = 'openclaw.control.settings.v1';
   var wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
   var wsUrl = wsProto + '://' + location.host + '/dashboard';
-  var targetToken = '${token}';
+  var targetToken = ${safeTokenLiteral};
 
   // 强制设置配置的函数
   function forceSetConfig() {

@@ -444,6 +444,50 @@ function createBackupService(options) {
     });
   }
 
+  async function listArchiveEntries(archivePath) {
+    const cmd = `tar -tzf ${shellQuote(archivePath)}`;
+    const output = await execCommand(cmd, { timeout: 600000 });
+    return String(output || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  }
+
+  function validateArchiveEntryPath(entry) {
+    const raw = String(entry || "").trim();
+    if (!raw) {
+      return { ok: false, reason: "empty entry" };
+    }
+
+    const normalized = raw.replace(/\\/g, "/");
+    if (normalized.startsWith("/") || /^[a-zA-Z]:\//.test(normalized)) {
+      return { ok: false, reason: "absolute path" };
+    }
+
+    const cleaned = path.posix.normalize(normalized);
+    if (
+      cleaned === ".." ||
+      cleaned.startsWith("../") ||
+      cleaned.includes("/../")
+    ) {
+      return { ok: false, reason: "path traversal" };
+    }
+
+    return { ok: true };
+  }
+
+  async function assertArchiveSafe(archivePath) {
+    const entries = await listArchiveEntries(archivePath);
+    for (const entry of entries) {
+      const check = validateArchiveEntryPath(entry);
+      if (!check.ok) {
+        throw badRequestError(
+          `备份包包含非法路径条目，已拒绝导入: ${entry} (${check.reason})`,
+        );
+      }
+    }
+  }
+
   async function importBackupArchiveFromRequest(req) {
     const contentType = req.headers["content-type"] || "";
     if (!contentType.includes("multipart/form-data")) {
@@ -467,6 +511,7 @@ function createBackupService(options) {
       if (archivePath !== upload.archivePath) {
         await fsp.rename(upload.archivePath, archivePath);
       }
+      await assertArchiveSafe(archivePath);
       await fsp.mkdir(extractDir, { recursive: true });
 
       const extractCmd = `tar -xzf ${shellQuote(archivePath)} -C ${shellQuote(extractDir)}`;

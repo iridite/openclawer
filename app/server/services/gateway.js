@@ -107,6 +107,7 @@ function createGatewayService(options) {
       return statusCache;
     }
 
+    const token = String(getTokenFromConfig() || "").trim();
     const status = {
       gateway: "unknown",
       gatewayPid: null,
@@ -120,7 +121,7 @@ function createGatewayService(options) {
       },
       version: "unknown",
       configExists: fs.existsSync(CONFIG_FILE),
-      token: getTokenFromConfig(),
+      tokenConfigured: token.length > 0,
       uptime: null,
     };
 

@@ -586,6 +586,21 @@ server.on("clientError", (err, socket) => {
 // WebSocket 升级处理 - 转发到 Gateway
 server.on("upgrade", (req, socket, head) => {
   try {
+    if (!isAccessAllowed(req)) {
+      try {
+        socket.write(
+          "HTTP/1.1 403 Forbidden\r\n" +
+          "Content-Type: text/plain; charset=utf-8\r\n" +
+          "Connection: close\r\n\r\n" +
+          "Forbidden: Management API only allows localhost/LAN by default.",
+        );
+      } catch (writeErr) {
+        // Ignore write failures on broken sockets.
+      }
+      socket.destroy();
+      return;
+    }
+
     handleDashboardUpgrade(req, socket, head);
   } catch (err) {
     console.error(
