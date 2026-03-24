@@ -142,8 +142,8 @@ assert_json_expr "${TMP_DIR}/status-remote-denied.json" "data.code === 'forbidde
 
 # 静态页面同样拒绝公网来源
 request_web_root "${TMP_DIR}/web-remote-denied.txt" "403" "X-Forwarded-For: 8.8.8.8"
-if ! grep -q "localhost/LAN" "${TMP_DIR}/web-remote-denied.txt"; then
-  echo "[access] static forbidden page missing localhost/LAN hint"
+if ! grep -q "管理访问" "${TMP_DIR}/web-remote-denied.txt"; then
+  echo "[access] static forbidden page missing management access hint"
   cat "${TMP_DIR}/web-remote-denied.txt" || true
   exit 1
 fi
