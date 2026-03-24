@@ -76,14 +76,24 @@ function isProcessRunning(pid) {
   }
 }
 
-// 工具函数：从 openclaw.json 读取 token
+// 工具函数：读取 Gateway token（多源兜底）
 function getTokenFromConfig() {
   try {
     const config = readJSON(CONFIG_FILE);
-    return config?.gateway?.auth?.token || "";
-  } catch (err) {
-    return "";
-  }
+    const configToken = String(config?.gateway?.auth?.token || "").trim();
+    if (configToken) {
+      return configToken;
+    }
+  } catch (err) {}
+
+  try {
+    const fileToken = String(readText(TOKEN_FILE) || "").trim();
+    if (fileToken) {
+      return fileToken;
+    }
+  } catch (err) {}
+
+  return "";
 }
 
 function getSystemPaths() {

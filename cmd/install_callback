@@ -465,21 +465,44 @@ end
 ENVEOF
     chmod +x "${FISH_CONF_FILE}" >> "${LOG_FILE}" 2>&1 || true
 
-    # 为 root 直接终端场景补充稳定入口：若系统中没有 node/npm/openclaw，则在 /usr/local/bin 创建软链接
+    # 为 root 直接终端场景补充稳定入口：在 /usr/local/bin 维护可修复的软链接
     mkdir -p "${LOCAL_BIN_DIR}" >> "${LOG_FILE}" 2>&1 || true
 
-    if [ -x "${NODE_TARGET}" ] && [ ! -e "${LOCAL_BIN_DIR}/node" ]; then
-        ln -s "${NODE_TARGET}" "${LOCAL_BIN_DIR}/node" >> "${LOG_FILE}" 2>&1 || true
-    fi
-    if [ -x "${NPM_TARGET}" ] && [ ! -e "${LOCAL_BIN_DIR}/npm" ]; then
-        ln -s "${NPM_TARGET}" "${LOCAL_BIN_DIR}/npm" >> "${LOG_FILE}" 2>&1 || true
-    fi
-    if [ -x "${PYTHON_TARGET}" ] && [ ! -e "${LOCAL_BIN_DIR}/python3" ]; then
-        ln -s "${PYTHON_TARGET}" "${LOCAL_BIN_DIR}/python3" >> "${LOG_FILE}" 2>&1 || true
-    fi
-    if [ -x "${OPENCLAW_BIN}" ] && [ ! -e "${LOCAL_BIN_DIR}/openclaw" ]; then
-        ln -s "${OPENCLAW_BIN}" "${LOCAL_BIN_DIR}/openclaw" >> "${LOG_FILE}" 2>&1 || true
-    fi
+    ensure_bin_symlink() {
+        local target="$1"
+        local link_path="$2"
+        local name="$3"
+
+        if [ ! -x "${target}" ]; then
+            log_msg "Skip ${name} symlink: target not executable (${target})"
+            return 0
+        fi
+
+        if [ -L "${link_path}" ]; then
+            local current_target
+            current_target="$(readlink "${link_path}" 2>/dev/null || true)"
+            if [ "${current_target}" = "${target}" ]; then
+                return 0
+            fi
+            rm -f "${link_path}" >> "${LOG_FILE}" 2>&1 || true
+            ln -s "${target}" "${link_path}" >> "${LOG_FILE}" 2>&1 || true
+            log_msg "Updated ${name} symlink: ${link_path} -> ${target}"
+            return 0
+        fi
+
+        if [ -e "${link_path}" ]; then
+            log_msg "Skip ${name} symlink: ${link_path} exists and is not a symlink"
+            return 0
+        fi
+
+        ln -s "${target}" "${link_path}" >> "${LOG_FILE}" 2>&1 || true
+        log_msg "Created ${name} symlink: ${link_path} -> ${target}"
+    }
+
+    ensure_bin_symlink "${NODE_TARGET}" "${LOCAL_BIN_DIR}/node" "node"
+    ensure_bin_symlink "${NPM_TARGET}" "${LOCAL_BIN_DIR}/npm" "npm"
+    ensure_bin_symlink "${PYTHON_TARGET}" "${LOCAL_BIN_DIR}/python3" "python3"
+    ensure_bin_symlink "${OPENCLAW_BIN}" "${LOCAL_BIN_DIR}/openclaw" "openclaw"
 
     log_msg "Environment variables configured successfully"
     log_msg "Note: new shell session may be required for PATH changes to take effect"
