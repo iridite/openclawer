@@ -421,24 +421,51 @@
     }
   }
 
+  function buildRelativeDashboardUrl(token) {
+    const cleanToken = String(token || "").trim();
+    if (!cleanToken) {
+      return "/dashboard/";
+    }
+    return `/dashboard/?token=${encodeURIComponent(cleanToken)}`;
+  }
+
+  function preSeedDashboardSettings(token) {
+    const cleanToken = String(token || "").trim();
+    if (!cleanToken) {
+      return;
+    }
+
+    try {
+      const settingsKey = "openclaw.control.settings.v1";
+      const wsProto = global.location.protocol === "https:" ? "wss" : "ws";
+      const wsUrl = `${wsProto}://${global.location.host}/dashboard`;
+      const existing = JSON.parse(global.localStorage.getItem(settingsKey) || "{}");
+      existing.gatewayUrl = wsUrl;
+      existing.token = cleanToken;
+      if (!existing.sessionKey) {
+        existing.sessionKey = "main";
+      }
+      global.localStorage.setItem(settingsKey, JSON.stringify(existing));
+    } catch (err) {
+      console.warn("预写 dashboard 设置失败:", err);
+    }
+  }
+
   async function openConsole() {
     try {
       const info = await apiRequest("/console/url");
+      const token = String(info?.token || "").trim();
 
-      if (!info || !info.url) {
-        showToast("获取原生控制面板地址失败，尝试直接打开...", "warning");
-        global.location.href = "/dashboard/";
-        return;
-      }
-
-      if (!info.token) {
+      if (!token) {
         showToast(
           "未检测到网关令牌，打开原生控制面板可能需要手动填写",
           "warning",
         );
       }
 
-      global.location.href = info.url;
+      // 始终优先使用相对路径，避免反向代理/中继场景下 host/proto 失配。
+      preSeedDashboardSettings(token);
+      global.location.href = buildRelativeDashboardUrl(token);
     } catch (error) {
       showToast("打开原生控制面板失败: " + error.message, "error");
     }
