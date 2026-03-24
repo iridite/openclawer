@@ -359,6 +359,14 @@ node app/server/management-api.js
 bash test/smoke.sh
 ```
 
+#### 全量冗余回归（复杂改动建议）
+
+```bash
+bash test/full-regression.sh
+```
+
+用于一次性覆盖安装脚本、PATH 注入、配置写回、访问策略、备份导入导出、技能安装等高风险链路。
+
 #### 备份导入回归
 
 ```bash

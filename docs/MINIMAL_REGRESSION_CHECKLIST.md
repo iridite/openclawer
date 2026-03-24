@@ -65,3 +65,7 @@
 - [ ] `bash test/smoke.sh` 通过
 - [ ] README / docs 已同步更新
 - [ ] 本文档中与本次改动相关的条目已人工确认
+
+若改动涉及安装流程 / 插件安装 / 访问控制 / 配置并发写回等复杂链路，额外要求：
+
+- [ ] `bash test/full-regression.sh` 通过
