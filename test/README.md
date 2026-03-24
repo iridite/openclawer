@@ -160,14 +160,15 @@ bash test/priority-error-semantics.sh
 
 ## 🛡️ 管理访问策略回归
 
-用于验证“默认拒绝公网来源、允许 LAN、开关可即时生效”的访问边界：
+用于验证“默认允许公网来源、可收敛为拒绝公网、允许 LAN、开关可即时生效”的访问边界：
 
 ```bash
 bash test/access-policy-regression.sh
 ```
 
 检查项包含：
-- 默认 `allowRemote=false` 时，公网来源（`X-Forwarded-For`/`X-Real-IP`）返回 `403 forbidden`
+- 默认 `allowRemote=true` 时，公网来源可访问
+- 关闭 `allowRemote` 后，公网来源（`X-Forwarded-For`/`X-Real-IP`）返回 `403 forbidden`
 - 静态页面与 API 都遵循同一访问策略
 - LAN 来源默认允许
 - 切换 `allowRemote` 后，公网来源放行/拦截行为即时变化

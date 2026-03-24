@@ -338,6 +338,7 @@ POST /api/skills/update
 | `USER_BACKUP_ROOT` | `/root/oc-deploy/user-backups` | 手动导出/导入前备份的持久化目录 |
 | `MAX_BACKUP_UPLOAD_BYTES` | `536870912` | 完整备份导入的最大上传体积限制（字节） |
 | `API_MAX_BODY_BYTES` | `5242880` | JSON API 请求体大小上限（字节，默认 5MB） |
+| `MANAGEMENT_ALLOW_REMOTE_DEFAULT` | `true` | 管理访问默认是否允许非内网来源（首次启动生效，已有持久化配置优先） |
 | `MODEL_TEST_TIMEOUT_MS` | `15000` | 模型连通性测试超时时间（毫秒） |
 | `SKILLS_SEARCH_API` | `https://lightmake.site/api/v1/search` | 技能搜索接口地址 |
 | `SKILLS_PRIMARY_DOWNLOAD_API` | `https://lightmake.site/api/v1/download` | 技能主下载接口地址 |
@@ -382,7 +383,7 @@ bash test/backup-import-regression.sh
 bash test/access-policy-regression.sh
 ```
 
-该测试覆盖默认拒绝公网来源、LAN 默认放行、以及 `allowRemote` 开关切换后的即时生效语义。
+该测试覆盖默认允许公网来源、关闭 `allowRemote` 后拦截公网来源、以及开关切换后的即时生效语义。
 
 当前 smoke 基线覆盖：
 
