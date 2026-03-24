@@ -491,10 +491,12 @@ function createPluginService(options) {
 
       const registryInstallVariants = [
         {
+          suffix: "mirror",
           strategy: "openclaw-cli-mirror",
           registry: "https://registry.npmmirror.com",
         },
         {
+          suffix: "npmjs",
           strategy: "openclaw-cli-npmjs",
           registry: "https://registry.npmjs.org",
         },
@@ -503,7 +505,7 @@ function createPluginService(options) {
       if (OC_BIN_PATH) {
         for (const variant of registryInstallVariants) {
           commands.push({
-            strategy: `oc-bin-path-${variant.strategy.split("openclaw-cli-")[1]}`,
+            strategy: `oc-bin-path-${variant.suffix}`,
             command:
               `cd ${shQuote(TRIM_PKGVAR)} && ${commonInstallEnv} ` +
               `NPM_CONFIG_REGISTRY=${shQuote(variant.registry)} ` +
