@@ -474,31 +474,70 @@ function createPluginService(options) {
 
     function buildInstallCommands() {
       const commands = [];
-      const envPrefix =
+      const homeDir = path.dirname(OC_HOME);
+      const npmCliPath = NODE_BIN_DIR ? path.join(NODE_BIN_DIR, "npm") : "";
+      const hasNodeBoundNpm = Boolean(NODE_BIN && npmCliPath && fs.existsSync(npmCliPath));
+      const npmCmd = hasNodeBoundNpm
+        ? `${shQuote(NODE_BIN)} ${shQuote(npmCliPath)}`
+        : "npm";
+
+      // 强制 HTTPS registry，并禁用全局 Git rewrite，避免 https 被 insteadOf 改写成 ssh。
+      const commonInstallEnv =
         `env OPENCLAW_CONFIG_PATH=${shQuote(CONFIG_FILE)} ` +
-        `HOME=${shQuote(path.dirname(OC_HOME))}`;
+        `HOME=${shQuote(homeDir)} ` +
+        `PATH=${shQuote(`${NODE_BIN_DIR}:${PKG_NODE_BIN_DIR}:${process.env.PATH || ""}`)} ` +
+        "GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null " +
+        "NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false";
+
+      const registryInstallVariants = [
+        {
+          strategy: "openclaw-cli-mirror",
+          registry: "https://registry.npmmirror.com",
+        },
+        {
+          strategy: "openclaw-cli-npmjs",
+          registry: "https://registry.npmjs.org",
+        },
+      ];
+
       if (OC_BIN_PATH) {
-        commands.push(
-          {
-            strategy: "oc-bin-path",
+        for (const variant of registryInstallVariants) {
+          commands.push({
+            strategy: `oc-bin-path-${variant.strategy.split("openclaw-cli-")[1]}`,
             command:
-              `cd ${shQuote(TRIM_PKGVAR)} && ${envPrefix} ${shQuote(OC_BIN_PATH)} plugins install ${shQuote(plugin.pkg)}`,
-          },
-        );
+              `cd ${shQuote(TRIM_PKGVAR)} && ${commonInstallEnv} ` +
+              `NPM_CONFIG_REGISTRY=${shQuote(variant.registry)} ` +
+              `${shQuote(OC_BIN_PATH)} plugins install ${shQuote(plugin.pkg)}`,
+          });
+        }
       }
-      commands.push(
-        {
-          strategy: "openclaw-cli",
+
+      for (const variant of registryInstallVariants) {
+        commands.push({
+          strategy: variant.strategy,
           command:
-            `cd ${shQuote(TRIM_PKGVAR)} && ${envPrefix} openclaw plugins install ${shQuote(plugin.pkg)}`,
-        },
-      );
-      commands.push(
-        {
-          strategy: "npm-fallback",
-          command: `cd ${shQuote(TRIM_PKGVAR)} && npm install ${shQuote(plugin.pkg)}`,
-        },
-      );
+            `cd ${shQuote(TRIM_PKGVAR)} && ${commonInstallEnv} ` +
+            `NPM_CONFIG_REGISTRY=${shQuote(variant.registry)} ` +
+            `openclaw plugins install ${shQuote(plugin.pkg)}`,
+        });
+      }
+
+      // 最后兜底：直接 npm 安装到 app 运行目录，便于诊断环境问题。
+      commands.push({
+        strategy: "npm-fallback-mirror",
+        command:
+          `cd ${shQuote(TRIM_PKGVAR)} && ${commonInstallEnv} ` +
+          "NPM_CONFIG_REGISTRY=https://registry.npmmirror.com " +
+          `${npmCmd} install ${shQuote(plugin.pkg)}`,
+      });
+      commands.push({
+        strategy: "npm-fallback-npmjs",
+        command:
+          `cd ${shQuote(TRIM_PKGVAR)} && ${commonInstallEnv} ` +
+          "NPM_CONFIG_REGISTRY=https://registry.npmjs.org " +
+          `${npmCmd} install ${shQuote(plugin.pkg)}`,
+      });
+
       return commands;
     }
 
@@ -632,9 +671,23 @@ function createPluginService(options) {
         if (isAppError(err)) {
           throw err;
         }
-        const details = err?.stderr ? { stderr: String(err.stderr) } : undefined;
+        const rawMessage = String(err?.stderr || err?.message || "未知错误");
+        const lowerMessage = rawMessage.toLowerCase();
+        const sshKeyError =
+          lowerMessage.includes("permission denied (publickey)") ||
+          lowerMessage.includes("git@github.com") ||
+          lowerMessage.includes("could not read from remote repository") ||
+          lowerMessage.includes("ssh") ||
+          lowerMessage.includes("git+ssh");
+        const registryHint = sshKeyError
+          ? "检测到 Git SSH 拉取失败。已优先尝试 HTTPS registry 安装；若仍失败，请检查系统全局 git 的 url.insteadOf 配置，避免将 https://github.com 改写为 git@github.com。"
+          : "";
+        const details = {
+          stderr: rawMessage,
+          hint: registryHint,
+        };
         throw badGatewayError(
-          `${plugin.name}插件安装失败: ${String(err?.stderr || err?.message || "未知错误")}`,
+          `${plugin.name}插件安装失败: ${rawMessage}${registryHint ? `；${registryHint}` : ""}`,
           details,
         );
       } finally {
