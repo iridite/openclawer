@@ -386,6 +386,7 @@ bash test/access-policy-regression.sh
 当前 smoke 基线覆盖：
 
 - management-api 启动与 `GET /api/status`
+- `GET /api/status` 不再返回网关 token 明文，仅返回 `tokenConfigured` 状态位
 - 静态首页可访问
 - 静态资源 `ETag / 304` 协商
 - `GET /dashboard/` 在 Gateway 未启动时返回 fallback 页面
