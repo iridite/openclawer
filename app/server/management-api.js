@@ -510,6 +510,62 @@ function applyCorsHeaders(req, res) {
   }
 }
 
+function escapeHtml(text) {
+  return String(text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildForbiddenHelpHtml(clientIp) {
+  const safeIp = escapeHtml(clientIp || "unknown");
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>管理访问被拦截 (403)</title>
+<style>
+  body { margin:0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; background:#f7f8fa; color:#111827; }
+  .wrap { max-width:760px; margin:40px auto; padding:0 16px; }
+  .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:20px; box-shadow:0 8px 24px rgba(0,0,0,.06); }
+  .badge { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; background:#fef3c7; color:#92400e; margin-bottom:10px; }
+  h1 { margin:0 0 8px; font-size:22px; }
+  p { margin:8px 0; line-height:1.6; }
+  ol { margin:8px 0 12px 20px; line-height:1.7; }
+  code { background:#f3f4f6; padding:2px 6px; border-radius:6px; }
+  .tip { font-size:13px; color:#6b7280; }
+  .actions { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+  a, button { border:0; border-radius:10px; padding:10px 14px; font-size:14px; cursor:pointer; text-decoration:none; }
+  .primary { background:#2563eb; color:#fff; }
+  .secondary { background:#eef2ff; color:#1e40af; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="badge">HTTP 403 · Access Blocked</div>
+      <h1>管理访问被策略拦截</h1>
+      <p>当前来源地址 <code>${safeIp}</code> 不在允许范围内，所以管理面板暂时不可访问。</p>
+      <p>可以按下面步骤恢复：</p>
+      <ol>
+        <li>先通过 <b>fnOS 本地入口 / 局域网入口</b> 打开 OC-Deploy 管理面板。</li>
+        <li>进入 <b>系统 → 管理访问</b>，开启 <b>允许非内网地址访问</b>。</li>
+        <li>刷新当前页面重试远程访问。</li>
+      </ol>
+      <p class="tip">如果你就是通过 fnOS 提供的远程链接访问，通常开启上述选项后即可恢复。</p>
+      <div class="actions">
+        <button class="primary" onclick="location.reload()">刷新重试</button>
+        <a class="secondary" href="/">返回首页</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 // HTTP 请求处理
 function handleRequest(req, res) {
   const rawUrl = String(req?.url || "");
@@ -523,8 +579,9 @@ function handleRequest(req, res) {
     applyCorsHeaders(req, res);
 
     if (!isAccessAllowed(req)) {
+      const clientIp = getClientIp(req);
       const message =
-        "Forbidden: Management API only allows localhost/LAN by default. For public network access, enable remote access in WebUI System -> Management Access.";
+        "管理访问被策略拦截：当前来源不在允许范围。可在 WebUI「系统 -> 管理访问」中开启“允许非内网地址访问”。";
       if (pathname.startsWith("/api/")) {
         res.writeHead(403, { "Content-Type": "application/json" });
         const error = forbiddenError(message);
@@ -532,11 +589,26 @@ function handleRequest(req, res) {
           error: error.message,
           code: error.code,
           status: error.statusCode,
+          details: {
+            clientIp,
+            action: "开启 WebUI 系统 -> 管理访问 -> 允许非内网地址访问",
+            fallback: "改用 fnOS 本地/局域网入口后开启该选项",
+          },
         }));
         return;
       }
-      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
-      res.end(message);
+      const html = buildForbiddenHelpHtml(clientIp);
+      const body = Buffer.from(html, "utf8");
+      res.writeHead(403, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Length": String(body.length),
+        "Cache-Control": "no-store",
+      });
+      if (method === "HEAD") {
+        res.end();
+      } else {
+        res.end(body);
+      }
       return;
     }
 
