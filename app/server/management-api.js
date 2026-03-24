@@ -64,6 +64,7 @@ const {
   SKILLS_PRIMARY_DOWNLOAD_API,
   SKILLS_FALLBACK_DOWNLOAD_BASE,
   STATUS_CACHE_TTL,
+  MANAGEMENT_ALLOW_REMOTE_DEFAULT,
 } = env;
 
 // 工具函数：检查进程是否运行
@@ -327,6 +328,7 @@ const {
 
 const managementAccessService = createManagementAccessService({
   MANAGEMENT_ACCESS_FILE,
+  MANAGEMENT_ALLOW_REMOTE_DEFAULT,
   readJSON,
   writeJSON,
 });

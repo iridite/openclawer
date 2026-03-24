@@ -3,6 +3,7 @@ const { badRequestError } = require("../core/http-errors");
 function createManagementAccessService(options) {
   const {
     MANAGEMENT_ACCESS_FILE,
+    MANAGEMENT_ALLOW_REMOTE_DEFAULT = true,
     readJSON,
     writeJSON,
   } = options;
@@ -19,7 +20,7 @@ function createManagementAccessService(options) {
     }
 
     return {
-      allowRemote: false,
+      allowRemote: MANAGEMENT_ALLOW_REMOTE_DEFAULT === true,
       source: "default",
       file: MANAGEMENT_ACCESS_FILE,
     };

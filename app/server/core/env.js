@@ -68,6 +68,8 @@ const SKILLS_FALLBACK_DOWNLOAD_BASE =
 
 // Cache constants
 const STATUS_CACHE_TTL = 2000; // 2 seconds
+const MANAGEMENT_ALLOW_REMOTE_DEFAULT =
+  String(process.env.MANAGEMENT_ALLOW_REMOTE_DEFAULT || "true").toLowerCase() === "true";
 
 process.env.CONFIG_FILE = process.env.CONFIG_FILE || CONFIG_FILE;
 process.env.OPENCLAW_CONFIG_PATH =
@@ -110,4 +112,5 @@ module.exports = {
   SKILLS_PRIMARY_DOWNLOAD_API,
   SKILLS_FALLBACK_DOWNLOAD_BASE,
   STATUS_CACHE_TTL,
+  MANAGEMENT_ALLOW_REMOTE_DEFAULT,
 };
