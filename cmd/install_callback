@@ -422,21 +422,67 @@ setup_environment_variables() {
     log_msg "Adding OpenClaw, Node.js and Python to system PATH..."
 
     local PROFILE_FILE="/etc/profile.d/openclaw.sh"
+    local FISH_CONF_DIR="/etc/fish/conf.d"
+    local FISH_CONF_FILE="${FISH_CONF_DIR}/openclaw.fish"
+    local LOCAL_BIN_DIR="/usr/local/bin"
+    local NODE_TARGET="/var/apps/nodejs_v22/target/bin/node"
+    local NPM_TARGET="/var/apps/nodejs_v22/target/bin/npm"
+    local PYTHON_TARGET="/var/apps/python312/target/bin/python3"
 
     cat > "${PROFILE_FILE}" << ENVEOF
 # OpenClaw, Node.js and Python environment variables
 export PATH="/var/apps/nodejs_v22/target/bin:/var/apps/python312/target/bin:${PKGVAR}/node_modules/.bin:\$PATH"
 ENVEOF
 
-    if [ $? -eq 0 ]; then
-        chmod +x "${PROFILE_FILE}"
-        log_msg "Environment variables configured successfully"
-    else
-        log_msg "Failed to configure environment variables"
+    if [ $? -ne 0 ]; then
+        log_msg "Failed to configure /etc/profile.d PATH script"
         echo "Failed to configure environment variables" >> "${TRIM_TEMP_LOGFILE}"
         tail -n 20 "${LOG_FILE}" >> "${TRIM_TEMP_LOGFILE}"
         exit 1
     fi
+
+    chmod +x "${PROFILE_FILE}"
+
+    # fish 不读取 /etc/profile.d/*.sh，额外写入 fish conf.d
+    mkdir -p "${FISH_CONF_DIR}" >> "${LOG_FILE}" 2>&1 || true
+    cat > "${FISH_CONF_FILE}" << ENVEOF
+# OpenClaw, Node.js and Python environment variables for fish
+if test -d /var/apps/nodejs_v22/target/bin
+    if not contains -- /var/apps/nodejs_v22/target/bin $PATH
+        set -gx PATH /var/apps/nodejs_v22/target/bin $PATH
+    end
+end
+if test -d /var/apps/python312/target/bin
+    if not contains -- /var/apps/python312/target/bin $PATH
+        set -gx PATH /var/apps/python312/target/bin $PATH
+    end
+end
+if test -d ${PKGVAR}/node_modules/.bin
+    if not contains -- ${PKGVAR}/node_modules/.bin $PATH
+        set -gx PATH ${PKGVAR}/node_modules/.bin $PATH
+    end
+end
+ENVEOF
+    chmod +x "${FISH_CONF_FILE}" >> "${LOG_FILE}" 2>&1 || true
+
+    # 为 root 直接终端场景补充稳定入口：若系统中没有 node/npm/openclaw，则在 /usr/local/bin 创建软链接
+    mkdir -p "${LOCAL_BIN_DIR}" >> "${LOG_FILE}" 2>&1 || true
+
+    if [ -x "${NODE_TARGET}" ] && [ ! -e "${LOCAL_BIN_DIR}/node" ]; then
+        ln -s "${NODE_TARGET}" "${LOCAL_BIN_DIR}/node" >> "${LOG_FILE}" 2>&1 || true
+    fi
+    if [ -x "${NPM_TARGET}" ] && [ ! -e "${LOCAL_BIN_DIR}/npm" ]; then
+        ln -s "${NPM_TARGET}" "${LOCAL_BIN_DIR}/npm" >> "${LOG_FILE}" 2>&1 || true
+    fi
+    if [ -x "${PYTHON_TARGET}" ] && [ ! -e "${LOCAL_BIN_DIR}/python3" ]; then
+        ln -s "${PYTHON_TARGET}" "${LOCAL_BIN_DIR}/python3" >> "${LOG_FILE}" 2>&1 || true
+    fi
+    if [ -x "${OPENCLAW_BIN}" ] && [ ! -e "${LOCAL_BIN_DIR}/openclaw" ]; then
+        ln -s "${OPENCLAW_BIN}" "${LOCAL_BIN_DIR}/openclaw" >> "${LOG_FILE}" 2>&1 || true
+    fi
+
+    log_msg "Environment variables configured successfully"
+    log_msg "Note: new shell session may be required for PATH changes to take effect"
 }
 
 # entry point
