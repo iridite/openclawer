@@ -29,7 +29,9 @@
 
 ## 配置与写回检查
 
-- [ ] `GET /api/config` 可读取配置
+- [ ] `GET /api/config` 可读取配置，并返回配置版本头（`ETag` / `X-Config-Version`）
+- [ ] `POST /api/config` 需携带 `If-Match`（或 `X-Config-Version`）并可在版本一致时成功写回
+- [ ] `POST /api/config` 在版本冲突时返回 `409 config_version_conflict`
 - [ ] `POST /api/config/validate` 可校验最小合法配置
 - [ ] 模型主模型切换后，配置摘要与模型列表状态一致
 - [ ] 渠道新增/编辑/删除后，配置摘要与列表状态一致

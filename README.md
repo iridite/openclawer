@@ -278,6 +278,12 @@ POST /api/tools/profile
 - Tool Profiles 切换已走 `POST /api/tools/profile`
 - `POST /api/config` 继续保留给 JSON 编辑器、配置导入和高级用户全量编辑
 
+`/api/config` 写回并发保护：
+
+- `GET /api/config` 会返回配置版本头：`ETag` 与 `X-Config-Version`
+- `POST /api/config` 需携带 `If-Match`（或 `X-Config-Version`）以声明预期版本
+- 若版本不一致，接口返回 `409`，错误码 `config_version_conflict`，前端需提示用户刷新后重试
+
 ### 网关控制
 
 ```text

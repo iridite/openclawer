@@ -148,6 +148,20 @@ bash test/priority-error-semantics.sh
 - 插件安装并发冲突归类为 `409 conflict`
 - 插件安装命令失败、运行时校验失败归类为 `502 bad_gateway`
 
+## 🔐 配置版本冲突回归
+
+用于验证 `/api/config` 的乐观锁写回语义（`If-Match` 版本校验）：
+
+```bash
+bash test/config-version-conflict.sh
+```
+
+检查项包含：
+- `GET /api/config` 返回 `X-Config-Version` / `ETag`
+- 携带正确 `If-Match` 保存返回 `200`
+- 携带过期/错误 `If-Match` 保存返回 `409`
+- 冲突响应 `code` 为 `config_version_conflict`
+
 ### 3. 访问测试界面
 
 启动后访问：
