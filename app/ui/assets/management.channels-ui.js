@@ -3,7 +3,7 @@
 (function attachChannelsModule(global) {
   const PLUGIN_INSTALL_REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
   const PLUGIN_STATUS_POLL_INTERVAL_MS = 3000;
-  const PLUGIN_STATUS_POLL_MAX_ATTEMPTS = 20;
+  const PLUGIN_STATUS_POLL_MAX_ATTEMPTS = 120;
 
   function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -28,16 +28,48 @@
     );
   }
 
-  async function pollPluginStatusUntilSettled(refreshFn, getStatusFn, isSettledFn) {
+  function formatPluginInstallHint(status) {
+    if (!status || status.state !== "installing") return "";
+    const elapsedSec = Number.isFinite(status.elapsedMs)
+      ? Math.max(0, Math.floor(status.elapsedMs / 1000))
+      : null;
+    const phaseMap = {
+      "installing-package": "拉取并安装包",
+      "enabling-plugin": "写入启用配置",
+      "restarting-gateway": "重启 Gateway",
+      installing: "处理中",
+    };
+    const phaseText = phaseMap[String(status.phase || "")] || "处理中";
+    if (elapsedSec === null) return `（${phaseText}）`;
+    return `（${phaseText}，已耗时 ${elapsedSec}s）`;
+  }
+
+  async function pollPluginStatusUntilSettled(
+    refreshFn,
+    getStatusFn,
+    isSettledFn,
+    onStatus,
+  ) {
     for (let i = 0; i < PLUGIN_STATUS_POLL_MAX_ATTEMPTS; i += 1) {
       try {
         await refreshFn();
         const status = await getStatusFn();
+        if (typeof onStatus === "function") {
+          onStatus(status, i);
+        }
         if (isSettledFn(status)) {
           return status;
         }
       } catch (err) {
-        // Ignore transient status fetch failures during install polling.
+        if (typeof onStatus === "function") {
+          onStatus(
+            {
+              state: "poll-error",
+              message: err?.message || "状态同步失败",
+            },
+            i,
+          );
+        }
       }
       if (i < PLUGIN_STATUS_POLL_MAX_ATTEMPTS - 1) {
         await delay(PLUGIN_STATUS_POLL_INTERVAL_MS);
@@ -463,7 +495,12 @@
     return apiRequest("/plugins/qqbot/status");
   }
 
-  function setQqbotPluginButtonState(state, version = "") {
+  let qqbotLastInstallPhaseNotice = "";
+  let wecomLastInstallPhaseNotice = "";
+  let qqbotLastPollErrorNoticeAt = 0;
+  let wecomLastPollErrorNoticeAt = 0;
+
+  function setQqbotPluginButtonState(state, version = "", installHint = "") {
     const btn = document.getElementById("qqbot-plugin-btn");
     if (!btn) return;
 
@@ -494,13 +531,15 @@
         break;
       case "installing":
         btn.classList.add("installing");
-        btn.textContent = "QQ 插件：安装中...";
+        btn.textContent = `QQ 插件：安装中...${installHint}`;
         btn.disabled = true;
         break;
       case "error":
       default:
         btn.classList.add("error");
-        btn.textContent = "QQ 插件：检测失败（点击重试）";
+        btn.textContent = installHint
+          ? `QQ 插件：${installHint}`
+          : "QQ 插件：检测失败（点击重试）";
         btn.disabled = false;
         break;
     }
@@ -515,6 +554,8 @@
         setQqbotPluginButtonState("disabled");
       } else if (status && status.state === "unverified") {
         setQqbotPluginButtonState("unverified");
+      } else if (status && status.state === "installing") {
+        setQqbotPluginButtonState("installing", "", formatPluginInstallHint(status));
       } else {
         setQqbotPluginButtonState("missing");
       }
@@ -578,14 +619,50 @@
           "QQ 插件安装请求仍在进行（或已超时），正在同步后台安装状态...",
           "warning",
         );
+        qqbotLastInstallPhaseNotice = "";
         const settled = await pollPluginStatusUntilSettled(
           refreshQqbotPluginStatus,
           fetchQqbotPluginStatus,
-          (status) => status?.state === "installed" || status?.state === "disabled",
+          (status) =>
+            status?.state === "installed" ||
+            status?.state === "disabled" ||
+            status?.state === "error",
+          (status) => {
+            if (!status) return;
+            if (status.state === "installing") {
+              const phaseKey = `${status.phase || "installing"}`;
+              if (phaseKey !== qqbotLastInstallPhaseNotice) {
+                qqbotLastInstallPhaseNotice = phaseKey;
+                showToast(
+                  `QQ 插件安装进度：${formatPluginInstallHint(status).replace(/[（）]/g, "")}`,
+                  "info",
+                );
+              }
+              setQqbotPluginButtonState(
+                "installing",
+                "",
+                formatPluginInstallHint(status),
+              );
+              return;
+            }
+            if (status.state === "poll-error") {
+              const now = Date.now();
+              if (now - qqbotLastPollErrorNoticeAt > 15000) {
+                qqbotLastPollErrorNoticeAt = now;
+                showToast(`QQ 插件状态同步异常：${status.message}`, "warning");
+              }
+            }
+          },
         );
         if (settled && (settled.state === "installed" || settled.state === "disabled")) {
           showToast("QQ 插件已完成安装/启用", "success");
           return true;
+        }
+        if (settled && settled.state === "error") {
+          const reason = settled?.message || "后台安装失败";
+          setQqbotPluginButtonState("error", "", reason);
+          showToast("QQ 插件安装失败: " + reason, "error");
+          return false;
         }
       }
 
@@ -595,7 +672,11 @@
     } finally {
       clearTimeout(timeoutId);
       qqbotPluginInstalling = false;
-      await refreshQqbotPluginStatus();
+      try {
+        await refreshQqbotPluginStatus();
+      } catch (refreshError) {
+        showToast("QQ 插件状态刷新失败: " + refreshError.message, "warning");
+      }
     }
   }
 
@@ -603,7 +684,7 @@
     return apiRequest("/plugins/wecom/status");
   }
 
-  function setWecomPluginButtonState(state, version = "") {
+  function setWecomPluginButtonState(state, version = "", installHint = "") {
     const btn = document.getElementById("wecom-plugin-btn");
     if (!btn) return;
 
@@ -634,13 +715,15 @@
         break;
       case "installing":
         btn.classList.add("installing");
-        btn.textContent = "企业微信插件：安装中...";
+        btn.textContent = `企业微信插件：安装中...${installHint}`;
         btn.disabled = true;
         break;
       case "error":
       default:
         btn.classList.add("error");
-        btn.textContent = "企业微信插件：检测失败（点击重试）";
+        btn.textContent = installHint
+          ? `企业微信插件：${installHint}`
+          : "企业微信插件：检测失败（点击重试）";
         btn.disabled = false;
         break;
     }
@@ -655,6 +738,11 @@
         setWecomPluginButtonState("disabled");
       } else if (status && status.state === "unverified") {
         setWecomPluginButtonState("unverified");
+      } else if (status && status.state === "installing") {
+        setWecomPluginButtonState("installing", "", formatPluginInstallHint(status));
+      } else if (status && status.state === "error") {
+        const reason = status?.message || "最近一次安装失败";
+        setWecomPluginButtonState("error", "", reason);
       } else {
         setWecomPluginButtonState("missing");
       }
@@ -721,14 +809,50 @@
           "企业微信插件安装请求仍在进行（或已超时），正在同步后台安装状态...",
           "warning",
         );
+        wecomLastInstallPhaseNotice = "";
         const settled = await pollPluginStatusUntilSettled(
           refreshWecomPluginStatus,
           fetchWecomPluginStatus,
-          (status) => status?.state === "installed" || status?.state === "disabled",
+          (status) =>
+            status?.state === "installed" ||
+            status?.state === "disabled" ||
+            status?.state === "error",
+          (status) => {
+            if (!status) return;
+            if (status.state === "installing") {
+              const phaseKey = `${status.phase || "installing"}`;
+              if (phaseKey !== wecomLastInstallPhaseNotice) {
+                wecomLastInstallPhaseNotice = phaseKey;
+                showToast(
+                  `企业微信插件安装进度：${formatPluginInstallHint(status).replace(/[（）]/g, "")}`,
+                  "info",
+                );
+              }
+              setWecomPluginButtonState(
+                "installing",
+                "",
+                formatPluginInstallHint(status),
+              );
+              return;
+            }
+            if (status.state === "poll-error") {
+              const now = Date.now();
+              if (now - wecomLastPollErrorNoticeAt > 15000) {
+                wecomLastPollErrorNoticeAt = now;
+                showToast(`企业微信插件状态同步异常：${status.message}`, "warning");
+              }
+            }
+          },
         );
         if (settled && (settled.state === "installed" || settled.state === "disabled")) {
           showToast("企业微信插件已完成安装/启用", "success");
           return true;
+        }
+        if (settled && settled.state === "error") {
+          const reason = settled?.message || "后台安装失败";
+          setWecomPluginButtonState("error", "", reason);
+          showToast("企业微信插件安装失败: " + reason, "error");
+          return false;
         }
       }
 
@@ -738,7 +862,11 @@
     } finally {
       clearTimeout(timeoutId);
       wecomPluginInstalling = false;
-      await refreshWecomPluginStatus();
+      try {
+        await refreshWecomPluginStatus();
+      } catch (refreshError) {
+        showToast("企业微信插件状态刷新失败: " + refreshError.message, "warning");
+      }
     }
   }
 

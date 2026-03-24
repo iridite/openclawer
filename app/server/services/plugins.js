@@ -58,6 +58,36 @@ function createPluginService(options) {
   };
 
   const installing = {};
+  const installOutcomes = {};
+
+  function getInstallMeta(pluginKey) {
+    const meta = installing[pluginKey];
+    if (!meta) return null;
+    if (meta === true) {
+      return {
+        startedAt: null,
+        phase: "installing",
+      };
+    }
+    return {
+      startedAt:
+        typeof meta.startedAt === "number" && Number.isFinite(meta.startedAt)
+          ? meta.startedAt
+          : null,
+      phase: String(meta.phase || "installing"),
+    };
+  }
+
+  function setInstallOutcome(pluginKey, payload) {
+    installOutcomes[pluginKey] = {
+      ...payload,
+      at: Date.now(),
+    };
+  }
+
+  function getInstallOutcome(pluginKey) {
+    return installOutcomes[pluginKey] || null;
+  }
 
   function createPluginHandler(pluginKey) {
     const plugin = PLUGINS[pluginKey];
@@ -574,8 +604,39 @@ function createPluginService(options) {
     }
 
     async function getStatus() {
+      const installMeta = getInstallMeta(pluginKey);
+      if (installMeta) {
+        const elapsedMs =
+          typeof installMeta.startedAt === "number"
+            ? Math.max(0, Date.now() - installMeta.startedAt)
+            : null;
+        return {
+          success: true,
+          installed: false,
+          verified: false,
+          enabled: false,
+          state: "installing",
+          package: plugin.pkg,
+          phase: installMeta.phase,
+          startedAt: installMeta.startedAt,
+          elapsedMs,
+          message: `${plugin.name}插件正在安装，请稍候`,
+        };
+      }
+
+      const lastOutcome = getInstallOutcome(pluginKey);
       const inspected = inspectInstalledPlugin();
       if (inspected.state !== "installed") {
+        if (lastOutcome && lastOutcome.status === "error") {
+          return {
+            success: true,
+            ...inspected,
+            state: "error",
+            lastErrorAt: lastOutcome.at,
+            message: lastOutcome.message || `${plugin.name}插件最近一次安装失败`,
+            details: lastOutcome.details || null,
+          };
+        }
         return {
           success: true,
           ...inspected,
@@ -643,7 +704,14 @@ function createPluginService(options) {
           restarted,
         };
       }
-      installing[pluginKey] = true;
+      installing[pluginKey] = {
+        startedAt: Date.now(),
+        phase: "installing-package",
+      };
+      setInstallOutcome(pluginKey, {
+        status: "running",
+        message: `${plugin.name}插件安装进行中`,
+      });
       try {
         const installMeta = await installPluginPackage();
         const inspected = await waitForInstalledState(5, 600);
@@ -654,13 +722,23 @@ function createPluginService(options) {
               `请在 NAS 运行环境检查 openclaw 插件安装路径与日志。${runtimeHint}`,
           );
         }
+        installing[pluginKey].phase = "enabling-plugin";
         ensurePluginEnabled(inspected.manifestId || "");
         let restarted = false;
         if (typeof restartGateway === "function") {
+          installing[pluginKey].phase = "restarting-gateway";
           const restartResult = await restartGateway();
           restarted = restartResult?.success === true;
         }
         const postStatus = await getStatus();
+        setInstallOutcome(pluginKey, {
+          status: "success",
+          message: `${plugin.name}插件安装成功${restarted ? "，并已重启 Gateway" : ""}`,
+          phase: "completed",
+          version: postStatus.version,
+          installStrategy: installMeta?.strategy || "",
+          restarted,
+        });
         return {
           success: true,
           message: `${plugin.name}插件安装成功${restarted ? "，并已重启 Gateway" : ""}`,
@@ -671,6 +749,12 @@ function createPluginService(options) {
         };
       } catch (err) {
         if (isAppError(err)) {
+          setInstallOutcome(pluginKey, {
+            status: "error",
+            message: err.message || `${plugin.name}插件安装失败`,
+            details: err.details || null,
+            phase: getInstallMeta(pluginKey)?.phase || "failed",
+          });
           throw err;
         }
         const rawMessage = String(err?.stderr || err?.message || "未知错误");
@@ -688,12 +772,19 @@ function createPluginService(options) {
           stderr: rawMessage,
           hint: registryHint,
         };
-        throw badGatewayError(
+        const appErr = badGatewayError(
           `${plugin.name}插件安装失败: ${rawMessage}${registryHint ? `；${registryHint}` : ""}`,
           details,
         );
+        setInstallOutcome(pluginKey, {
+          status: "error",
+          message: appErr.message,
+          details,
+          phase: getInstallMeta(pluginKey)?.phase || "failed",
+        });
+        throw appErr;
       } finally {
-        installing[pluginKey] = false;
+        delete installing[pluginKey];
       }
     }
 
