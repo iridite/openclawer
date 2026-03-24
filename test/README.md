@@ -148,6 +148,20 @@ bash test/priority-error-semantics.sh
 - 插件安装并发冲突归类为 `409 conflict`
 - 插件安装命令失败、运行时校验失败归类为 `502 bad_gateway`
 
+## 🛡️ 管理访问策略回归
+
+用于验证“默认拒绝公网来源、允许 LAN、开关可即时生效”的访问边界：
+
+```bash
+bash test/access-policy-regression.sh
+```
+
+检查项包含：
+- 默认 `allowRemote=false` 时，公网来源（`X-Forwarded-For`/`X-Real-IP`）返回 `403 forbidden`
+- 静态页面与 API 都遵循同一访问策略
+- LAN 来源默认允许
+- 切换 `allowRemote` 后，公网来源放行/拦截行为即时变化
+
 ## 🔐 配置版本冲突回归
 
 用于验证 `/api/config` 的乐观锁写回语义（`If-Match` 版本校验）：

@@ -367,6 +367,14 @@ bash test/backup-import-regression.sh
 
 该测试会走完整的 `/api/backup/export` + `/api/backup/import` 链路，验证 multipart 备份导入、恢复结果与流式上传实现。
 
+#### 管理访问策略回归
+
+```bash
+bash test/access-policy-regression.sh
+```
+
+该测试覆盖默认拒绝公网来源、LAN 默认放行、以及 `allowRemote` 开关切换后的即时生效语义。
+
 当前 smoke 基线覆盖：
 
 - management-api 启动与 `GET /api/status`
