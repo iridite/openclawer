@@ -127,9 +127,18 @@ wait_http_ready \
 # 默认本机请求可访问
 request_api_status "${TMP_DIR}/status-local.json" "200"
 
-# 默认拒绝公网来源（通过受信 loopback 转发头模拟公网来源）
+# 默认允许公网来源（低安全默认）
+request_api_status "${TMP_DIR}/status-remote-allowed-default.json" "200" "X-Forwarded-For: 8.8.8.8"
+request_web_root "${TMP_DIR}/web-remote-allowed-default.txt" "200" "X-Forwarded-For: 8.8.8.8"
+
+# 内网来源默认允许
+request_api_status "${TMP_DIR}/status-lan-allowed.json" "200" "X-Forwarded-For: 192.168.1.25"
+
+# 关闭远程访问后，公网来源应被拒绝
+request_set_access false "${TMP_DIR}/set-access-disable.json"
+assert_json_expr "${TMP_DIR}/set-access-disable.json" "data.success === true && data.allowRemote === false" "关闭 allowRemote 失败"
 request_api_status "${TMP_DIR}/status-remote-denied.json" "403" "X-Forwarded-For: 8.8.8.8"
-assert_json_expr "${TMP_DIR}/status-remote-denied.json" "data.code === 'forbidden' && data.status === 403" "默认远程访问未返回 forbidden"
+assert_json_expr "${TMP_DIR}/status-remote-denied.json" "data.code === 'forbidden' && data.status === 403" "关闭后远程来源未返回 forbidden"
 
 # 静态页面同样拒绝公网来源
 request_web_root "${TMP_DIR}/web-remote-denied.txt" "403" "X-Forwarded-For: 8.8.8.8"
@@ -139,22 +148,13 @@ if ! grep -q "localhost/LAN" "${TMP_DIR}/web-remote-denied.txt"; then
   exit 1
 fi
 
-# 内网来源默认允许
-request_api_status "${TMP_DIR}/status-lan-allowed.json" "200" "X-Forwarded-For: 192.168.1.25"
-
 # x-real-ip 回退链路同样受策略约束
 request_api_status "${TMP_DIR}/status-realip-denied.json" "403" "X-Real-IP: 8.8.4.4"
 assert_json_expr "${TMP_DIR}/status-realip-denied.json" "data.code === 'forbidden'" "x-real-ip 远程来源未被拒绝"
 
-# 开启远程访问后，公网来源应放行
+# 再次开启远程访问后，公网来源恢复放行
 request_set_access true "${TMP_DIR}/set-access-enable.json"
 assert_json_expr "${TMP_DIR}/set-access-enable.json" "data.success === true && data.allowRemote === true" "开启 allowRemote 失败"
-request_api_status "${TMP_DIR}/status-remote-allowed.json" "200" "X-Forwarded-For: 8.8.8.8"
-
-# 关闭远程访问后，公网来源再次被拒绝
-request_set_access false "${TMP_DIR}/set-access-disable.json"
-assert_json_expr "${TMP_DIR}/set-access-disable.json" "data.success === true && data.allowRemote === false" "关闭 allowRemote 失败"
-request_api_status "${TMP_DIR}/status-remote-denied-again.json" "403" "X-Forwarded-For: 8.8.8.8"
-assert_json_expr "${TMP_DIR}/status-remote-denied-again.json" "data.code === 'forbidden'" "关闭 allowRemote 后远程来源未被拒绝"
+request_api_status "${TMP_DIR}/status-remote-allowed-again.json" "200" "X-Forwarded-For: 8.8.8.8"
 
 echo "[access] all checks passed"

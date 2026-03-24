@@ -329,7 +329,7 @@ request_expect_status GET "/route-not-found" "404" "${TMP_DIR}/error-route-not-f
 assert_json_expr "${TMP_DIR}/error-route-not-found.json" "data.status === 404 && data.code === 'not_found'" "未知路由未返回 404 not_found"
 
 request_json GET "/management/access" "${TMP_DIR}/management-access-default.json"
-assert_json_expr "${TMP_DIR}/management-access-default.json" "data.success === true && data.allowRemote === false && data.source === 'default'" "management access 默认值不正确（应默认拒绝非内网访问）"
+assert_json_expr "${TMP_DIR}/management-access-default.json" "data.success === true && data.allowRemote === true && data.source === 'default'" "management access 默认值不正确（应默认允许非内网访问）"
 
 request_expect_status POST "/management/access" "400" "${TMP_DIR}/error-invalid-management-access.json" '{"allowRemote":"yes"}'
 assert_json_expr "${TMP_DIR}/error-invalid-management-access.json" "data.status === 400 && data.code === 'bad_request'" "management access 参数错误未返回 400 bad_request"
